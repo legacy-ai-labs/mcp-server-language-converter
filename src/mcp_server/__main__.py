@@ -1,56 +1,46 @@
 """Entry point for MCP server in STDIO mode."""
 
-import asyncio
 import logging
+import sys
 
-from src.core.database import close_db, init_db
+# Import tools to ensure @mcp.tool() decorators are registered
+import src.mcp_server.tools  # noqa: F401
 from src.mcp_server.server import mcp
-from src.mcp_server.tools import load_and_register_tools
 
+
+# Configure logging to stderr so Claude Desktop can see it
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,  # Important: log to stderr for Claude Desktop
+)
 
 logger = logging.getLogger(__name__)
-
-
-async def startup() -> None:
-    """Startup tasks for MCP server."""
-    logger.info("Starting MCP server...")
-
-    # Initialize database
-    logger.info("Initializing database...")
-    await init_db()
-
-    # Load and register tools
-    logger.info("Loading tools...")
-    await load_and_register_tools()
-
-    logger.info("MCP server startup complete")
-
-
-async def shutdown() -> None:
-    """Shutdown tasks for MCP server."""
-    logger.info("Shutting down MCP server...")
-    await close_db()
-    logger.info("MCP server shutdown complete")
 
 
 def main() -> None:
     """Main entry point for MCP server."""
     try:
-        # Run startup tasks
-        asyncio.run(startup())
+        # Log startup to stderr for Claude Desktop
+        print("MCP Server starting...", file=sys.stderr)
+        logger.info("Running MCP server with STDIO transport...")
 
         # Run MCP server with STDIO transport
-        logger.info("Running MCP server with STDIO transport...")
+        # Tools are registered via @mcp.tool() decorators in tools module
         mcp.run(transport="stdio")
 
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
+        print("MCP Server shutting down (KeyboardInterrupt)", file=sys.stderr)
     except Exception as e:
-        logger.error(f"Server error: {e}", exc_info=True)
-        raise
-    finally:
-        # Run shutdown tasks
-        asyncio.run(shutdown())
+        # Log to stderr so Claude Desktop can see the error
+        error_msg = f"Server error: {e}"
+        logger.error(error_msg, exc_info=True)
+        print(f"FATAL ERROR: {error_msg}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 """Application configuration using Pydantic settings."""
 
+import sys
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,11 @@ class Settings(BaseSettings):  # type: ignore[misc]
         case_sensitive=False,
         extra="ignore",
     )
+
+
+def _log_config_error(msg: str) -> None:
+    """Log configuration error to stderr."""
+    print(f"CONFIG ERROR: {msg}", file=sys.stderr)
 
 
 @lru_cache
