@@ -2,11 +2,11 @@
 
 A **hybrid MCP (Model Context Protocol) server** implementation that exposes business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API.
 
-## 🎯 Purpose
+## Purpose
 
 This project demonstrates how to build a modern server that serves both AI agents (via MCP) and traditional applications (via REST API) while maintaining a single source of truth for business logic.
 
-## ✨ Key Features
+## Key Features
 
 - **Dual Interface Support**: MCP protocol and REST API using the same core business logic
 - **Multiple Transport Layers**: STDIO, HTTP streaming (MCP), and standard REST
@@ -14,7 +14,7 @@ This project demonstrates how to build a modern server that serves both AI agent
 - **Incremental Development**: Phased approach across capabilities and transport layers
 - **Modern Python Stack**: UV for package management, FastMCP 2.0, FastAPI
 
-## 🏗️ Architecture
+## Architecture
 
 The application follows a **Hexagonal/Ports and Adapters** architecture pattern:
 
@@ -44,7 +44,7 @@ graph TB
 
 For detailed architectural decisions and design patterns, see [Architecture Documentation](docs/ARCHITECTURE.md).
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -111,7 +111,7 @@ uv run pytest
 uv run pytest --cov=src
 ```
 
-## 📚 Documentation
+## Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -122,7 +122,7 @@ uv run pytest --cov=src
 | [Contributing](docs/CONTRIBUTING.md) | Guidelines for contributing to the project |
 | [API Documentation](docs/API.md) | MCP tools/resources/prompts and REST endpoint reference |
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Language**: Python 3.12+
 - **Package Manager**: [UV](https://github.com/astral-sh/uv) - Fast Python package installer
@@ -136,7 +136,7 @@ uv run pytest --cov=src
   - Ruff for linting and formatting
   - Pytest for testing
 
-## 📋 Development Phases
+## Development Phases
 
 The project is developed in **three major phases**, each with **three sub-steps**:
 
@@ -188,7 +188,7 @@ Each phase follows the same pattern: STDIO → HTTP Streaming → REST API
 
 See [Architecture Documentation](docs/ARCHITECTURE.md) for detailed phase breakdown.
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIBUTING.md) before submitting PRs.
 
@@ -200,21 +200,21 @@ We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIB
 4. Run tests and linters
 5. Submit a pull request
 
-## 📝 License
+## License
 
 [Add your license here]
 
-## 🔗 Resources
+## Resources
 
 - [MCP Protocol Specification](https://modelcontextprotocol.io/)
 - [FastMCP Documentation](https://github.com/jlowin/fastmcp)
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
 - [UV Documentation](https://github.com/astral-sh/uv)
 
-## 📧 Contact
+## Contact
 
 [Add your contact information here]
 
 ---
 
-**Built with ❤️ using Cursor + Claude Code**
+**Built with Cursor + Claude Code**
