@@ -83,6 +83,21 @@ Tools are now **dynamically loaded from the database** at server startup:
 - **Category**: Functional grouping (utility, calculation, search, etc.)
 - **Domain**: Business domain (general, os_commands, kubernetes, etc.)
 
+### External MCP Orchestration
+
+The system supports **external MCP server integration** for tool aggregation:
+
+- **External MCP Servers**: Database-driven configuration of external MCP servers
+- **Tool Discovery**: Automatic discovery of tools from external servers
+- **Dynamic Registration**: External tools registered with FastMCP at startup
+- **Health Monitoring**: Track external server status and performance
+- **Tool Namespacing**: External tools prefixed with server name (e.g., `best_buy_search_products`)
+
+**External MCP Management:**
+- **Database Configuration**: Add/remove external MCPs via database
+- **Tool Aggregation**: Combine internal and external tools in unified interface
+- **Runtime Control**: Enable/disable external servers without code changes
+
 ## Quick Start
 
 ### Prerequisites
@@ -143,6 +158,7 @@ uv run python scripts/seed_tools.py
 # Initialize database and seed tools
 uv run python scripts/init_db.py
 uv run python scripts/seed_tools.py
+uv run python scripts/seed_external_mcp.py
 
 # Run General MCP server (STDIO mode)
 uv run python -m src.mcp_servers.general

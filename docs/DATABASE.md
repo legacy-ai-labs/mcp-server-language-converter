@@ -46,6 +46,89 @@ The `tools` table stores metadata about available MCP tools:
 - `kubernetes` - Kubernetes operations
 - `shopping` - E-commerce tools
 
+## External MCP Integration
+
+The system supports integration with external MCP servers for tool aggregation.
+
+### External MCP Servers Table
+
+The `external_mcp_servers` table stores configuration for external MCP servers:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER | Primary key, auto-increment |
+| `name` | VARCHAR(100) | Unique server name, indexed |
+| `display_name` | VARCHAR(200) | Human-readable server name |
+| `command` | TEXT | JSON string of command to start server |
+| `working_directory` | TEXT | Working directory for server execution |
+| `is_active` | BOOLEAN | Whether server is active, indexed |
+| `connection_timeout` | INTEGER | Connection timeout in seconds |
+| `retry_attempts` | INTEGER | Number of retry attempts |
+| `created_at` | TIMESTAMP | Creation timestamp |
+| `updated_at` | TIMESTAMP | Last update timestamp |
+
+### External MCP Tools Table
+
+The `external_mcp_tools` table stores discovered tools from external servers:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER | Primary key, auto-increment |
+| `server_id` | INTEGER | Foreign key to external_mcp_servers |
+| `name` | VARCHAR(100) | Original tool name |
+| `full_name` | VARCHAR(200) | Namespaced tool name (server_tool), indexed |
+| `description` | TEXT | Tool description |
+| `parameters_schema` | JSON | JSON schema for tool parameters |
+| `is_active` | BOOLEAN | Whether tool is active, indexed |
+| `last_discovered` | TIMESTAMP | Last discovery timestamp |
+| `created_at` | TIMESTAMP | Creation timestamp |
+| `updated_at` | TIMESTAMP | Last update timestamp |
+
+### External MCP Status Table
+
+The `external_mcp_status` table tracks health status of external servers:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER | Primary key, auto-increment |
+| `server_id` | INTEGER | Foreign key to external_mcp_servers |
+| `status` | VARCHAR(20) | Status (connected, disconnected, error), indexed |
+| `last_check` | TIMESTAMP | Last health check timestamp |
+| `error_message` | TEXT | Error message if status is error |
+| `response_time_ms` | INTEGER | Response time in milliseconds |
+
+### External MCP Management
+
+**Adding External MCP Servers:**
+```sql
+INSERT INTO external_mcp_servers (name, display_name, command, working_directory, is_active)
+VALUES (
+    'weather_api',
+    'Weather API MCP Server',
+    '["python", "-m", "weather_mcp"]',
+    '/path/to/weather_mcp',
+    true
+);
+```
+
+**Monitoring External Servers:**
+```sql
+-- Check server health status
+SELECT s.name, st.status, st.last_check, st.error_message
+FROM external_mcp_servers s
+LEFT JOIN external_mcp_status st ON s.id = st.server_id
+WHERE s.is_active = true;
+```
+
+**Managing External Tools:**
+```sql
+-- List all external tools
+SELECT s.name as server_name, t.full_name, t.description, t.is_active
+FROM external_mcp_tools t
+JOIN external_mcp_servers s ON t.server_id = s.id
+WHERE t.is_active = true;
+```
+
 ## PostgreSQL Setup
 
 ### Installation

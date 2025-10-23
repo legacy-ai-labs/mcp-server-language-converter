@@ -4,6 +4,11 @@ import asyncio
 import logging
 
 from src.core.database import init_db
+from src.core.models.external_mcp import (  # noqa: F401
+    ExternalMCPServer,
+    ExternalMCPStatus,
+    ExternalMCPTool,
+)
 
 # Import models first so they're registered with Base.metadata
 from src.core.models.tool import Tool  # noqa: F401
