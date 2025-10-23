@@ -19,6 +19,8 @@ The `tools` table stores metadata about available MCP tools:
 | `description` | TEXT | Tool description |
 | `handler_name` | VARCHAR(100) | Name of the Python handler function |
 | `parameters_schema` | JSON | JSON Schema for tool parameters |
+| `category` | VARCHAR(50) | Tool category (utility, calculation, search, etc.), indexed |
+| `domain` | VARCHAR(50) | Tool domain (general, os_commands, kubernetes, etc.), indexed |
 | `is_active` | BOOLEAN | Whether the tool is active, indexed |
 | `created_at` | TIMESTAMP | Creation timestamp |
 | `updated_at` | TIMESTAMP | Last update timestamp |
@@ -26,7 +28,23 @@ The `tools` table stores metadata about available MCP tools:
 ### Indexes
 
 - `name` - Unique index for fast lookup by name
+- `category` - Index for filtering by category
+- `domain` - Index for filtering by domain
 - `is_active` - Index for filtering active tools
+
+### Tool Classification
+
+**Categories** (functional grouping):
+- `utility` - General utility tools (echo, format, etc.)
+- `calculation` - Mathematical operations (add, subtract, etc.)
+- `search` - Search and discovery tools
+- `system` - System-level operations
+
+**Domains** (business domains):
+- `general` - General purpose tools
+- `os_commands` - Operating system commands
+- `kubernetes` - Kubernetes operations
+- `shopping` - E-commerce tools
 
 ## PostgreSQL Setup
 

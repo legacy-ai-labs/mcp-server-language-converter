@@ -17,6 +17,8 @@ class ToolBase(BaseModel):
     parameters_schema: dict[str, Any] = Field(
         default_factory=dict, description="JSON schema for tool parameters"
     )
+    category: str = Field(..., min_length=1, max_length=50, description="Tool category")
+    domain: str = Field(..., min_length=1, max_length=50, description="Tool domain")
     is_active: bool = Field(default=True, description="Whether the tool is active")
 
 
@@ -37,6 +39,8 @@ class ToolUpdate(BaseModel):
     parameters_schema: dict[str, Any] | None = Field(
         None, description="JSON schema for tool parameters"
     )
+    category: str | None = Field(None, min_length=1, max_length=50, description="Tool category")
+    domain: str | None = Field(None, min_length=1, max_length=50, description="Tool domain")
     is_active: bool | None = Field(None, description="Whether the tool is active")
 
 

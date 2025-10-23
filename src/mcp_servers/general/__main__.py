@@ -1,10 +1,10 @@
 """Entry point for MCP server in STDIO mode."""
 
+import asyncio
 import logging
 import sys
 
-# Import tools to ensure @mcp.tool() decorators are registered
-import src.mcp_servers.general.tools  # noqa: F401
+from src.mcp_servers.general.dynamic_tools import load_tools_from_database
 from src.mcp_servers.general.server import mcp
 
 
@@ -18,6 +18,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def startup() -> None:
+    """Initialize database and load tools."""
+    try:
+        # Load tools from database
+        await load_tools_from_database()
+        logger.info("Tools loaded successfully from database")
+    except Exception as e:
+        logger.error(f"Failed to load tools: {e}")
+        raise
+
+
 def main() -> None:
     """Main entry point for MCP server."""
     try:
@@ -25,8 +36,11 @@ def main() -> None:
         print("MCP Server starting...", file=sys.stderr)
         logger.info("Running MCP server with STDIO transport...")
 
+        # Initialize database and load tools
+        asyncio.run(startup())
+
         # Run MCP server with STDIO transport
-        # Tools are registered via @mcp.tool() decorators in tools module
+        # Tools are now loaded dynamically from database
         mcp.run(transport="stdio")
 
     except KeyboardInterrupt:

@@ -27,6 +27,8 @@ INITIAL_TOOLS = [
             },
             "required": ["text"],
         },
+        category="utility",
+        domain="general",
         is_active=True,
     ),
     ToolCreate(
@@ -47,6 +49,8 @@ INITIAL_TOOLS = [
             },
             "required": ["a", "b"],
         },
+        category="calculation",
+        domain="general",
         is_active=True,
     ),
 ]

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A hybrid MCP (Model Context Protocol) server implementation that exposes the same business logic through multiple interfaces:
+A hybrid MCP (Model Context Protocol) server implementation that supports **multiple domain-specific MCP servers**, each exposing the same business logic through multiple interfaces:
 - **MCP protocol** (STDIO and HTTP streaming) via FastMCP 2.0
 - **REST API** via FastAPI
 
@@ -12,28 +12,35 @@ The core principle: implement business logic once, expose it everywhere.
 
 ## Architecture
 
-The project follows **Hexagonal/Ports and Adapters** architecture:
+The project follows **Hexagonal/Ports and Adapters** architecture with **domain-specific MCP servers**:
 
 ```
 src/
-├── core/               # Transport-agnostic business logic (single source of truth)
-│   ├── models/        # Database models (SQLAlchemy)
-│   ├── repositories/  # Data access layer
-│   ├── schemas/       # Pydantic validation schemas
-│   ├── services/      # Business logic and tool handlers
-│   ├── config.py      # Application settings (Pydantic settings)
-│   ├── database.py    # Database engine and session management
-│   └── exceptions.py  # Custom exceptions
-├── mcp_server/        # MCP interface layer (FastMCP)
-│   ├── server.py      # MCP server initialization with lifespan events
-│   ├── tools.py       # MCP tool definitions
-│   ├── dependencies.py # MCP-specific dependencies
-│   └── __main__.py    # Entry point for STDIO mode
-└── rest_api/          # REST interface layer (FastAPI)
-    └── routes/        # REST endpoint definitions
+├── core/                    # Transport-agnostic business logic (single source of truth)
+│   ├── models/             # Database models (SQLAlchemy)
+│   ├── repositories/       # Data access layer
+│   ├── schemas/            # Pydantic validation schemas
+│   ├── services/           # Business logic and tool handlers
+│   ├── config.py           # Application settings (Pydantic settings)
+│   ├── database.py         # Database engine and session management
+│   └── exceptions.py       # Custom exceptions
+├── mcp_servers/            # Domain-specific MCP servers
+│   ├── general/            # General purpose tools (echo, calculator)
+│   │   ├── server.py       # MCP server initialization
+│   │   ├── tools.py        # MCP tool definitions
+│   │   ├── dependencies.py # MCP-specific dependencies
+│   │   └── __main__.py     # Entry point for STDIO mode
+│   ├── os_commands/        # OS-specific tools (future)
+│   ├── kubernetes/         # K8s-specific tools (future)
+│   └── shopping/           # E-commerce tools (future)
+└── rest_api/               # Shared REST API
+    └── routes/             # REST endpoint definitions
 ```
 
-**Critical rule**: Business logic lives in `src/core/` and is shared by both `mcp_server/` and `rest_api/`. Never duplicate business logic between interfaces.
+**Critical rules**:
+1. Business logic lives in `src/core/` and is shared by all MCP servers and REST API
+2. Each domain-specific MCP server in `src/mcp_servers/` handles one domain
+3. Never duplicate business logic between interfaces or servers
 
 ## Development Commands
 
@@ -71,16 +78,21 @@ Database URL configured in `.env`:
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/mcp_server
 ```
 
-### Running the MCP Server
+### Running MCP Servers
 ```bash
-# STDIO mode (default, for Claude Desktop/Cursor)
-uv run python -m src.mcp_server
+# Run the General MCP server (STDIO mode, for Claude Desktop/Cursor)
+uv run python -m src.mcp_servers.general
 
-# Tools are statically registered via @mcp.tool() decorators
-# No database initialization needed for basic tool functionality
+# Future: Run other domain-specific servers
+# uv run python -m src.mcp_servers.os_commands
+# uv run python -m src.mcp_servers.kubernetes
+# uv run python -m src.mcp_servers.shopping
 ```
 
-**Note**: Currently tools are statically defined with `@mcp.tool()` decorators. Dynamic tool loading from the database is planned for a future phase.
+**Note**:
+- Tools are statically registered via `@mcp.tool()` decorators
+- No database initialization needed for basic tool functionality
+- Dynamic tool loading from the database is planned for a future phase
 
 ### Testing
 ```bash
@@ -120,9 +132,9 @@ uv run mypy src/
 
 ## Key Development Patterns
 
-### 1. Adding a New MCP Tool
+### 1. Adding a New MCP Tool to a Domain-Specific Server
 
-Tools are registered using FastMCP decorators in `src/mcp_server/tools.py`. To add a new tool:
+Tools are registered using FastMCP decorators in the appropriate domain server's `tools.py` file (e.g., `src/mcp_servers/general/tools.py`).
 
 **Step 1**: Create the handler function in `src/core/services/tool_handlers.py`:
 ```python
@@ -133,13 +145,13 @@ def my_tool_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """
     # Business logic here
     return {"success": True, "result": "..."}
-
-# Register in TOOL_HANDLERS dict
-TOOL_HANDLERS["my_tool_handler"] = my_tool_handler
 ```
 
-**Step 2**: Add the MCP tool decorator in `src/mcp_server/tools.py`:
+**Step 2**: Add the MCP tool decorator in the domain server's `tools.py` (e.g., `src/mcp_servers/general/tools.py`):
 ```python
+from src.mcp_servers.general.server import mcp
+from src.core.services.tool_handlers import my_tool_handler
+
 @mcp.tool(name="my_tool", description="Description of the tool")
 async def my_tool(param1: str) -> dict[str, Any]:
     """MCP tool wrapper that calls the core business logic."""
@@ -153,30 +165,49 @@ async def my_tool(param1: str) -> dict[str, Any]:
 
 **Step 3**: Import the tools module in `__main__.py` to ensure decorators are registered:
 ```python
-from src.mcp_server.tools import echo, calculator_add  # Import to register
+import src.mcp_servers.general.tools  # noqa: F401
 ```
 
 The tool will automatically be available when the MCP server starts.
 
-### 2. Tool Registration Pattern
+### 2. Creating a New Domain-Specific MCP Server
 
-Tools are registered using the `@mcp.tool()` decorator pattern:
+To create a new domain-specific MCP server (e.g., for Kubernetes tools):
 
-```python
-from src.mcp_server.server import mcp
-from src.core.services.tool_handlers import my_handler
-
-@mcp.tool(name="tool_name", description="Tool description")
-async def tool_name(param: str) -> dict[str, Any]:
-    """MCP tool wrapper."""
-    try:
-        # Call the core business logic handler
-        result = my_handler({"param": param})
-        return result
-    except Exception as e:
-        logger.error(f"Tool failed: {e}")
-        return {"success": False, "error": str(e)}
+**Step 1**: Create the server directory structure:
+```bash
+mkdir -p src/mcp_servers/kubernetes
+touch src/mcp_servers/kubernetes/__init__.py
+touch src/mcp_servers/kubernetes/server.py
+touch src/mcp_servers/kubernetes/tools.py
+touch src/mcp_servers/kubernetes/__main__.py
 ```
+
+**Step 2**: Initialize the MCP server in `server.py`:
+```python
+from fastmcp import FastMCP
+from src.core.config import get_settings
+
+settings = get_settings()
+
+mcp = FastMCP(
+    name=f"{settings.app_name} - Kubernetes Tools",
+    version=settings.app_version,
+)
+```
+
+**Step 3**: Add tools in `tools.py`:
+```python
+from src.mcp_servers.kubernetes.server import mcp
+from src.core.services.tool_handlers import k8s_handler
+
+@mcp.tool(name="k8s_tool", description="K8s tool")
+async def k8s_tool(param: str) -> dict[str, Any]:
+    # Implementation
+    pass
+```
+
+**Step 4**: Create entry point in `__main__.py` (follow pattern in `src/mcp_servers/general/__main__.py`)
 
 **Critical**: The `@mcp.tool()` decorator must be applied before `mcp.run()` is called. Ensure tools are imported in `__main__.py` so decorators execute during module import.
 
@@ -208,6 +239,18 @@ settings = get_settings()
 ### 5. Error Handling
 
 Use custom exceptions from `src/core/exceptions.py` for business logic errors. Interface layers (MCP/REST) translate these to appropriate protocol errors.
+
+## Multi-Server Architecture Benefits
+
+The domain-specific server approach provides:
+
+1. **Separation of Concerns**: Each server handles one domain (general, OS, K8s, shopping)
+2. **Shared Infrastructure**: All servers use the same database, repositories, and services
+3. **Independent Scaling**: Each server can be scaled separately
+4. **Security**: Domain-specific permissions and isolation
+5. **Maintainability**: Easier to debug and update specific domains
+
+When adding new functionality, always place business logic in `src/core/` and create domain-specific wrappers in the appropriate `src/mcp_servers/[domain]/` directory.
 
 ## Development Phases
 
@@ -262,9 +305,11 @@ uv add <package-name>
 
 ### Debugging tool execution
 Tools are executed through the handler registry. Check:
-1. Handler exists in `TOOL_HANDLERS` dict in `tool_handlers.py`
-2. Tool is registered with `@mcp.tool()` decorator in `tools.py`
-3. Parameter types match between decorator and handler
+1. Handler exists in `src/core/services/tool_handlers.py`
+2. Tool is registered with `@mcp.tool()` decorator in the domain server's `tools.py` (e.g., `src/mcp_servers/general/tools.py`)
+3. Tools module is imported in `__main__.py` to ensure decorators are registered
+4. Parameter types match between decorator and handler
+5. Logs are written to stderr for Claude Desktop debugging (check `logging.basicConfig(..., stream=sys.stderr)`)
 
 ### Updating database schema
 Currently using direct SQLAlchemy models. Alembic migrations will be added in the future.

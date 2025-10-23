@@ -39,6 +39,40 @@ class ToolRepository(BaseRepository[Tool]):
         result = await self.session.execute(select(Tool).where(Tool.is_active == True))  # noqa: E712
         return list(result.scalars().all())
 
+    async def get_by_domain(self, domain: str) -> list[Tool]:
+        """Get tools for specific domain.
+
+        Args:
+            domain: Domain name to filter by
+
+        Returns:
+            List of tools in the specified domain
+        """
+        result = await self.session.execute(
+            select(Tool).where(
+                Tool.domain == domain,
+                Tool.is_active == True,  # noqa: E712
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_by_category(self, category: str) -> list[Tool]:
+        """Get tools for specific category.
+
+        Args:
+            category: Category name to filter by
+
+        Returns:
+            List of tools in the specified category
+        """
+        result = await self.session.execute(
+            select(Tool).where(
+                Tool.category == category,
+                Tool.is_active == True,  # noqa: E712
+            )
+        )
+        return list(result.scalars().all())
+
     async def soft_delete(self, id_: int) -> bool:
         """Soft delete a tool by setting is_active to False.
 

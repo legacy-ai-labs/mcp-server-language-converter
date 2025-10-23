@@ -70,6 +70,19 @@ src/
 - **Independent Scaling**: Each server can be scaled separately
 - **Security**: Domain-specific permissions and isolation
 
+### Database-Driven Tools
+
+Tools are now **dynamically loaded from the database** at server startup:
+
+- **Tool Metadata**: Stored in PostgreSQL with category and domain classification
+- **Handler Registry**: Predefined Python functions for business logic
+- **Dynamic Registration**: Tools loaded from database and registered with FastMCP
+- **CRUD Operations**: Full tool management through database operations
+
+**Tool Classification:**
+- **Category**: Functional grouping (utility, calculation, search, etc.)
+- **Domain**: Business domain (general, os_commands, kubernetes, etc.)
+
 ## Quick Start
 
 ### Prerequisites
@@ -127,6 +140,10 @@ uv run python scripts/seed_tools.py
 ### Running the Server
 
 ```bash
+# Initialize database and seed tools
+uv run python scripts/init_db.py
+uv run python scripts/seed_tools.py
+
 # Run General MCP server (STDIO mode)
 uv run python -m src.mcp_servers.general
 
