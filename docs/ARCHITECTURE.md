@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a **hybrid server architecture** that exposes the same business logic through two different interfaces:
+This project implements a **hybrid server architecture** that supports multiple domain-specific MCP servers, each exposing the same business logic through two different interfaces:
 1. **MCP (Model Context Protocol)** - For AI agents and tools
 2. **REST API** - For traditional web applications and services
 
@@ -32,6 +32,46 @@ As new interface requirements emerge (GraphQL, gRPC, WebSockets, etc.), we can e
 - **MCP Framework**: FastMCP 2.0 (supporting STDIO and streamable HTTP)
 - **REST Framework**: FastAPI (for high-performance REST endpoints)
 - **Architecture Pattern**: Hexagonal/Ports and Adapters
+
+## Multi-Server Architecture
+
+The project supports **domain-specific MCP servers** for better organization, security, and scalability:
+
+### Server Organization
+
+```
+src/
+├── core/                    # Shared business logic
+│   ├── models/             # Database models with category/domain fields
+│   ├── repositories/       # Data access layer
+│   ├── services/           # Business logic
+│   └── schemas/            # Validation schemas
+├── mcp_servers/            # Domain-specific MCP servers
+│   ├── general/            # General purpose tools (echo, calculator)
+│   ├── os_commands/        # OS-specific tools (future)
+│   ├── kubernetes/         # K8s-specific tools (future)
+│   └── shopping/           # E-commerce tools (future)
+└── rest_api/               # Shared REST API
+```
+
+### Benefits of Multi-Server Approach
+
+1. **Separation of Concerns**: Each server handles one specific domain
+2. **Shared Infrastructure**: Same database, repositories, and services
+3. **Independent Scaling**: Each server can be scaled separately
+4. **Security**: Domain-specific permissions and isolation
+5. **Maintainability**: Easier to debug and update specific domains
+
+### Tool Categorization
+
+Tools are categorized by:
+- **Category**: Functional grouping (e.g., "utility", "calculation", "system")
+- **Domain**: Business domain (e.g., "general", "os", "kubernetes", "shopping")
+
+This allows for:
+- Domain-specific tool discovery
+- Cross-domain tool orchestration
+- Better organization and management
 
 ## Development Phases
 
@@ -137,14 +177,14 @@ graph TB
         MCP["MCP Server<br/>(FastMCP 2.0)<br/>━━━━━━━━━━━━━<br/>• STDIO transport<br/>• HTTP streaming<br/>• MCP protocol"]
         REST["REST API<br/>(FastAPI)<br/>━━━━━━━━━━━━━<br/>• HTTP endpoints<br/>• JSON responses<br/>• Standard REST"]
     end
-    
+
     subgraph Core["Core Business Logic Layer"]
         BL["<b>Functions:</b><br/>• create_order(order_data) → Order<br/>• validate_order(order) → bool<br/>• calculate_total(items) → float<br/>• process_payment(payment_info) → PaymentResult<br/>• update_inventory(items) → InventoryUpdate<br/><br/><b>This layer is:</b><br/>✓ Transport-agnostic<br/>✓ Pure business logic<br/>✓ Easily testable<br/>✓ Reusable across all interfaces"]
     end
-    
+
     MCP --> BL
     REST --> BL
-    
+
     style Interface fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
     style Core fill:#0d0d0d,stroke:#fff,stroke-width:2px,color:#fff
     style MCP fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
@@ -170,4 +210,3 @@ This document will be expanded to include:
 - Authentication and authorization approaches
 - Testing strategies
 - Deployment considerations
-

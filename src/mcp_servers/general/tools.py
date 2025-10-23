@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from src.core.services.tool_handlers import calculator_add_handler, echo_handler
-from src.mcp_server.server import mcp
+from src.mcp_servers.general.server import mcp
 
 
 logger = logging.getLogger(__name__)

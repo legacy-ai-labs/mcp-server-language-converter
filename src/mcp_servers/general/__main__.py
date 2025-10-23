@@ -4,8 +4,8 @@ import logging
 import sys
 
 # Import tools to ensure @mcp.tool() decorators are registered
-import src.mcp_server.tools  # noqa: F401
-from src.mcp_server.server import mcp
+import src.mcp_servers.general.tools  # noqa: F401
+from src.mcp_servers.general.server import mcp
 
 
 # Configure logging to stderr so Claude Desktop can see it

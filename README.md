@@ -1,6 +1,6 @@
 # MCP Server Blueprint
 
-A **hybrid MCP (Model Context Protocol) server** implementation that exposes business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API.
+A **hybrid MCP (Model Context Protocol) server** implementation that supports multiple domain-specific MCP servers, each exposing business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API.
 
 ## Purpose
 
@@ -8,6 +8,7 @@ This project demonstrates how to build a modern server that serves both AI agent
 
 ## Key Features
 
+- **Domain-Specific MCP Servers**: Separate MCP servers for different domains (general, OS commands, Kubernetes, etc.)
 - **Dual Interface Support**: MCP protocol and REST API using the same core business logic
 - **Multiple Transport Layers**: STDIO, HTTP streaming (MCP), and standard REST
 - **MCP Capabilities**: Tools, Resources, and Prompts
@@ -43,6 +44,31 @@ graph TB
 ```
 
 For detailed architectural decisions and design patterns, see [Architecture Documentation](docs/ARCHITECTURE.md).
+
+## Multi-Server Architecture
+
+The project supports **domain-specific MCP servers** for better organization and scalability:
+
+```
+src/
+├── core/                    # Shared business logic
+│   ├── models/             # Database models
+│   ├── repositories/       # Data access layer
+│   ├── services/           # Business logic
+│   └── schemas/            # Validation schemas
+├── mcp_servers/            # Domain-specific MCP servers
+│   ├── general/            # General purpose tools (echo, calculator)
+│   ├── os_commands/        # OS-specific tools (future)
+│   ├── kubernetes/         # K8s-specific tools (future)
+│   └── shopping/           # E-commerce tools (future)
+└── rest_api/               # Shared REST API
+```
+
+**Benefits:**
+- **Separation of Concerns**: Each server handles one domain
+- **Shared Infrastructure**: Same database, repositories, and services
+- **Independent Scaling**: Each server can be scaled separately
+- **Security**: Domain-specific permissions and isolation
 
 ## Quick Start
 
@@ -101,8 +127,8 @@ uv run python scripts/seed_tools.py
 ### Running the Server
 
 ```bash
-# Run MCP server (STDIO mode)
-uv run python -m src.mcp_server
+# Run General MCP server (STDIO mode)
+uv run python -m src.mcp_servers.general
 
 # Run tests
 uv run pytest

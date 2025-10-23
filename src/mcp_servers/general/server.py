@@ -12,11 +12,11 @@ settings = get_settings()
 # Get logger (logging configured in __main__.py)
 logger = logging.getLogger(__name__)
 
-# Initialize FastMCP server
+# Initialize FastMCP server for general purpose tools
 # Note: Database integration will be added in a future phase
 # Currently tools are statically registered via @mcp.tool() decorators
 mcp = FastMCP(
-    name=settings.app_name,
+    name=f"{settings.app_name} - General Tools",
     version=settings.app_version,
 )
 
