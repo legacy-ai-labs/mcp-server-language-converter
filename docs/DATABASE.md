@@ -50,6 +50,100 @@ The `tools` table stores metadata about available MCP tools:
 
 The system supports integration with external MCP servers for tool aggregation.
 
+### External MCP Tables Relationship
+
+```mermaid
+erDiagram
+    EXTERNAL_MCP_SERVERS {
+        int id PK
+        string name UK
+        string display_name
+        text command
+        text working_directory
+        boolean is_active
+        int connection_timeout
+        int retry_attempts
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EXTERNAL_MCP_TOOLS {
+        int id PK
+        int server_id FK
+        string name
+        string full_name UK
+        text description
+        json parameters_schema
+        boolean is_active
+        timestamp last_discovered
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    EXTERNAL_MCP_STATUS {
+        int id PK
+        int server_id FK
+        string status
+        timestamp last_check
+        text error_message
+        int response_time_ms
+    }
+
+    EXTERNAL_MCP_SERVERS ||--o{ EXTERNAL_MCP_TOOLS : "has many"
+    EXTERNAL_MCP_SERVERS ||--o{ EXTERNAL_MCP_STATUS : "has many"
+```
+
+**Table Relationships:**
+- **One-to-Many**: Each server can have multiple tools
+- **One-to-Many**: Each server can have multiple status records (historical)
+- **Foreign Keys**: Tools and status records reference server ID
+- **Unique Constraints**: Server names and tool full names are unique
+
+### External MCP Data Flow
+
+```mermaid
+graph TD
+    A[External MCP Server] --> B[Configuration]
+    A --> C[Tool Discovery]
+    A --> D[Health Monitoring]
+
+    B --> E[external_mcp_servers]
+    C --> F[external_mcp_tools]
+    D --> G[external_mcp_status]
+
+    E --> H[Server Management]
+    F --> I[Tool Registration]
+    G --> J[Health Tracking]
+
+    H --> K[Enable/Disable Servers]
+    I --> L[Dynamic Tool Loading]
+    J --> M[Circuit Breaker Logic]
+
+    K --> N[Runtime Control]
+    L --> O[Unified Tool Interface]
+    M --> P[Reliability Monitoring]
+```
+
+**Table Purposes:**
+
+1. **`external_mcp_servers`** - **Configuration Layer**
+   - What external MCP servers exist
+   - How to connect to them (command, working directory)
+   - Connection settings (timeout, retries)
+   - Runtime control (active/inactive)
+
+2. **`external_mcp_tools`** - **Discovery Layer**
+   - What tools each server provides
+   - Tool metadata (description, parameters)
+   - Namespaced tool names (server_tool)
+   - Discovery tracking (last_discovered)
+
+3. **`external_mcp_status`** - **Monitoring Layer**
+   - Health status over time
+   - Performance metrics (response time)
+   - Error tracking and debugging
+   - Historical health data
+
 ### External MCP Servers Table
 
 The `external_mcp_servers` table stores configuration for external MCP servers:
