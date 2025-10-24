@@ -1,4 +1,4 @@
-# INSIGHTS.md
+# INSIGHTS
 > _Fun and fascinating notes about Claude Code, context engineering, and MCP development_
 
 ---
@@ -176,6 +176,184 @@ Shows available commands and how to use Claude Code effectively. When in doubt, 
 
 - Check `/help` for the full list of available commands in your version of Claude Code
 - Commands may vary depending on your Claude Code configuration and version
+
+---
+
+## Understanding the MCP Workflow — How It All Works Together
+
+The Model Context Protocol (MCP) creates a fascinating ecosystem where AI models can interact with external tools and resources. Understanding this workflow is crucial for building effective MCP servers and debugging issues.
+
+### The Big Picture
+
+MCP operates in two distinct phases: **initialization** (happens once) and **interaction** (happens with every user request). The key insight is that the LLM doesn't execute tools directly—it decides which tools to use and requests their execution.
+
+### Phase 1: System Initialization
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant MCPClient as MCP Client<br/>(Claude Desktop, IDE)
+    participant MCPServer as MCP Server<br/>(Your Application)
+    participant LLM as LLM<br/>(Claude, GPT, etc.)
+
+    User->>MCPClient: Launch application
+    MCPClient->>MCPServer: Connect via STDIO/HTTP
+    MCPServer->>MCPClient: Send tool catalog
+    Note over MCPServer,MCPClient: "Available tools: read_file, write_file, query_db..."
+    MCPClient->>LLM: Provide tool catalog
+    Note over MCPClient,LLM: "You have access to these capabilities..."
+```
+
+**What happens here:**
+1. **User launches** an MCP client (like Claude Desktop)
+2. **Client connects** to one or more MCP servers
+3. **Server advertises** its available tools and resources
+4. **Client catalogs** all available capabilities for the LLM
+
+### Phase 2: User Interaction Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant MCPClient as MCP Client
+    participant LLM as LLM
+    participant MCPServer as MCP Server
+
+    User->>MCPClient: "Show me config.json and fix any errors"
+    MCPClient->>LLM: User request + tool catalog
+
+    Note over LLM: LLM DECIDES which tools to use
+    LLM->>MCPClient: Tool call request: read_file(path="config.json")
+
+    MCPClient->>MCPServer: Execute: read_file(path="config.json")
+    MCPServer->>MCPServer: Actually read the file
+    MCPServer->>MCPClient: Return file content
+
+    MCPClient->>LLM: Tool result: "Here's the content: {...}"
+    LLM->>LLM: Process result, identify errors
+    LLM->>MCPClient: "I found 3 syntax errors. Let me fix them..."
+
+    Note over LLM: May request another tool call
+    LLM->>MCPClient: Tool call request: write_file(path="config.json", content="...")
+    MCPClient->>MCPServer: Execute: write_file(...)
+    MCPServer->>MCPClient: Success confirmation
+
+    MCPClient->>LLM: Tool result: "File updated successfully"
+    LLM->>MCPClient: Final response with explanation
+    MCPClient->>User: Show final answer
+```
+
+### The Critical Decision Point: Who Chooses Tools?
+
+**The LLM makes all tool selection decisions.** This is a fundamental insight:
+
+```mermaid
+flowchart TD
+    A[User Request] --> B[LLM Receives Request + Tool Catalog]
+    B --> C{LLM Analyzes Request}
+    C --> D[LLM Reasons: "I need to read a file"]
+    D --> E[LLM Selects: "read_file tool"]
+    E --> F[LLM Requests Tool Execution]
+    F --> G[MCP Server Executes Tool]
+    G --> H[Result Returned to LLM]
+    H --> I[LLM Processes Result]
+    I --> J{Need More Tools?}
+    J -->|Yes| D
+    J -->|No| K[LLM Responds to User]
+```
+
+**Key insights:**
+- The LLM receives both the user's request AND a catalog of available tools
+- The LLM reasons about which tools are needed to fulfill the request
+- The LLM returns structured tool call requests (it doesn't execute anything)
+- The MCP client/server handles the actual execution
+- The LLM can make multiple tool calls in sequence to complete complex tasks
+
+### Real-World Example: File Analysis
+
+Let's trace through a concrete example:
+
+**User:** "What's in my project folder and how many Python files are there?"
+
+**Step-by-step breakdown:**
+
+1. **LLM receives:** User question + tool catalog including `list_directory`
+2. **LLM reasons:** "I need to see what's in the directory first"
+3. **LLM requests:** `list_directory(path="/project")`
+4. **MCP Server executes:** Actually lists the directory contents
+5. **Server returns:** `["main.py", "utils.py", "config.json", "README.md"]`
+6. **LLM processes:** "I can see 2 Python files (.py) in the list"
+7. **LLM responds:** "Your project folder contains 4 files, including 2 Python files: main.py and utils.py"
+
+### Architecture Deep Dive
+
+```mermaid
+graph TB
+    subgraph "User Interface Layer"
+        User[👤 User]
+        MCPClient[🖥️ MCP Client<br/>Claude Desktop, IDE, etc.]
+    end
+
+    subgraph "AI Processing Layer"
+        LLM[🧠 LLM<br/>Claude, GPT, etc.<br/><b>DECIDES which tools to use</b>]
+    end
+
+    subgraph "Tool Execution Layer"
+        MCPServer[⚙️ MCP Server<br/>Your Application]
+        Tools[🔧 Tools<br/>read_file, write_file,<br/>query_db, etc.]
+    end
+
+    User -->|"Show me config.json"| MCPClient
+    MCPClient -->|"User request + tool catalog"| LLM
+    LLM -->|"Use read_file tool"| MCPClient
+    MCPClient -->|"Execute read_file"| MCPServer
+    MCPServer -->|"Actually read file"| Tools
+    Tools -->|"File content"| MCPServer
+    MCPServer -->|"Tool result"| MCPClient
+    MCPClient -->|"Tool result"| LLM
+    LLM -->|"Processed response"| MCPClient
+    MCPClient -->|"Final answer"| User
+```
+
+### Why This Architecture Matters
+
+**Separation of Concerns:**
+- **LLM:** Reasoning and decision-making
+- **MCP Client:** Protocol handling and coordination
+- **MCP Server:** Tool execution and resource access
+
+**Scalability:**
+- Multiple MCP servers can provide different tool sets
+- LLM can orchestrate complex workflows across servers
+- Each server can be optimized for its specific domain
+
+**Security:**
+- Tools execute in controlled environments
+- LLM can't directly access system resources
+- Clear boundaries between reasoning and execution
+
+### Common Misconceptions
+
+❌ **"The LLM executes tools directly"**  
+✅ **The LLM requests tool execution through the MCP protocol**
+
+❌ **"MCP servers are just API endpoints"**  
+✅ **MCP servers provide structured tool catalogs and handle protocol-specific execution**
+
+❌ **"The client decides which tools to use"**  
+✅ **The LLM makes all tool selection decisions based on the user's request**
+
+### Debugging MCP Workflows
+
+When things go wrong, trace through the flow:
+
+1. **Check tool registration:** Are tools properly registered in your MCP server?
+2. **Verify tool catalog:** Is the LLM receiving the complete tool catalog?
+3. **Examine tool calls:** What tool calls is the LLM making?
+4. **Test tool execution:** Do the tools work when called directly?
+5. **Review responses:** Are tool results being returned correctly?
+
+This understanding of the MCP workflow is essential for building robust servers and troubleshooting issues effectively.
 
 ---
 

@@ -163,6 +163,11 @@ uv run python scripts/seed_external_mcp.py
 # Run General MCP server (STDIO mode)
 uv run python -m src.mcp_servers.general
 
+# Future: Run other domain-specific servers
+# uv run python -m src.mcp_servers.os_commands
+# uv run python -m src.mcp_servers.kubernetes
+# uv run python -m src.mcp_servers.shopping
+
 # Run tests
 uv run pytest
 

@@ -10,6 +10,7 @@ from src.core.exceptions import (
     ToolNotFoundError,
     ValidationError,
 )
+from src.core.models.tool import Tool
 from src.core.repositories.tool_repository import ToolRepository
 from src.core.schemas.tool import ToolCreate, ToolResponse, ToolUpdate
 from src.core.services.tool_handlers import get_handler
@@ -51,7 +52,7 @@ class ToolService:
             raise ValidationError(f"Tool with name '{tool_data.name}' already exists")
 
         # Create tool
-        tool = await self.repository.create(tool_data.model_dump())
+        tool: Tool = await self.repository.create(tool_data.model_dump())
         return ToolResponse.model_validate(tool)
 
     async def get_tool(self, tool_id: int) -> ToolResponse:

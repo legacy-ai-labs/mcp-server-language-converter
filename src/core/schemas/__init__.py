@@ -3,4 +3,4 @@
 from src.core.schemas.tool import ToolCreate, ToolResponse, ToolUpdate
 
 
-__all__: list[str] = ["ToolCreate", "ToolUpdate", "ToolResponse"]
+__all__: list[str] = ["ToolCreate", "ToolResponse", "ToolUpdate"]

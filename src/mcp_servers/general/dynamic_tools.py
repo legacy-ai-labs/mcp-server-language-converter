@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from src.core.database import async_session_factory
 from src.core.repositories.tool_repository import ToolRepository
 from src.core.services.tool_handlers import TOOL_HANDLERS
 from src.mcp_servers.general.server import mcp
@@ -14,8 +15,6 @@ logger = logging.getLogger(__name__)
 async def load_tools_from_database() -> None:
     """Load active tools from database and register them with FastMCP."""
     try:
-        from src.core.database import async_session_factory
-
         async with async_session_factory() as session:
             tool_repo = ToolRepository(session)
             active_tools = await tool_repo.list_active()
@@ -84,8 +83,6 @@ async def register_tool_from_db(tool: Any) -> None:
 
 async def get_tools_by_domain(domain: str) -> list[Any]:
     """Get tools for specific domain."""
-    from src.core.database import async_session_factory
-
     async with async_session_factory() as session:
         tool_repo = ToolRepository(session)
         return await tool_repo.get_by_domain(domain)

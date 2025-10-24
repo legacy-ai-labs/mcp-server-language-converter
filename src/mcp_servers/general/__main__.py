@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import sys
+import traceback
 
 from src.mcp_servers.general.dynamic_tools import load_tools_from_database
 from src.mcp_servers.general.external_tools import ExternalToolsLoader
@@ -58,8 +59,6 @@ def main() -> None:
         error_msg = f"Server error: {e}"
         logger.error(error_msg, exc_info=True)
         print(f"FATAL ERROR: {error_msg}", file=sys.stderr)
-        import traceback
-
         traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 

@@ -48,8 +48,8 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             Model instance or None if not found
         """
-        result = await self.session.execute(select(self.model).where(self.model.id == id_))
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        result = await self.session.execute(select(self.model).where(self.model.id == id_))  # type: ignore[attr-defined]
+        return result.scalar_one_or_none()
 
     async def list_all(self) -> list[ModelType]:
         """List all records.

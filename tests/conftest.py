@@ -63,5 +63,7 @@ async def sample_tool_data() -> dict[str, Any]:
             "properties": {"text": {"type": "string"}},
             "required": ["text"],
         },
+        "category": "general",
+        "domain": "testing",
         "is_active": True,
     }
