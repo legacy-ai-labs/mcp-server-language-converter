@@ -251,8 +251,8 @@ sequenceDiagram
 flowchart TD
     A[User Request] --> B[LLM Receives Request + Tool Catalog]
     B --> C{LLM Analyzes Request}
-    C --> D[LLM Reasons: "I need to read a file"]
-    D --> E[LLM Selects: "read_file tool"]
+    C --> D["LLM Reasons: I need to read a file"]
+    D --> E["LLM Selects: read_file tool"]
     E --> F[LLM Requests Tool Execution]
     F --> G[MCP Server Executes Tool]
     G --> H[Result Returned to LLM]

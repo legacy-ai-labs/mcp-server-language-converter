@@ -6,7 +6,6 @@ import sys
 import traceback
 
 from src.mcp_servers.general.dynamic_tools import load_tools_from_database
-from src.mcp_servers.general.external_tools import ExternalToolsLoader
 from src.mcp_servers.general.server import mcp
 
 
@@ -23,14 +22,9 @@ logger = logging.getLogger(__name__)
 async def startup() -> None:
     """Initialize database and load tools."""
     try:
-        # Load internal tools from database
+        # Load tools from database
         await load_tools_from_database()
-        logger.info("Internal tools loaded successfully from database")
-
-        # Load external tools from external MCP servers
-        external_loader = ExternalToolsLoader()
-        await external_loader.load_external_tools()
-        logger.info("External tools loaded successfully")
+        logger.info("Tools loaded successfully from database")
 
     except Exception as e:
         logger.error(f"Failed to load tools: {e}")

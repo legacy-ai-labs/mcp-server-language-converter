@@ -46,183 +46,6 @@ The `tools` table stores metadata about available MCP tools:
 - `kubernetes` - Kubernetes operations
 - `shopping` - E-commerce tools
 
-## External MCP Integration
-
-The system supports integration with external MCP servers for tool aggregation.
-
-### External MCP Tables Relationship
-
-```mermaid
-erDiagram
-    EXTERNAL_MCP_SERVERS {
-        int id PK
-        string name UK
-        string display_name
-        text command
-        text working_directory
-        boolean is_active
-        int connection_timeout
-        int retry_attempts
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    EXTERNAL_MCP_TOOLS {
-        int id PK
-        int server_id FK
-        string name
-        string full_name UK
-        text description
-        json parameters_schema
-        boolean is_active
-        timestamp last_discovered
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    EXTERNAL_MCP_STATUS {
-        int id PK
-        int server_id FK
-        string status
-        timestamp last_check
-        text error_message
-        int response_time_ms
-    }
-
-    EXTERNAL_MCP_SERVERS ||--o{ EXTERNAL_MCP_TOOLS : "has many"
-    EXTERNAL_MCP_SERVERS ||--o{ EXTERNAL_MCP_STATUS : "has many"
-```
-
-**Table Relationships:**
-- **One-to-Many**: Each server can have multiple tools
-- **One-to-Many**: Each server can have multiple status records (historical)
-- **Foreign Keys**: Tools and status records reference server ID
-- **Unique Constraints**: Server names and tool full names are unique
-
-### External MCP Data Flow
-
-```mermaid
-graph TD
-    A[External MCP Server] --> B[Configuration]
-    A --> C[Tool Discovery]
-    A --> D[Health Monitoring]
-
-    B --> E[external_mcp_servers]
-    C --> F[external_mcp_tools]
-    D --> G[external_mcp_status]
-
-    E --> H[Server Management]
-    F --> I[Tool Registration]
-    G --> J[Health Tracking]
-
-    H --> K[Enable/Disable Servers]
-    I --> L[Dynamic Tool Loading]
-    J --> M[Circuit Breaker Logic]
-
-    K --> N[Runtime Control]
-    L --> O[Unified Tool Interface]
-    M --> P[Reliability Monitoring]
-```
-
-**Table Purposes:**
-
-1. **`external_mcp_servers`** - **Configuration Layer**
-   - What external MCP servers exist
-   - How to connect to them (command, working directory)
-   - Connection settings (timeout, retries)
-   - Runtime control (active/inactive)
-
-2. **`external_mcp_tools`** - **Discovery Layer**
-   - What tools each server provides
-   - Tool metadata (description, parameters)
-   - Namespaced tool names (server_tool)
-   - Discovery tracking (last_discovered)
-
-3. **`external_mcp_status`** - **Monitoring Layer**
-   - Health status over time
-   - Performance metrics (response time)
-   - Error tracking and debugging
-   - Historical health data
-
-### External MCP Servers Table
-
-The `external_mcp_servers` table stores configuration for external MCP servers:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER | Primary key, auto-increment |
-| `name` | VARCHAR(100) | Unique server name, indexed |
-| `display_name` | VARCHAR(200) | Human-readable server name |
-| `command` | TEXT | JSON string of command to start server |
-| `working_directory` | TEXT | Working directory for server execution |
-| `is_active` | BOOLEAN | Whether server is active, indexed |
-| `connection_timeout` | INTEGER | Connection timeout in seconds |
-| `retry_attempts` | INTEGER | Number of retry attempts |
-| `created_at` | TIMESTAMP | Creation timestamp |
-| `updated_at` | TIMESTAMP | Last update timestamp |
-
-### External MCP Tools Table
-
-The `external_mcp_tools` table stores discovered tools from external servers:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER | Primary key, auto-increment |
-| `server_id` | INTEGER | Foreign key to external_mcp_servers |
-| `name` | VARCHAR(100) | Original tool name |
-| `full_name` | VARCHAR(200) | Namespaced tool name (server_tool), indexed |
-| `description` | TEXT | Tool description |
-| `parameters_schema` | JSON | JSON schema for tool parameters |
-| `is_active` | BOOLEAN | Whether tool is active, indexed |
-| `last_discovered` | TIMESTAMP | Last discovery timestamp |
-| `created_at` | TIMESTAMP | Creation timestamp |
-| `updated_at` | TIMESTAMP | Last update timestamp |
-
-### External MCP Status Table
-
-The `external_mcp_status` table tracks health status of external servers:
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER | Primary key, auto-increment |
-| `server_id` | INTEGER | Foreign key to external_mcp_servers |
-| `status` | VARCHAR(20) | Status (connected, disconnected, error), indexed |
-| `last_check` | TIMESTAMP | Last health check timestamp |
-| `error_message` | TEXT | Error message if status is error |
-| `response_time_ms` | INTEGER | Response time in milliseconds |
-
-### External MCP Management
-
-**Adding External MCP Servers:**
-```sql
-INSERT INTO external_mcp_servers (name, display_name, command, working_directory, is_active)
-VALUES (
-    'weather_api',
-    'Weather API MCP Server',
-    '["python", "-m", "weather_mcp"]',
-    '/path/to/weather_mcp',
-    true
-);
-```
-
-**Monitoring External Servers:**
-```sql
--- Check server health status
-SELECT s.name, st.status, st.last_check, st.error_message
-FROM external_mcp_servers s
-LEFT JOIN external_mcp_status st ON s.id = st.server_id
-WHERE s.is_active = true;
-```
-
-**Managing External Tools:**
-```sql
--- List all external tools
-SELECT s.name as server_name, t.full_name, t.description, t.is_active
-FROM external_mcp_tools t
-JOIN external_mcp_servers s ON t.server_id = s.id
-WHERE t.is_active = true;
-```
-
 ## PostgreSQL Setup
 
 ### Installation
@@ -244,124 +67,100 @@ sudo apt-get update
 sudo apt-get install postgresql postgresql-contrib
 ```
 
-### Create Database
+### Database Creation
 
 ```bash
 # Connect to PostgreSQL
 psql postgres
 
-# Create database
+# Create database and user
 CREATE DATABASE mcp_server;
-
-# Create user (optional)
 CREATE USER mcp_user WITH PASSWORD 'your_password';
 GRANT ALL PRIVILEGES ON DATABASE mcp_server TO mcp_user;
 ```
 
-### Configuration
+### Environment Configuration
 
 Create a `.env` file in the project root:
 
-```bash
-cp env.example .env
-```
-
-Edit `.env` with your database credentials:
-
-```
-DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/mcp_server
+```env
+DATABASE_URL=postgresql+asyncpg://mcp_user:your_password@localhost:5432/mcp_server
+DATABASE_ECHO=false
 ```
 
 ## Database Initialization
 
-### 1. Create Tables
+### Initialize Tables
 
 ```bash
+# Create all tables
 uv run python scripts/init_db.py
 ```
 
-This will create all necessary tables in the database.
-
-### 2. Seed Initial Tools
+### Seed Initial Data
 
 ```bash
+# Add sample tools
 uv run python scripts/seed_tools.py
 ```
 
-This will populate the database with initial tools:
-- **echo**: Echo back text
-- **calculator_add**: Add two numbers
-
 ## Database Operations
 
-### Manual Tool Management
+### Connection Management
 
-You can manually manage tools using Python scripts or the PostgreSQL CLI.
+The application uses async database connections with connection pooling:
 
-#### Connect to Database
+```python
+from src.core.database import get_db
 
-```bash
-psql postgresql://username:password@localhost:5432/mcp_server
+async def some_operation():
+    async with get_db() as db:
+        # Use database session
+        pass
 ```
 
-#### Query Tools
+### Tool Management
 
-```sql
--- List all tools
-SELECT id, name, handler_name, is_active FROM tools;
+#### Adding Tools
 
--- List active tools
-SELECT * FROM tools WHERE is_active = true;
+```python
+from src.core.repositories.tool_repository import ToolRepository
+from src.core.schemas.tool import ToolCreate
 
--- Get specific tool
-SELECT * FROM tools WHERE name = 'echo';
+async def add_tool():
+    async with get_db() as db:
+        repo = ToolRepository(db)
+        tool_data = ToolCreate(
+            name="my_tool",
+            description="A custom tool",
+            handler_name="my_handler",
+            parameters_schema={"type": "object"},
+            category="utility",
+            domain="general"
+        )
+        tool = await repo.create(tool_data.model_dump())
 ```
 
-#### Insert Tool
+#### Querying Tools
 
-```sql
-INSERT INTO tools (name, description, handler_name, parameters_schema, is_active)
-VALUES (
-    'my_tool',
-    'My custom tool',
-    'echo_handler',
-    '{"type": "object", "properties": {"text": {"type": "string"}}}',
-    true
-);
-```
+```python
+# Get all active tools
+tools = await repo.list_active()
 
-#### Update Tool
+# Get tools by domain
+tools = await repo.get_by_domain("general")
 
-```sql
--- Deactivate a tool
-UPDATE tools SET is_active = false WHERE name = 'echo';
-
--- Update description
-UPDATE tools SET description = 'New description' WHERE id = 1;
-```
-
-#### Delete Tool
-
-```sql
--- Soft delete (recommended)
-UPDATE tools SET is_active = false WHERE id = 1;
-
--- Hard delete (caution)
-DELETE FROM tools WHERE id = 1;
+# Get tool by name
+tool = await repo.get_by_name("echo")
 ```
 
 ## Migrations (Future)
 
-The project is set up to use Alembic for database migrations. Migration support will be added in a future update.
-
-To prepare for migrations:
+The project will implement Alembic migrations for schema changes:
 
 ```bash
-# Initialize Alembic (future)
-alembic init alembic
-
 # Generate migration
-alembic revision --autogenerate -m "Initial migration"
+alembic revision --autogenerate -m "Add new column"
 
 # Apply migration
 alembic upgrade head
@@ -369,124 +168,140 @@ alembic upgrade head
 
 ## Backup and Restore
 
-### Backup Database
+### Backup
 
 ```bash
-pg_dump -U username mcp_server > backup.sql
+# Create backup
+pg_dump -h localhost -U mcp_user -d mcp_server > backup.sql
+
+# Compressed backup
+pg_dump -h localhost -U mcp_user -d mcp_server | gzip > backup.sql.gz
 ```
 
-### Restore Database
+### Restore
 
 ```bash
-psql -U username mcp_server < backup.sql
+# Restore from backup
+psql -h localhost -U mcp_user -d mcp_server < backup.sql
+
+# Restore from compressed backup
+gunzip -c backup.sql.gz | psql -h localhost -U mcp_user -d mcp_server
 ```
 
 ## Troubleshooting
 
-### Connection Issues
+### Common Issues
 
-**Problem**: Can't connect to PostgreSQL
+**Connection Refused:**
+- Check if PostgreSQL is running
+- Verify connection parameters in `.env`
+- Check firewall settings
 
-**Solutions**:
-1. Check PostgreSQL is running: `brew services list` (macOS) or `sudo systemctl status postgresql` (Linux)
-2. Verify credentials in `.env`
-3. Check firewall settings
-4. Ensure PostgreSQL is listening on correct port: `netstat -an | grep 5432`
+**Authentication Failed:**
+- Verify username and password
+- Check user permissions
+- Ensure user has access to database
 
-### Permission Issues
+**Table Not Found:**
+- Run database initialization: `uv run python scripts/init_db.py`
+- Check if models are properly imported
 
-**Problem**: Permission denied for database
+### Debugging
 
-**Solution**:
-```sql
-GRANT ALL PRIVILEGES ON DATABASE mcp_server TO your_user;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO your_user;
+Enable SQL query logging:
+
+```env
+DATABASE_ECHO=true
 ```
 
-### Migration Issues
+Check connection:
 
-**Problem**: Tables don't exist
+```python
+from src.core.database import engine
+import asyncio
 
-**Solution**:
-```bash
-# Recreate tables
-uv run python scripts/init_db.py
+async def test_connection():
+    async with engine.begin() as conn:
+        result = await conn.execute("SELECT 1")
+        print(result.scalar())
 ```
 
 ## Performance Optimization
 
+### Indexing Strategy
+
+- **Primary keys**: Automatically indexed
+- **Foreign keys**: Automatically indexed
+- **Frequently queried columns**: Add custom indexes
+- **Composite indexes**: For multi-column queries
+
 ### Connection Pooling
 
-The application uses SQLAlchemy's async connection pooling. Default settings work well for most cases, but you can tune in `src/core/database.py`:
+The application uses SQLAlchemy's connection pooling:
 
 ```python
+# Configure pool settings
 engine = create_async_engine(
-    settings.database_url,
-    echo=settings.database_echo,
-    pool_size=5,          # Adjust based on load
-    max_overflow=10,      # Additional connections when needed
-    pool_pre_ping=True,   # Check connections before using
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,
+    pool_recycle=3600
 )
 ```
 
-### Indexing
-
-All critical columns are indexed:
-- `tools.name` (unique)
-- `tools.is_active`
-
 ### Query Optimization
 
-- Use `list_active()` instead of `list_all()` when possible
-- Avoid loading unnecessary relationships
-- Use pagination for large result sets (to be implemented)
+- Use `select()` with specific columns
+- Implement pagination for large result sets
+- Use database-level filtering instead of Python filtering
+- Consider read replicas for heavy read workloads
 
 ## Database Monitoring
 
-### Check Database Size
+### Health Checks
 
-```sql
-SELECT pg_size_pretty(pg_database_size('mcp_server'));
+```python
+async def health_check():
+    try:
+        async with get_db() as db:
+            await db.execute("SELECT 1")
+            return {"status": "healthy"}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
 ```
 
-### Check Table Sizes
+### Performance Metrics
 
-```sql
-SELECT
-    schemaname,
-    tablename,
-    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
-FROM pg_tables
-WHERE schemaname = 'public'
-ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
-```
-
-### Monitor Active Connections
-
-```sql
-SELECT count(*) FROM pg_stat_activity WHERE datname = 'mcp_server';
-```
+Monitor key metrics:
+- Connection pool usage
+- Query execution time
+- Database size growth
+- Index usage statistics
 
 ## Best Practices
 
-1. **Always use migrations** for schema changes (when implemented)
-2. **Use soft deletes** (`is_active = false`) instead of hard deletes
-3. **Back up regularly** before major changes
-4. **Test on development database** first
-5. **Use transactions** for multi-step operations
-6. **Monitor connection pool** in production
+1. **Use transactions** for related operations
+2. **Handle exceptions** gracefully
+3. **Close connections** properly
+4. **Use connection pooling** for production
+5. **Monitor performance** regularly
+6. **Backup regularly** and test restore procedures
 
 ## Security
 
-1. **Never commit `.env`** file to version control
-2. **Use strong passwords** for database users
-3. **Restrict network access** to PostgreSQL port
-4. **Use SSL** for remote connections
-5. **Regular security updates** for PostgreSQL
+### Database Security
 
----
+- Use strong passwords
+- Limit database user permissions
+- Enable SSL connections in production
+- Regular security updates
+- Network access controls
 
-For more information, see:
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Alembic Documentation](https://alembic.sqlalchemy.org/)
+### Application Security
+
+- Use parameterized queries (SQLAlchemy handles this)
+- Validate input data
+- Implement rate limiting
+- Log security events
+- Regular security audits
