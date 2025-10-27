@@ -28,7 +28,13 @@ uv run python scripts/seed_tools.py
 
 ```bash
 # Run via STDIO (for use with AI clients like Claude Desktop)
-uv run python -m src.mcp_server
+uv run python -m src.mcp_servers.mcp_general
+
+# Run via HTTP Streaming (for web-based AI clients)
+uv run python -m src.mcp_servers.mcp_general.http_main
+
+# Or use the startup script
+uv run python scripts/start_http_streaming.py
 ```
 
 ## Testing the Server
@@ -140,7 +146,9 @@ asyncio.run(deactivate_tool(1))
 
 ## Using with AI Clients
 
-### Claude Desktop Configuration
+### STDIO Mode (Claude Desktop, Cursor IDE)
+
+#### Claude Desktop Configuration
 
 Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 
@@ -149,7 +157,7 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
   "mcpServers": {
     "mcp-server-blueprint": {
       "command": "uv",
-      "args": ["run", "python", "-m", "src.mcp_server"],
+      "args": ["run", "python", "-m", "src.mcp_servers.mcp_general"],
       "cwd": "/path/to/mcp-server-blueprint",
       "env": {
         "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/mcp_server"
@@ -159,7 +167,7 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 }
 ```
 
-### Cursor IDE Configuration
+#### Cursor IDE Configuration
 
 Add to Cursor settings:
 
@@ -168,12 +176,66 @@ Add to Cursor settings:
   "mcp.servers": {
     "mcp-server-blueprint": {
       "command": "uv",
-      "args": ["run", "python", "-m", "src.mcp_server"],
+      "args": ["run", "python", "-m", "src.mcp_servers.mcp_general"],
       "cwd": "/path/to/mcp-server-blueprint"
     }
   }
 }
 ```
+
+### HTTP Streaming Mode (Web-based AI Clients)
+
+#### Configuration
+
+HTTP streaming mode uses Server-Sent Events (SSE) for real-time communication:
+
+```bash
+# Start HTTP streaming server
+uv run python -m src.mcp_servers.mcp_general.http_main
+
+# Server will be available at:
+# http://localhost:8000
+```
+
+#### Environment Variables
+
+Configure HTTP streaming in `.env`:
+
+```bash
+# HTTP Streaming Configuration
+HTTP_HOST=0.0.0.0
+HTTP_PORT=8000
+HTTP_STREAMING_ENABLED=true
+```
+
+#### Client Integration
+
+For web-based AI clients, connect to the HTTP streaming endpoint:
+
+```javascript
+// Example client connection
+const eventSource = new EventSource('http://localhost:8000/sse');
+eventSource.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    console.log('MCP response:', data);
+};
+```
+
+#### Testing HTTP Streaming
+
+**Quick Test:**
+```bash
+# Test with curl
+curl -N -H "Accept: text/event-stream" \
+     -H "Cache-Control: no-cache" \
+     http://localhost:8000/sse
+
+# Test with HTTPie
+http --stream GET localhost:8000/sse
+```
+
+**Comprehensive Testing:**
+For detailed testing instructions including MCP Inspector, browser testing, Python clients, and troubleshooting, see the [HTTP Streaming Guide](HTTP_STREAMING.md#testing-http-streaming).
 
 ## Creating Custom Handlers
 

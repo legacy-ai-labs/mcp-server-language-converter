@@ -33,9 +33,9 @@ As new interface requirements emerge (GraphQL, gRPC, WebSockets, etc.), we can e
 - **REST Framework**: FastAPI (for high-performance REST endpoints)
 - **Architecture Pattern**: Hexagonal/Ports and Adapters
 
-## Multi-Server Architecture
+## Multi-Server Architecture with Shared Infrastructure
 
-The project supports **domain-specific MCP servers** for better organization, security, and scalability:
+The project demonstrates **domain-specific MCP servers** with **zero code duplication** through shared infrastructure:
 
 ### Server Organization
 
@@ -44,23 +44,47 @@ src/
 ├── core/                    # Shared business logic
 │   ├── models/             # Database models with category/domain fields
 │   ├── repositories/       # Data access layer
-│   ├── services/           # Business logic
+│   ├── services/           # Business logic and tool handlers
 │   └── schemas/            # Validation schemas
-├── mcp_servers/            # Domain-specific MCP servers
-│   ├── general/            # General purpose tools (echo, calculator)
-│   ├── os_commands/        # OS-specific tools (future)
-│   ├── kubernetes/         # K8s-specific tools (future)
-│   └── shopping/           # E-commerce tools (future)
-└── rest_api/               # Shared REST API
+│
+├── mcp_servers/
+│   ├── common/             # Shared MCP infrastructure (eliminates duplication!)
+│   │   ├── base_server.py          # Generic FastMCP initialization
+│   │   ├── dynamic_loader.py       # Generic DB tool loading
+│   │   ├── stdio_runner.py         # Generic STDIO transport runner
+│   │   └── http_runner.py          # Generic HTTP streaming runner
+│   │
+│   ├── mcp_general/        # Domain servers are just entry points (7 lines each)
+│   │   ├── __main__.py             # STDIO: run_stdio_server(domain="general")
+│   │   └── http_main.py            # HTTP: run_http_server(domain="general")
+│   │
+│   ├── mcp_kubernetes/     # Future: Same minimal pattern
+│   ├── mcp_os_commands/    # Future: Same minimal pattern
+│   └── mcp_shopping/       # Future: Same minimal pattern
+│
+└── rest_api/               # Shared REST API (planned)
 ```
+
+### Key Architectural Innovation: Shared Infrastructure
+
+**Problem Solved**: Traditional multi-server approaches duplicate 90%+ of server code across domains.
+
+**Our Solution**: Extract all common MCP server code into `mcp_servers/common/`:
+- **Base Server** (`base_server.py`): Generic FastMCP initialization
+- **Dynamic Loader** (`dynamic_loader.py`): Generic tool loading from database (works for any domain)
+- **Transport Runners** (`stdio_runner.py`, `http_runner.py`): Generic server startup logic
+
+**Result**: Adding a new domain server requires only **14 lines of code** (2 entry point files).
 
 ### Benefits of Multi-Server Approach
 
-1. **Separation of Concerns**: Each server handles one specific domain
-2. **Shared Infrastructure**: Same database, repositories, and services
-3. **Independent Scaling**: Each server can be scaled separately
-4. **Security**: Domain-specific permissions and isolation
-5. **Maintainability**: Easier to debug and update specific domains
+1. **Zero Code Duplication**: All server infrastructure is shared - domain servers are just entry points
+2. **Easy to Extend**: New domain = 14 lines of code
+3. **Separation of Concerns**: Each server handles one specific domain
+4. **Shared Infrastructure**: Same database, repositories, services, AND MCP runtime
+5. **Independent Scaling**: Each server can be scaled separately
+6. **Security**: Domain-specific permissions and isolation
+7. **Maintainability**: Fix once in `common/`, benefit everywhere
 
 ### Tool Categorization
 

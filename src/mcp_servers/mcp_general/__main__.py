@@ -1,0 +1,7 @@
+"""Entry point for General MCP server in STDIO mode."""
+
+from src.mcp_servers.common.stdio_runner import run_stdio_server
+
+
+if __name__ == "__main__":
+    run_stdio_server(domain="general")

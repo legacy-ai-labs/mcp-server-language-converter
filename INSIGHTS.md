@@ -172,6 +172,29 @@ Use this when:
 
 Shows available commands and how to use Claude Code effectively. When in doubt, start here.
 
+### `/rewind` — Go Back in Conversation
+
+The `/rewind` command allows you to step back through your conversation history, effectively "undoing" recent interactions without losing the context entirely.
+
+**Use this when:**
+- You want to revisit a previous part of the conversation
+- You need to backtrack from a complex discussion
+- You want to explore alternative approaches to a problem
+- You've gone down a rabbit hole and want to return to a previous state
+
+**How it works:**
+- `/rewind` moves you back one step in the conversation
+- You can use it multiple times to go back further
+- The conversation history is preserved, so you can see what happened
+- You can continue from any point you rewind to
+
+**Example scenarios:**
+- You're debugging code and want to go back to before you made a specific change
+- You're exploring different solutions and want to return to a previous approach
+- You want to review the conversation flow and understand how you got to the current state
+
+**Tip:** `/rewind` is particularly useful when you're iterating on solutions or when you want to explore different paths without starting a completely new conversation.
+
 ### Other Useful Commands
 
 - Check `/help` for the full list of available commands in your version of Claude Code

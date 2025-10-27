@@ -21,6 +21,11 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Logging
     log_level: str = "INFO"
 
+    # HTTP Streaming
+    http_host: str = "0.0.0.0"  # nosec B104 - Development default, configurable via env
+    http_port: int = 8000
+    http_streaming_enabled: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

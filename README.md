@@ -25,48 +25,64 @@ The application follows a **Hexagonal/Ports and Adapters** architecture pattern:
 ```mermaid
 graph TB
     subgraph Interface["Interface Layer"]
-        MCP["MCP Server<br/>(FastMCP 2.0)<br/>━━━━━━━━━━━━━<br/>• STDIO transport<br/>• HTTP streaming<br/>• MCP protocol"]
+        STDIO["STDIO Server<br/>(FastMCP 2.0)<br/>━━━━━━━━━━━━━<br/>• STDIO transport<br/>• Claude Desktop<br/>• Cursor IDE"]
+        HTTP["HTTP Streaming Server<br/>(FastMCP 2.0)<br/>━━━━━━━━━━━━━<br/>• Server-Sent Events<br/>• Web-based clients<br/>• Real-time streaming"]
         REST["REST API<br/>(FastAPI)<br/>━━━━━━━━━━━━━<br/>• HTTP endpoints<br/>• JSON responses<br/>• Standard REST"]
     end
 
     subgraph Core["Core Business Logic Layer"]
-        BL["<b>Functions:</b><br/>• Transport-agnostic<br/>• Reusable across interfaces<br/>• Single source of truth<br/>• Pure business logic"]
+        BL["<b>Shared Functions:</b><br/>• Transport-agnostic<br/>• Reusable across interfaces<br/>• Single source of truth<br/>• Pure business logic"]
     end
 
-    MCP --> BL
+    STDIO --> BL
+    HTTP --> BL
     REST --> BL
 
     style Interface fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
     style Core fill:#0d0d0d,stroke:#fff,stroke-width:2px,color:#fff
-    style MCP fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style STDIO fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style HTTP fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
     style REST fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
     style BL fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 For detailed architectural decisions and design patterns, see [Architecture Documentation](docs/ARCHITECTURE.md).
 
-## Multi-Server Architecture
+## Multi-Server Architecture with Shared Infrastructure
 
-The project supports **domain-specific MCP servers** for better organization and scalability:
+The project supports **domain-specific MCP servers** with **zero code duplication**:
 
 ```
 src/
 ├── core/                    # Shared business logic
 │   ├── models/             # Database models
 │   ├── repositories/       # Data access layer
-│   ├── services/           # Business logic
+│   ├── services/           # Business logic and tool handlers
 │   └── schemas/            # Validation schemas
-├── mcp_servers/            # Domain-specific MCP servers
-│   ├── general/            # General purpose tools (echo, calculator)
-│   ├── os_commands/        # OS-specific tools (future)
-│   ├── kubernetes/         # K8s-specific tools (future)
-│   └── shopping/           # E-commerce tools (future)
-└── rest_api/               # Shared REST API
+│
+├── mcp_servers/
+│   ├── common/             # Shared MCP infrastructure (NO duplication!)
+│   │   ├── base_server.py          # FastMCP initialization
+│   │   ├── dynamic_loader.py       # Generic tool loading from DB
+│   │   ├── stdio_runner.py         # Generic STDIO transport
+│   │   └── http_runner.py          # Generic HTTP streaming transport
+│   │
+│   ├── mcp_general/        # Domain servers (minimal code - just entry points)
+│   │   ├── __main__.py             # 7 lines
+│   │   └── http_main.py            # 7 lines
+│   │
+│   ├── mcp_kubernetes/     # Future: Same minimal pattern
+│   ├── mcp_os_commands/    # Future: Same minimal pattern
+│   └── mcp_shopping/       # Future: Same minimal pattern
+│
+└── rest_api/               # Shared REST API (planned)
 ```
 
-**Benefits:**
+**Architecture Benefits:**
+- **Zero Code Duplication**: All MCP server code is in `common/` - domain servers are just entry points
+- **Easy to Add Domains**: New domain server = 14 lines of code (2 files × 7 lines)
 - **Separation of Concerns**: Each server handles one domain
-- **Shared Infrastructure**: Same database, repositories, and services
+- **Shared Infrastructure**: Same database, repositories, services, AND MCP runtime code
 - **Independent Scaling**: Each server can be scaled separately
 - **Security**: Domain-specific permissions and isolation
 
@@ -85,6 +101,62 @@ Tools are now **dynamically loaded from the database** at server startup:
 
 
 ## Quick Start
+
+### Transport Options
+
+The MCP Server Blueprint supports **multiple transport mechanisms** for different client types:
+
+#### STDIO Server (Claude Desktop, Cursor IDE)
+- **Transport**: STDIO (standard input/output)
+- **Clients**: Claude Desktop, Cursor IDE, command-line tools
+- **Protocol**: MCP over STDIO
+
+#### HTTP Streaming Server (Web-based Clients)
+- **Transport**: Server-Sent Events (SSE) over HTTP
+- **Clients**: Web applications, browser-based AI clients
+- **Protocol**: MCP over HTTP streaming
+
+### Separate Server Processes (Recommended)
+
+**Why separate processes?**
+- ✅ **Clean separation**: Each transport has a single responsibility
+- ✅ **Independent scaling**: Scale each server based on demand
+- ✅ **Reliability**: One server failure doesn't affect the other
+- ✅ **Different configurations**: Optimize each for its use case
+- ✅ **Easier debugging**: Isolate issues to specific transports
+
+**How to start each server:**
+
+```bash
+# Terminal 1: STDIO server (for Claude Desktop, Cursor IDE)
+uv run python -m src.mcp_servers.mcp_general
+
+# Terminal 2: HTTP streaming server (for web-based clients)
+uv run python -m src.mcp_servers.mcp_general.http_main
+# Server available at: http://localhost:8000
+```
+
+Both servers share the same core business logic and tools, but provide different transport mechanisms for different client types.
+
+### Testing Your Setup
+
+#### STDIO Testing (Claude Desktop)
+1. Configure Claude Desktop with the server
+2. Test tools through Claude Desktop interface
+
+#### HTTP Streaming Testing
+1. **Quick test with curl:**
+   ```bash
+   curl -N -H "Accept: text/event-stream" http://localhost:8000/sse
+   ```
+
+2. **MCP Inspector (Recommended):**
+   ```bash
+   npx @modelcontextprotocol/inspector
+   # Open http://localhost:3000 and connect to http://localhost:8000/sse
+   ```
+
+3. **Comprehensive testing guide:** See [HTTP Streaming Guide](docs/HTTP_STREAMING.md#testing-http-streaming)
 
 ### Prerequisites
 
@@ -146,12 +218,12 @@ uv run python scripts/init_db.py
 uv run python scripts/seed_tools.py
 
 # Run General MCP server (STDIO mode)
-uv run python -m src.mcp_servers.general
+uv run python -m src.mcp_servers.mcp_general
 
 # Future: Run other domain-specific servers
-# uv run python -m src.mcp_servers.os_commands
-# uv run python -m src.mcp_servers.kubernetes
-# uv run python -m src.mcp_servers.shopping
+# uv run python -m src.mcp_servers.mcp_os_commands
+# uv run python -m src.mcp_servers.mcp_kubernetes
+# uv run python -m src.mcp_servers.mcp_shopping
 
 # Run tests
 uv run pytest
@@ -252,6 +324,15 @@ We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIB
 ## License
 
 [Add your license here]
+
+## Documentation
+
+- [HTTP Streaming Guide](docs/HTTP_STREAMING.md) - Complete guide for HTTP streaming implementation
+- [Usage Guide](docs/USAGE.md) - Detailed usage instructions for all transport modes
+- [Architecture Documentation](docs/ARCHITECTURE.md) - System design and architectural decisions
+- [Database Guide](docs/DATABASE.md) - Database setup and management
+- [API Documentation](docs/API.md) - REST API reference
+- [Contributing Guidelines](docs/CONTRIBUTING.md) - Development workflow and standards
 
 ## Resources
 
