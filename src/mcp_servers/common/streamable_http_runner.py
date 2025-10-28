@@ -1,9 +1,11 @@
-"""Generic HTTP streaming transport runner for MCP servers.
+"""Generic Streamable HTTP transport runner for MCP servers.
 
-This module provides a reusable HTTP streaming server runner that can be used
+This module provides a reusable Streamable HTTP server runner that can be used
 by any domain-specific MCP server. It handles server initialization, tool loading,
-and running the server with HTTP streaming (SSE) transport.
+and running the server with Streamable HTTP transport (recommended for web deployments).
 """
+
+__all__ = ["run_streamable_http_server"]
 
 import asyncio
 import logging
@@ -11,10 +13,6 @@ import sys
 import traceback
 from typing import Any
 
-from starlette.middleware import Middleware
-from starlette.middleware.cors import CORSMiddleware
-
-from src.core.config import get_settings
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.dynamic_loader import load_tools_from_database
 
@@ -57,53 +55,43 @@ async def startup(domain: str, server_name: str | None = None) -> Any:
         raise
 
 
-def run_http_server(domain: str, server_name: str | None = None) -> None:
-    """Run MCP server with HTTP streaming transport for the specified domain.
+def run_streamable_http_server(domain: str, server_name: str | None = None) -> None:
+    """Run MCP server with Streamable HTTP transport for the specified domain.
 
-    This is the main entry point for domain-specific HTTP streaming servers.
+    This is the main entry point for domain-specific Streamable HTTP servers.
+    Streamable HTTP is the recommended transport for web-based deployments and microservices.
 
     Args:
         domain: Domain this server handles (e.g., "general", "kubernetes")
         server_name: Optional custom server name
 
     Example:
-        >>> run_http_server(domain="general")
-        >>> run_http_server(domain="kubernetes", server_name="K8s MCP Server")
+        >>> run_streamable_http_server(domain="general")
+        >>> run_streamable_http_server(domain="kubernetes", server_name="K8s MCP Server")
     """
     try:
         # Log startup to stderr for HTTP streaming clients
-        print(f"HTTP Streaming MCP Server starting for domain: {domain}...", file=sys.stderr)
-        logger.info(f"Running MCP server with HTTP streaming for domain: {domain}")
+        print(f"Streamable HTTP MCP Server starting for domain: {domain}...", file=sys.stderr)
+        logger.info(f"Running MCP server with Streamable HTTP for domain: {domain}")
 
         # Initialize server and load tools
         mcp = asyncio.run(startup(domain=domain, server_name=server_name))
 
-        # Run MCP server with HTTP streaming transport (SSE)
+        # Run MCP server with Streamable HTTP transport
         # Tools are now loaded dynamically from database
+        from src.core.config import get_settings
+
         settings = get_settings()
 
-        # Configure CORS middleware to allow browser connections
-        # This is essential for SSE connections from web browsers
-        cors_middleware = Middleware(
-            CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins for development
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "OPTIONS"],
-            allow_headers=["*"],
-        )
-
-        logger.info("CORS enabled for SSE transport - browser connections allowed")
-
         mcp.run(
-            transport="sse",
-            host=settings.http_host,
-            port=settings.http_port,
-            middleware=[cors_middleware],  # Pass CORS middleware to SSE transport
+            transport="streamable-http",
+            host=settings.streamable_http_host,
+            port=settings.streamable_http_port,
         )
 
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
-        print("HTTP Streaming MCP Server shutting down (KeyboardInterrupt)", file=sys.stderr)
+        print("Streamable HTTP MCP Server shutting down (KeyboardInterrupt)", file=sys.stderr)
     except Exception as e:
         # Log to stderr so HTTP clients can see the error
         error_msg = f"Server error: {e}"

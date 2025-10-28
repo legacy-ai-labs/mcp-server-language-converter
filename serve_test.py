@@ -5,14 +5,15 @@ This bypasses CORS issues by serving everything from the same origin.
 """
 
 import http.server
+import os
 import socketserver
-import urllib.parse
-import urllib.request
 import webbrowser
 from pathlib import Path
 
+import requests  # type: ignore[import-untyped]
 
-PORT = 8001
+
+PORT = 8004
 MCP_SERVER_URL = "http://127.0.0.1:8000"
 
 
@@ -29,30 +30,30 @@ class MCPProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             # Forward the request to the MCP server
             url = f"{MCP_SERVER_URL}{self.path}"
-            req = urllib.request.Request(url)
 
-            # Copy headers from the original request
+            # Prepare headers for the request
+            headers = {}
             for header, value in self.headers.items():
-                req.add_header(header, value)
+                headers[header] = value
 
-            # Make the request to the MCP server
-            with urllib.request.urlopen(req) as response:  # nosec B310 - Internal proxy only
-                # Send response headers
-                self.send_response(response.status)
-                for header, value in response.headers.items():
-                    if header.lower() not in ["connection", "transfer-encoding"]:
-                        self.send_header(header, value)
-                self.end_headers()
+            # Make streaming request to the MCP server
+            response = requests.get(url, headers=headers, stream=True, timeout=None)  # nosec B113 - Internal proxy
 
-                # Stream the response data
-                while True:
-                    chunk = response.read(1024)
-                    if not chunk:
-                        break
+            # Send response headers
+            self.send_response(response.status_code)
+            for header, value in response.headers.items():
+                if header.lower() not in ["connection", "transfer-encoding"]:
+                    self.send_header(header, value)
+            self.end_headers()
+
+            # Stream the response data
+            for chunk in response.iter_content(chunk_size=512):
+                if chunk:
                     self.wfile.write(chunk)
                     self.wfile.flush()
 
         except Exception as e:
+            print(f"Proxy error: {e}")  # Debug output
             self.send_error(500, f"Proxy error: {e!s}")
 
 
@@ -75,6 +76,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import os
-
     main()

@@ -116,6 +116,11 @@ The MCP Server Blueprint supports **multiple transport mechanisms** for differen
 - **Clients**: Web applications, browser-based AI clients
 - **Protocol**: MCP over HTTP streaming
 
+#### Streamable HTTP Server (Full MCP Protocol)
+- **Transport**: Streamable HTTP (bidirectional)
+- **Clients**: Web applications requiring full MCP protocol
+- **Protocol**: MCP over Streamable HTTP with session management
+
 ### Separate Server Processes (Recommended)
 
 **Why separate processes?**
@@ -134,6 +139,10 @@ uv run python -m src.mcp_servers.mcp_general
 # Terminal 2: HTTP streaming server (for web-based clients)
 uv run python -m src.mcp_servers.mcp_general.http_main
 # Server available at: http://localhost:8000
+
+# Terminal 3: Streamable HTTP server (for full MCP protocol)
+uv run python -m src.mcp_servers.mcp_general.streamable_http_main
+# Server available at: http://localhost:8002
 ```
 
 Both servers share the same core business logic and tools, but provide different transport mechanisms for different client types.
@@ -157,6 +166,19 @@ Both servers share the same core business logic and tools, but provide different
    ```
 
 3. **Comprehensive testing guide:** See [HTTP Streaming Guide](docs/HTTP_STREAMING.md#testing-http-streaming)
+
+#### Streamable HTTP Testing
+1. **Python client test:**
+   ```bash
+   uv run python test_streamable_http_client.py
+   ```
+
+2. **Test both transports:**
+   ```bash
+   uv run python test_both_transports.py
+   ```
+
+3. **Comprehensive guide:** See [Streamable HTTP Guide](docs/STREAMABLE_HTTP.md)
 
 ### Prerequisites
 
@@ -327,7 +349,8 @@ We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIB
 
 ## Documentation
 
-- [HTTP Streaming Guide](docs/HTTP_STREAMING.md) - Complete guide for HTTP streaming implementation
+- [HTTP Streaming Guide](docs/HTTP_STREAMING.md) - Complete guide for SSE transport implementation
+- [Streamable HTTP Guide](docs/STREAMABLE_HTTP.md) - Complete guide for Streamable HTTP transport
 - [Usage Guide](docs/USAGE.md) - Detailed usage instructions for all transport modes
 - [Architecture Documentation](docs/ARCHITECTURE.md) - System design and architectural decisions
 - [Database Guide](docs/DATABASE.md) - Database setup and management

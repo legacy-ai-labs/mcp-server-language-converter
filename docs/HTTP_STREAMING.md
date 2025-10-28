@@ -6,6 +6,160 @@ This guide covers HTTP streaming implementation for the MCP Server Blueprint, en
 
 HTTP streaming mode uses **Server-Sent Events (SSE)** to provide real-time, bidirectional communication between web-based AI clients and the MCP server. This allows AI applications running in browsers or web environments to access MCP tools without requiring STDIO transport.
 
+## Understanding HTTP Streaming Protocols
+
+### What is Server-Sent Events (SSE)?
+
+**Server-Sent Events (SSE)** is a standard HTTP-based protocol that enables servers to push data to web clients over a single, long-lived HTTP connection. It's part of the HTML5 specification and provides a simple, efficient way to stream data from server to client.
+
+**Key characteristics:**
+- **Unidirectional**: Server → Client only (requests go via separate HTTP calls)
+- **Text-based**: Events are UTF-8 encoded text
+- **Auto-reconnection**: Built-in reconnection logic in browsers
+- **Event IDs**: Support for resuming from last received event
+- **Simple protocol**: Just HTTP with `Content-Type: text/event-stream`
+
+**How SSE works:**
+```
+Client                          Server
+  |                                |
+  |--- HTTP GET /sse ------------->|
+  |                                |
+  |<-- HTTP 200 OK ----------------|
+  |    Content-Type: text/event-stream
+  |    Connection: keep-alive      |
+  |                                |
+  |<-- data: message 1 ------------|
+  |<-- data: message 2 ------------|
+  |<-- data: message 3 ------------|
+  |          (connection stays open)
+```
+
+### SSE vs Other HTTP Streaming Protocols
+
+#### Comparison Table
+
+| Feature | **SSE** | **WebSockets** | **Long Polling** | **HTTP/2 Push** |
+|---------|---------|----------------|------------------|-----------------|
+| **Direction** | Server → Client | Bidirectional | Both (via polling) | Server → Client |
+| **Protocol** | HTTP | WebSocket (ws://) | HTTP | HTTP/2 |
+| **Connection** | Single long-lived | Single bidirectional | Multiple short | Multiple |
+| **Reconnection** | Automatic | Manual | Manual | Automatic |
+| **Browser Support** | Excellent | Excellent | Universal | Deprecated |
+| **Firewall Friendly** | ✅ Yes (HTTP) | ⚠️ Sometimes blocked | ✅ Yes | ✅ Yes |
+| **Complexity** | Low | Medium | Low | High |
+| **Overhead** | Low | Very Low | High | Medium |
+| **Use Case** | Server push, updates | Real-time chat, gaming | Legacy support | Proactive caching |
+
+#### SSE vs WebSockets
+
+**Server-Sent Events (SSE):**
+- ✅ **Simpler**: Standard HTTP, no special protocol
+- ✅ **Auto-reconnect**: Built into EventSource API
+- ✅ **Firewall friendly**: Works everywhere HTTP works
+- ✅ **HTTP/2 compatible**: Multiplexes over single connection
+- ❌ **One-way**: Client can't send messages over the SSE connection
+- ❌ **Text only**: No binary data support
+- ✅ **Best for**: Server updates, notifications, streaming responses
+
+**WebSockets:**
+- ✅ **Bidirectional**: Full-duplex communication
+- ✅ **Binary support**: Can send binary data
+- ✅ **Lower latency**: No HTTP overhead after handshake
+- ❌ **More complex**: Requires WebSocket protocol support
+- ❌ **Firewall issues**: Some corporate firewalls block ws://
+- ❌ **Manual reconnection**: Need to implement retry logic
+- ✅ **Best for**: Chat, gaming, collaborative editing
+
+#### SSE vs Long Polling
+
+**Server-Sent Events (SSE):**
+- ✅ **Single connection**: Maintains one long-lived connection
+- ✅ **Lower latency**: Immediate message delivery
+- ✅ **Less overhead**: No repeated connection setup
+- ✅ **Efficient**: Better server resource usage
+- ✅ **Simpler code**: EventSource API handles everything
+
+**Long Polling:**
+- ❌ **Multiple connections**: New connection for each message
+- ❌ **Higher latency**: Delay between poll requests
+- ❌ **More overhead**: Repeated HTTP handshakes
+- ❌ **Resource intensive**: More server connections
+- ✅ **Universal**: Works with any HTTP client
+- ✅ **Best for**: Legacy systems without SSE support
+
+#### SSE vs HTTP/2 Server Push
+
+**Server-Sent Events (SSE):**
+- ✅ **Still active**: Widely supported and maintained
+- ✅ **Dynamic**: Can push any data anytime
+- ✅ **Standardized**: Part of HTML5 spec
+- ✅ **Event-driven**: Natural fit for streaming data
+
+**HTTP/2 Server Push:**
+- ❌ **Deprecated**: Chrome removed support in 2022
+- ❌ **Static**: Only for pushing resources (CSS, JS)
+- ❌ **Limited**: Can't push arbitrary data
+- ❌ **Being phased out**: Not recommended for new projects
+
+### Why This Project Uses SSE
+
+This MCP server implementation chose **Server-Sent Events (SSE)** for several strategic reasons:
+
+#### 1. **MCP Protocol Alignment**
+- MCP is primarily **server-driven**: Server sends tool responses to clients
+- Clients send tool requests via **separate HTTP POST** endpoints
+- SSE's unidirectional nature matches this pattern perfectly
+
+#### 2. **Simplicity**
+```python
+# SSE is built into FastMCP - just one line:
+mcp.run(transport="sse")
+```
+
+#### 3. **Browser Native Support**
+```javascript
+// No libraries needed - works in all modern browsers
+const eventSource = new EventSource('http://localhost:8000/sse');
+eventSource.onmessage = (event) => console.log(event.data);
+```
+
+#### 4. **Excellent Firewall Compatibility**
+- SSE uses standard HTTP/HTTPS
+- Works through corporate proxies and firewalls
+- No special ports or protocols to allowlist
+
+#### 5. **HTTP/2 Benefits**
+When used over HTTP/2, SSE benefits from:
+- **Multiplexing**: Multiple SSE streams over one TCP connection
+- **Header compression**: Reduced overhead
+- **Better performance**: Compared to HTTP/1.1
+
+#### 6. **Automatic Reconnection**
+```javascript
+// Browser automatically reconnects if connection drops
+eventSource.addEventListener('error', () => {
+  console.log('Connection lost - browser will auto-reconnect');
+});
+```
+
+### When to Consider Alternatives
+
+**Use WebSockets instead if:**
+- ❌ You need bidirectional real-time communication (chat, gaming)
+- ❌ You need to send binary data (images, files)
+- ❌ You need very low latency (sub-10ms requirements)
+
+**Use Long Polling instead if:**
+- ❌ You need to support very old browsers (IE8 and below)
+- ❌ You're working with systems that don't support SSE
+
+**For this MCP server:** SSE is the optimal choice because:
+- ✅ Clients make tool requests via HTTP POST (not SSE)
+- ✅ Server streams tool results via SSE
+- ✅ Perfect separation of concerns
+- ✅ Simple, efficient, and well-supported
+
 ## Architecture
 
 ```mermaid

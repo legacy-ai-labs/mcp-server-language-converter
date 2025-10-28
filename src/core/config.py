@@ -26,6 +26,11 @@ class Settings(BaseSettings):  # type: ignore[misc]
     http_port: int = 8000
     http_streaming_enabled: bool = True
 
+    # Streamable HTTP (recommended for web deployments)
+    streamable_http_host: str = "0.0.0.0"  # nosec B104 - Development default, configurable via env
+    streamable_http_port: int = 8002
+    streamable_http_enabled: bool = True
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
