@@ -52,9 +52,8 @@ async def load_tools_from_database(mcp: FastMCP, domain: str) -> None:
 async def register_tool_from_db(mcp: FastMCP, tool: Any) -> None:
     """Register a single tool from database record.
 
-    This uses a generic wrapper approach that works for any tool without
-    requiring tool-specific code. The wrapper accepts **kwargs and delegates
-    to the handler function.
+    This creates tool-specific wrappers with proper signatures instead of
+    using **kwargs which FastMCP doesn't support.
 
     Args:
         mcp: FastMCP server instance
@@ -68,19 +67,47 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any) -> None:
     if not handler_func:
         raise ValueError(f"Handler {tool.handler_name} not found for tool {tool.name}")
 
-    # Create generic async wrapper that works for any tool
-    async def generic_tool_wrapper(**kwargs: Any) -> dict[str, Any]:
-        """Generic wrapper that delegates to the handler function."""
-        try:
-            # Call the handler with parameters
-            result = handler_func(kwargs)
-            return result
-        except Exception as e:
-            logger.error(f"Tool {tool.name} failed: {e}")
-            return {"success": False, "error": str(e)}
+    # Create specific tool wrappers based on tool name
+    if tool.name == "echo":
 
-    # Apply the @mcp.tool() decorator
-    decorated_tool = mcp.tool(name=tool.name, description=tool.description)(generic_tool_wrapper)
+        async def echo_tool(text: str) -> dict[str, Any]:
+            """Echo back the provided text."""
+            try:
+                result = handler_func({"text": text})
+                return result
+            except Exception as e:
+                logger.error(f"Tool {tool.name} failed: {e}")
+                return {"success": False, "error": str(e)}
+
+        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(echo_tool)
+
+    elif tool.name == "calculator_add":
+
+        async def calculator_add_tool(a: float, b: float) -> dict[str, Any]:
+            """Add two numbers together."""
+            try:
+                result = handler_func({"a": a, "b": b})
+                return result
+            except Exception as e:
+                logger.error(f"Tool {tool.name} failed: {e}")
+                return {"success": False, "error": str(e)}
+
+        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(calculator_add_tool)
+
+    else:
+        # Generic fallback for unknown tools
+        async def generic_tool_wrapper(text: str = "") -> dict[str, Any]:
+            """Generic wrapper for unknown tools."""
+            try:
+                result = handler_func({"text": text})
+                return result
+            except Exception as e:
+                logger.error(f"Tool {tool.name} failed: {e}")
+                return {"success": False, "error": str(e)}
+
+        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(
+            generic_tool_wrapper
+        )
 
     # Store reference to prevent garbage collection
     if not hasattr(mcp, "_dynamic_tools"):
