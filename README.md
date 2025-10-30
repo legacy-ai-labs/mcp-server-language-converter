@@ -262,6 +262,8 @@ uv run pytest --cov=src
 | [Setup Guide](docs/SETUP.md) | Development environment setup, tools, and configuration |
 | [Database Guide](docs/DATABASE.md) | Database schema, setup, migrations, and management |
 | [Usage Guide](docs/USAGE.md) | Common usage patterns and examples |
+| [Testing Quickstart](docs/TESTING_QUICKSTART.md) | Minimal steps to test STDIO, SSE, and Streamable HTTP |
+| [Testing Guide](docs/TESTING_GUIDE.md) | Claude Desktop and Cursor testing walkthrough |
 | [Contributing](docs/CONTRIBUTING.md) | Guidelines for contributing to the project |
 | [API Documentation](docs/API.md) | MCP tools/resources/prompts and REST endpoint reference |
 
@@ -347,15 +349,10 @@ We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIB
 
 [Add your license here]
 
-## Documentation
+## Additional References
 
 - [HTTP Streaming Guide](docs/HTTP_STREAMING.md) - Complete guide for SSE transport implementation
 - [Streamable HTTP Guide](docs/STREAMABLE_HTTP.md) - Complete guide for Streamable HTTP transport
-- [Usage Guide](docs/USAGE.md) - Detailed usage instructions for all transport modes
-- [Architecture Documentation](docs/ARCHITECTURE.md) - System design and architectural decisions
-- [Database Guide](docs/DATABASE.md) - Database setup and management
-- [API Documentation](docs/API.md) - REST API reference
-- [Contributing Guidelines](docs/CONTRIBUTING.md) - Development workflow and standards
 
 ## Resources
 

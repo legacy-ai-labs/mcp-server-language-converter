@@ -176,6 +176,25 @@
         let tools = [];
         let messageId = 1;
 
+        // Optional: known tool metadata for display in this HTML-only demo
+        const KNOWN_TOOLS = [
+            {
+                name: 'echo',
+                description: 'Echo back the provided text',
+                parameters: [
+                    { name: 'text', type: 'string', required: true, description: 'Text to echo' }
+                ],
+            },
+            {
+                name: 'calculator_add',
+                description: 'Add two numbers together',
+                parameters: [
+                    { name: 'a', type: 'number', required: true, description: 'Left operand' },
+                    { name: 'b', type: 'number', required: true, description: 'Right operand' },
+                ],
+            },
+        ];
+
         function log(message) {
             const logElement = document.getElementById('log');
             const timestamp = new Date().toLocaleTimeString();
@@ -194,6 +213,9 @@
                 statusElement.className = 'status connected';
                 connectBtn.disabled = true;
                 disconnectBtn.disabled = false;
+                // Populate with known tool metadata for quick visibility
+                tools = [...KNOWN_TOOLS];
+                updateToolsList();
             } else {
                 statusElement.textContent = 'Disconnected';
                 statusElement.className = 'status disconnected';
@@ -313,11 +335,43 @@
         function updateToolsList() {
             const toolsElement = document.getElementById('tools');
             if (tools.length > 0) {
-                toolsElement.innerHTML = tools.map(tool =>
-                    `<div><strong>${tool.name}</strong>: ${tool.description}</div>`
-                ).join('');
+                const rows = tools.map(tool => {
+                    const params = Array.isArray(tool.parameters) && tool.parameters.length
+                        ? tool.parameters.map(p => `\`${p.name}\` (${p.type}${p.required ? ', required' : ''})`).join(', ')
+                        : '—';
+                    return `
+                        <tr>
+                            <td style="padding:6px 8px; border:1px solid #444; white-space:nowrap;">${tool.name}</td>
+                            <td style="padding:6px 8px; border:1px solid #444;">${tool.description || '—'}</td>
+                            <td style="padding:6px 8px; border:1px solid #444;">${params}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                toolsElement.innerHTML = `
+                    <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; padding:6px 8px; border:1px solid #444; background:#262626;">Name</th>
+                                <th style="text-align:left; padding:6px 8px; border:1px solid #444; background:#262626;">Description</th>
+                                <th style="text-align:left; padding:6px 8px; border:1px solid #444; background:#262626;">Parameters</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                `;
             } else {
                 toolsElement.innerHTML = 'No tools available';
+            }
+        }
+
+        function ensureToolInList(name, description) {
+            const exists = tools.some(t => t.name === name);
+            if (!exists) {
+                tools.push({ name, description });
+                updateToolsList();
             }
         }
 
@@ -340,6 +394,7 @@
                 <em>Note: This is a simulated result. Real MCP would use proper protocol.</em>
             `;
             log(`✅ Echo result: "${text}"`);
+            ensureToolInList('echo', 'Echo back the provided text');
         }
 
         function testCalculator() {
@@ -363,6 +418,7 @@
                 <em>Note: This is a simulated result. Real MCP would use proper protocol.</em>
             `;
             log(`✅ Calculator result: ${a} + ${b} = ${result}`);
+            ensureToolInList('calculator_add', 'Add two numbers together');
         }
 
         function clearLog() {

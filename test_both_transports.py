@@ -6,6 +6,7 @@ This script demonstrates how to use both transport types with our MCP server.
 
 import asyncio
 import logging
+from typing import Any
 
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
@@ -15,6 +16,20 @@ from mcp.client.streamable_http import streamablehttp_client
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _extract_first_text_content(contents: list[Any]) -> str:
+    """Return the first text payload from mixed MCP content entries.
+
+    Content items may be TextContent, ImageContent, AudioContent, ResourceLink, or EmbeddedResource.
+    Only TextContent reliably exposes a 'text' attribute. We select the first such entry when present.
+    """
+    for item in contents:
+        text = getattr(item, "text", None)
+        if isinstance(text, str):
+            return text
+    # Fallback: stringify the first item for visibility during tests
+    return str(contents[0]) if contents else ""
 
 
 async def test_sse_transport() -> None:
@@ -42,7 +57,7 @@ async def test_sse_transport() -> None:
             # Test echo tool
             if any(tool.name == "echo" for tool in tools_result.tools):
                 call_result = await session.call_tool("echo", {"text": "Hello SSE!"})
-                logger.info(f"Echo result: {call_result.content[0].text}")
+                logger.info(f"Echo result: {_extract_first_text_content(call_result.content)}")
 
             logger.info("✅ SSE transport test completed successfully!")
 
@@ -81,12 +96,14 @@ async def test_streamable_http_transport() -> None:
             # Test echo tool
             if any(tool.name == "echo" for tool in tools_result.tools):
                 call_result = await session.call_tool("echo", {"text": "Hello Streamable HTTP!"})
-                logger.info(f"Echo result: {call_result.content[0].text}")
+                logger.info(f"Echo result: {_extract_first_text_content(call_result.content)}")
 
             # Test calculator tool
             if any(tool.name == "calculator_add" for tool in tools_result.tools):
                 call_result = await session.call_tool("calculator_add", {"a": 10, "b": 5})
-                logger.info(f"Calculator result: {call_result.content[0].text}")
+                logger.info(
+                    f"Calculator result: {_extract_first_text_content(call_result.content)}"
+                )
 
             logger.info("✅ Streamable HTTP transport test completed successfully!")
 
