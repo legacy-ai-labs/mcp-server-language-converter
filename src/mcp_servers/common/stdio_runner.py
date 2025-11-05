@@ -11,8 +11,13 @@ import sys
 import traceback
 from typing import Any
 
+from src.core.config import get_settings
+from src.core.services.prometheus_metrics import PROMETHEUS_METRICS
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.dynamic_loader import load_tools_from_database
+
+
+settings = get_settings()
 
 
 # Configure logging to stderr so Claude Desktop can see it
@@ -39,11 +44,20 @@ async def startup(domain: str, server_name: str | None = None) -> Any:
         Exception: If server initialization or tool loading fails
     """
     try:
+        # Initialize Prometheus server metadata
+        if settings.enable_metrics:
+            PROMETHEUS_METRICS.set_server_info(
+                version=settings.app_version,
+                python_version=sys.version.split()[0],
+                environment=settings.environment,
+            )
+            logger.info("Prometheus metrics initialized")
+
         # Create MCP server instance
         mcp = create_mcp_server(domain=domain, server_name=server_name)
 
-        # Load tools from database for this domain
-        await load_tools_from_database(mcp, domain)
+        # Load tools from database for this domain with STDIO transport
+        await load_tools_from_database(mcp, domain, transport="stdio")
         logger.info(f"Tools loaded successfully for domain: {domain}")
 
         return mcp

@@ -2,6 +2,12 @@
 
 Minimal steps to test all transports with MCP Inspector.
 
+### Launch MCP Inspector UI
+```bash
+npx @modelcontextprotocol/inspector
+```
+Open http://localhost:3000 in your browser, then connect each transport using the URLs below.
+
 ### STDIO (Claude Desktop/Cursor style)
 1) Start server (keep running):
 ```bash

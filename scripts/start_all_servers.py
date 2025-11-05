@@ -5,6 +5,7 @@ This script starts both the SSE and Streamable HTTP servers for testing.
 """
 
 import logging
+import os
 import subprocess  # nosec B404 - Required for process management
 import sys
 import time
@@ -58,8 +59,6 @@ def main() -> None:
 
     # Start Streamable HTTP server on a different port
     # We need to modify the config or use environment variables
-    import os
-
     os.environ["STREAMABLE_HTTP_PORT"] = "8002"
 
     streamable_process = start_server(

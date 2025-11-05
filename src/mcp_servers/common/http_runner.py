@@ -15,6 +15,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from src.core.config import get_settings
+from src.core.services.prometheus_metrics import PROMETHEUS_METRICS
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.dynamic_loader import load_tools_from_database
 
@@ -43,11 +44,22 @@ async def startup(domain: str, server_name: str | None = None) -> Any:
         Exception: If server initialization or tool loading fails
     """
     try:
+        settings = get_settings()
+
+        # Initialize Prometheus server metadata
+        if settings.enable_metrics:
+            PROMETHEUS_METRICS.set_server_info(
+                version=settings.app_version,
+                python_version=sys.version.split()[0],
+                environment=settings.environment,
+            )
+            logger.info("Prometheus metrics initialized")
+
         # Create MCP server instance
         mcp = create_mcp_server(domain=domain, server_name=server_name)
 
-        # Load tools from database for this domain
-        await load_tools_from_database(mcp, domain)
+        # Load tools from database for this domain with HTTP transport
+        await load_tools_from_database(mcp, domain, transport="http")
         logger.info(f"Tools loaded successfully for domain: {domain}")
 
         return mcp
@@ -61,6 +73,9 @@ def run_http_server(domain: str, server_name: str | None = None) -> None:
     """Run MCP server with HTTP streaming transport for the specified domain.
 
     This is the main entry point for domain-specific HTTP streaming servers.
+    Prometheus metrics are collected but not exposed via HTTP endpoint
+    (FastMCP doesn't support custom routes). Metrics can be accessed
+    programmatically via the Prometheus client library.
 
     Args:
         domain: Domain this server handles (e.g., "general", "kubernetes")
@@ -93,6 +108,15 @@ def run_http_server(domain: str, server_name: str | None = None) -> None:
         )
 
         logger.info("CORS enabled for SSE transport - browser connections allowed")
+
+        # Note: FastMCP doesn't support custom routes via app parameter
+        # Metrics are still collected and tracked in memory via Prometheus client
+        # To expose metrics via HTTP, run a separate metrics server or use
+        # a monitoring agent that can scrape from Prometheus client's registry
+        logger.info(
+            "Prometheus metrics are collected but not exposed via HTTP endpoint. "
+            "Use a Prometheus client library to access metrics programmatically."
+        )
 
         mcp.run(
             transport="sse",

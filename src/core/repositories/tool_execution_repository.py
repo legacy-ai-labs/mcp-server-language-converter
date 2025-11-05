@@ -165,7 +165,7 @@ class ToolExecutionRepository:
         result = await self.db.execute(query)
         rows = result.fetchall()
 
-        return {row.status: row.count for row in rows}
+        return {str(row[0]): int(row[1]) for row in rows}
 
     async def get_tool_stats(
         self,

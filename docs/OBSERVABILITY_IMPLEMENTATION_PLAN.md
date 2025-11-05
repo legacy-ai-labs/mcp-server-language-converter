@@ -1,8 +1,10 @@
-# Observability & Metrics Implementation Plan
+# Observability & Metrics Implementation Plan (REVISED for Prometheus)
 
 ## Overview
 
-This document outlines the detailed implementation plan for adding comprehensive observability and metrics to the MCP server blueprint. The implementation follows a phased approach to ensure each component can be tested independently before integration.
+This document outlines the detailed implementation plan for adding comprehensive observability and metrics to the MCP server blueprint. The implementation uses **Prometheus for operational metrics** and **PostgreSQL for detailed audit trails**.
+
+**Last Updated:** Phase 2 completed with Prometheus integration
 
 ## Goals
 
@@ -16,244 +18,132 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 ## Architecture
 
-### Dual-Layer Approach
+### Hybrid Approach: Prometheus + Database
 
-1. **In-Memory Metrics Collector** (Real-time)
-   - Sliding window calculations for percentiles
-   - Time-bucketed counters for rate calculations
-   - Fast access for live dashboards
-   - Thread-safe operations
+**Best of both worlds:** Industry-standard monitoring + detailed debugging
 
-2. **Database Storage** (Historical)
-   - Persistent audit trail of all executions
-   - Long-term trend analysis
-   - Complex queries and aggregations
-   - Compliance and debugging
+| Component | Purpose | Storage | Query Method |
+|-----------|---------|---------|--------------|
+| **Prometheus** | Operational metrics, alerting, dashboards | Time-series (15-365 days) | PromQL |
+| **PostgreSQL** | Detailed audit trail, debugging | Relational (30+ days) | SQL |
 
-## Implementation Phases
+#### 1. **Prometheus** (Real-time Operational Metrics)
+- Counter: `mcp_tool_calls_total` - Total calls with labels (tool, status, domain, transport)
+- Counter: `mcp_tool_errors_total` - Errors by type
+- Histogram: `mcp_tool_duration_seconds` - Latency distribution (auto-calculates percentiles)
+- Gauge: `mcp_tool_in_progress` - Current in-flight requests
+- Native Grafana integration
+- Built-in alerting via Alertmanager
+- Industry-standard, battle-tested
 
----
+#### 2. **Database** (Detailed Audit Trail)
+- Individual execution records with full context
+- Structured queries (SQL) for parameter analysis
+- E2E tracing with correlation IDs
+- Long-term retention for compliance
+- Debug specific failures with input/output data
 
-## Phase 1: Database Foundation
+**Why both?**
+- Prometheus: "Is system healthy? Alert if error rate > 5%"
+- Database: "Why did this specific call fail with these parameters?"
 
-### 1.1 Create Migration for `tool_executions` Table
+## Implementation Status
 
-**File**: `migrations/versions/XXX_add_tool_executions.py`
+### ✅ Phase 1: Database Foundation (COMPLETED)
+**Status:** Implemented and migrated
+**Branch:** `feature/observability-metrics`
+**Commit:** `6077fa2`
 
-**Tasks**:
-- [ ] Create Alembic migration file
-- [ ] Define table schema with columns:
-  - `id` (primary key)
-  - `tool_name` (indexed, varchar 100)
-  - `correlation_id` (indexed, uuid/varchar 36)
-  - `session_id` (indexed, nullable, uuid/varchar 36)
-  - `started_at` (indexed, timestamp)
-  - `completed_at` (nullable, timestamp)
-  - `duration_ms` (nullable, float)
-  - `status` (varchar 20: success, error, timeout)
-  - `error_type` (nullable, varchar 100)
-  - `error_message` (nullable, text)
-  - `input_params` (nullable, jsonb)
-  - `output_data` (nullable, jsonb)
-  - `transport` (varchar 20: stdio, http, rest)
-  - `domain` (varchar 50: general, kubernetes, etc.)
-- [ ] Add indexes:
-  - `idx_tool_executions_tool_name` on `tool_name`
-  - `idx_tool_executions_correlation_id` on `correlation_id`
-  - `idx_tool_executions_session_id` on `session_id`
-  - `idx_tool_executions_started_at` on `started_at`
-  - `idx_tool_executions_status` on `status`
-- [ ] Add composite index: `idx_tool_executions_tool_status_time` on `(tool_name, status, started_at)`
-- [ ] Test migration up/down
+- ✅ Alembic migration system initialized
+- ✅ `tool_executions` table with 9 optimized indexes
+- ✅ `ToolExecution` SQLAlchemy model
+- ✅ `ToolExecutionRepository` with CRUD and metrics queries
+- ✅ Migration applied to database
 
-**Dependencies**: None
-
-**Estimated Time**: 1 hour
+**Files Created:**
+- `migrations/versions/d483646e26ae_add_tool_executions_table.py`
+- `src/core/models/tool_execution.py`
+- `src/core/repositories/tool_execution_repository.py`
+- `alembic.ini`
+- `migrations/env.py`
 
 ---
 
-### 1.2 Create SQLAlchemy Model
+### ✅ Phase 2: Core Instrumentation (COMPLETED)
+**Status:** Implemented, not yet committed
+**Branch:** `feature/observability-metrics`
 
-**File**: `src/core/models/tool_execution.py`
+- ✅ Prometheus metrics defined (counters, histogram, gauge)
+- ✅ Tracing context manager with correlation IDs
+- ✅ Dual recording (Prometheus + Database)
+- ✅ Configuration settings for privacy/compliance
+- ✅ Structured logging (TRACE_START/TRACE_END)
+- ✅ Non-blocking async DB persistence
 
-**Tasks**:
-- [ ] Create `ToolExecution` class extending `Base`
-- [ ] Define all mapped columns with proper types
-- [ ] Add `__repr__` method for debugging
-- [ ] Add property methods:
-  - `is_success` -> bool
-  - `is_error` -> bool
-  - `duration_seconds` -> float | None
-- [ ] Add validation constraints (e.g., status must be in allowed values)
-- [ ] Import in `src/core/models/__init__.py`
+**Files Created:**
+- `src/core/services/prometheus_metrics.py` - Prometheus metric definitions
+- `src/core/services/observability.py` - Tracing context manager
 
-**Dependencies**: 1.1
+**Files Modified:**
+- `src/core/config.py` - Added observability settings
+- `pyproject.toml` - Added `prometheus-client` dependency
 
-**Estimated Time**: 45 minutes
-
----
-
-### 1.3 Create Repository Layer
-
-**File**: `src/core/repositories/tool_execution_repository.py`
-
-**Tasks**:
-- [ ] Create `ToolExecutionRepository` class
-- [ ] Implement CRUD operations:
-  - `create(execution_data: dict) -> ToolExecution`
-  - `get_by_id(execution_id: int) -> ToolExecution | None`
-  - `get_by_correlation_id(correlation_id: str) -> list[ToolExecution]`
-  - `get_by_session_id(session_id: str) -> list[ToolExecution]`
-- [ ] Implement query methods:
-  - `get_recent_by_tool(tool_name: str, limit: int = 100) -> list[ToolExecution]`
-  - `get_by_time_range(start: datetime, end: datetime, tool_name: str | None) -> list[ToolExecution]`
-  - `count_by_status(tool_name: str | None, start: datetime | None) -> dict[str, int]`
-- [ ] Implement metric calculation methods:
-  - `get_tool_stats(tool_name: str, start_time: datetime, end_time: datetime) -> dict`
-  - `get_percentile_latencies(tool_name: str | None, start_time: datetime | None, end_time: datetime | None) -> dict`
-  - `get_historical_rates(tool_name: str | None, start_time: datetime | None, end_time: datetime | None, bucket_size_minutes: int) -> list[dict]`
-- [ ] Add helper method: `_percentile(sorted_values: list[float], p: int) -> float`
-- [ ] Import in `src/core/repositories/__init__.py`
-
-**Dependencies**: 1.2
-
-**Estimated Time**: 2 hours
+**Key Features:**
+- `trace_tool_execution()` context manager wraps every tool call
+- Automatic correlation ID generation for E2E tracing
+- Privacy controls (can disable logging of inputs/outputs)
+- Respects feature flags (can disable metrics or DB logging)
 
 ---
 
-## Phase 2: Core Instrumentation
-
-### 2.1 Create Metrics Collector
-
-**File**: `src/core/services/metrics.py`
-
-**Tasks**:
-- [ ] Create `MetricsCollector` class with thread-safe operations
-- [ ] Initialize data structures:
-  - `_lock: threading.Lock`
-  - `_counters: dict[str, int]` (lifetime counters)
-  - `_latency_windows: dict[str, deque[tuple[datetime, float]]]` (sliding window for percentiles)
-  - `_time_buckets: dict[str, deque[tuple[datetime, int]]]` (bucketed for rates)
-  - `_last_reset: datetime`
-- [ ] Implement `record_execution(tool_name: str, context: dict) -> None`:
-  - Update counters (total, per-status, per-error-type)
-  - Append to latency window (maxlen=1000)
-  - Increment time buckets
-- [ ] Implement `get_percentiles(tool_name: str | None, window_seconds: int) -> dict`:
-  - Filter latency window to time range
-  - Calculate p50, p75, p90, p95, p99, max
-  - Return count and window_seconds
-- [ ] Implement `get_rates(tool_name: str | None) -> dict`:
-  - Calculate rates for 5s, 30s, 60s windows
-  - Return calls/sec, success/sec, error/sec for each window
-- [ ] Implement `get_counters(tool_name: str | None) -> dict`:
-  - Return lifetime counters (total calls, successes, errors by type)
-- [ ] Implement helper methods:
-  - `_increment_time_bucket(metric_key: str, timestamp: datetime) -> None`
-  - `_sum_buckets(metric_key: str, cutoff: datetime) -> int`
-  - `_percentile(sorted_values: list[float], p: int) -> float`
-  - `_get_global_rates(now: datetime) -> dict` (aggregate across all tools)
-- [ ] Create singleton instance: `METRICS_COLLECTOR = MetricsCollector()`
-- [ ] Add `reset_metrics()` method for testing
-
-**Dependencies**: None
-
-**Estimated Time**: 3 hours
-
----
-
-### 2.2 Create Tracing Context Manager
-
-**File**: `src/core/services/observability.py`
-
-**Tasks**:
-- [ ] Import dependencies (uuid, datetime, asyncio, logging, contextmanager)
-- [ ] Create `trace_tool_execution()` context manager:
-  - Parameters: `tool_name`, `parameters`, `domain`, `transport`, `correlation_id`, `session_id`
-  - Generate correlation_id if not provided (uuid4)
-  - Initialize trace context dict with: correlation_id, session_id, started_at
-  - Log TRACE_START with structured fields
-  - Yield context to caller
-  - In except block: capture error_type, error_message, set status="error", re-raise
-  - In finally block:
-    - Set completed_at
-    - Calculate duration_ms
-    - Log TRACE_END with duration and status
-    - Call `_persist_execution_async()` to save to DB
-    - Call `METRICS_COLLECTOR.record_execution()`
-- [ ] Implement `_persist_execution_async()`:
-  - Use `asyncio.create_task()` to avoid blocking
-  - Create new DB session
-  - Call `ToolExecutionRepository.create()`
-  - Handle exceptions with error logging
-  - Close session properly
-- [ ] Add helper functions:
-  - `generate_correlation_id() -> str`
-  - `get_correlation_id_from_context() -> str | None` (placeholder for MCP context integration)
-  - `get_session_id_from_context() -> str | None` (placeholder for MCP context integration)
-- [ ] Configure structured logging format for TRACE_START/TRACE_END
-
-**Dependencies**: 1.3, 2.1
-
-**Estimated Time**: 2 hours
-
----
-
-### 2.3 Update Configuration
-
-**File**: `src/core/config.py`
-
-**Tasks**:
-- [ ] Add observability settings to `Settings` class:
-  - `enable_metrics: bool = True`
-  - `enable_execution_logging: bool = True`
-  - `metrics_retention_days: int = 30`
-  - `log_tool_inputs: bool = False` (PII concern)
-  - `log_tool_outputs: bool = False` (PII concern)
-  - `max_latency_samples: int = 1000`
-- [ ] Add environment variable mappings
-- [ ] Document settings in docstring
-
-**Dependencies**: None
-
-**Estimated Time**: 30 minutes
-
----
-
-## Phase 3: Integration
+## Phase 3: Integration (CURRENT - NOT STARTED)
 
 ### 3.1 Integrate with Dynamic Tool Loader
 
 **File**: `src/mcp_servers/common/dynamic_loader.py`
 
-**Tasks**:
+**Tasks:**
 - [ ] Import `trace_tool_execution` from observability module
-- [ ] Import `get_settings` to check if metrics enabled
-- [ ] For each tool wrapper in `register_tool_from_db()`, wrap execution with tracing:
-  - Add `domain` parameter to `load_tools_from_db()` function
-  - Add `transport` parameter to `load_tools_from_db()` function
-  - Pass these to trace context manager
-- [ ] Update all existing tool wrappers (echo, add, divide, get_system_info):
-  ```python
-  async def tool_wrapper(...) -> dict[str, Any]:
-      """Tool description."""
-      with trace_tool_execution(
-          tool_name=tool.name,
-          parameters={"param": param},  # Match wrapper signature
-          domain=domain,
-          transport=transport,
-      ):
-          try:
-              result = handler_func({"param": param})
-              return result
-          except Exception as e:
-              logger.error(f"Tool {tool.name} failed: {e}")
-              return {"success": False, "error": str(e)}
-  ```
-- [ ] Test that existing tools still work correctly
+- [ ] Update `load_tools_from_db()` signature to accept `domain` and `transport` parameters
+- [ ] Wrap all tool wrappers with `trace_tool_execution()`:
+  - `echo_wrapper`
+  - `add_wrapper`
+  - `divide_wrapper`
+  - `get_system_info_wrapper`
+- [ ] Pass correct domain/transport to each tool wrapper
+- [ ] Test that tools still work correctly
 - [ ] Verify metrics are being collected
 
-**Dependencies**: 2.2
+**Example transformation:**
+```python
+# BEFORE
+async def divide_wrapper(a: int, b: int) -> dict[str, Any]:
+    """Divide two numbers."""
+    try:
+        result = handler_func({"a": a, "b": b})
+        return result
+    except Exception as e:
+        logger.error(f"Tool divide failed: {e}")
+        return {"success": False, "error": str(e)}
+
+# AFTER
+async def divide_wrapper(a: int, b: int) -> dict[str, Any]:
+    """Divide two numbers."""
+    with trace_tool_execution(
+        tool_name="divide",
+        parameters={"a": a, "b": b},
+        domain=domain,
+        transport=transport,
+    ):
+        try:
+            result = handler_func({"a": a, "b": b})
+            return result
+        except Exception as e:
+            logger.error(f"Tool divide failed: {e}")
+            return {"success": False, "error": str(e)}
+```
+
+**Dependencies**: Phase 2
 
 **Estimated Time**: 2 hours
 
@@ -263,10 +153,12 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 **File**: `src/mcp_servers/common/stdio_runner.py`
 
-**Tasks**:
+**Tasks:**
+- [ ] Import `PROMETHEUS_METRICS` and call `set_server_info()` at startup
 - [ ] Pass `transport="stdio"` to `load_tools_from_db()`
 - [ ] Ensure domain is passed through correctly
 - [ ] Test STDIO mode with metrics collection
+- [ ] Verify logs show TRACE_START/TRACE_END
 
 **Dependencies**: 3.1
 
@@ -278,7 +170,8 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 **File**: `src/mcp_servers/common/http_runner.py`
 
-**Tasks**:
+**Tasks:**
+- [ ] Import `PROMETHEUS_METRICS` and call `set_server_info()` at startup
 - [ ] Pass `transport="http"` to `load_tools_from_db()`
 - [ ] Ensure domain is passed through correctly
 - [ ] Consider extracting session_id from HTTP headers if available
@@ -290,13 +183,44 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 ---
 
+### 3.4 Add Prometheus Metrics Endpoint
+
+**File**: `src/mcp_servers/common/http_runner.py` (or new `src/api/main.py`)
+
+**Tasks:**
+- [ ] Import `prometheus_client.generate_latest` and `CONTENT_TYPE_LATEST`
+- [ ] Add `/metrics` endpoint to FastAPI app
+- [ ] Return Prometheus exposition format
+- [ ] Test endpoint returns valid Prometheus metrics
+- [ ] Document how to access metrics
+
+**Example:**
+```python
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi import Response
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
+```
+
+**Dependencies**: 3.2, 3.3
+
+**Estimated Time**: 30 minutes
+
+---
+
 ## Phase 4: Error Pattern Detection
 
 ### 4.1 Create Error Analysis Service
 
 **File**: `src/core/services/error_analysis.py`
 
-**Tasks**:
+**Tasks:**
 - [ ] Create `ErrorPatternDetector` class
 - [ ] Implement `__init__(repository: ToolExecutionRepository)`
 - [ ] Implement `get_error_breakdown(tool_name: str | None, hours: int) -> dict`:
@@ -320,292 +244,139 @@ This document outlines the detailed implementation plan for adding comprehensive
   - Identify trending error types
 - [ ] Add docstrings with usage examples
 
-**Dependencies**: 1.3
+**Dependencies**: Phase 1 (Repository)
 
 **Estimated Time**: 2.5 hours
 
 ---
 
-## Phase 5: Metrics API Endpoints
+## Phase 5: Metrics API Endpoints (OPTIONAL)
 
 ### 5.1 Create Metrics Router (FastAPI)
 
 **File**: `src/api/routers/metrics.py` (new file)
 
-**Tasks**:
-- [ ] Create FastAPI router: `router = APIRouter(prefix="/metrics", tags=["metrics"])`
-- [ ] Implement `GET /metrics`:
-  - Return Prometheus-style text format
-  - Include: `METRICS_COLLECTOR.get_metrics()`
-  - Format as `# TYPE` and `metric_name value` lines
-- [ ] Implement `GET /metrics/json`:
-  - Return JSON format of all metrics
-  - Include counters, percentiles, rates
-- [ ] Implement `GET /metrics/tools/{tool_name}`:
+**Tasks:**
+- [ ] Create FastAPI router: `router = APIRouter(prefix="/api/metrics", tags=["metrics"])`
+- [ ] Implement `GET /api/metrics/tools/{tool_name}`:
   - Return detailed metrics for specific tool
-  - Include both real-time and historical data
+  - Include both real-time (Prometheus) and historical (DB) data
   - Query DB for last 24 hours
   - Calculate success rate, avg duration, error breakdown
-- [ ] Implement `GET /metrics/dashboard`:
+- [ ] Implement `GET /api/metrics/dashboard`:
   - Query params: `tool_name`, `window_minutes`
-  - Return comprehensive dashboard data:
-    - Live metrics (rates, percentiles, counters)
-    - Historical metrics (time series, error breakdown)
-    - Anomalies (if tool_name specified)
+  - Return comprehensive dashboard data
   - Use `ErrorPatternDetector` for error analysis
-- [ ] Implement `GET /metrics/health`:
+- [ ] Implement `GET /api/metrics/health`:
   - Return overall system health
   - Include: total tools, total executions, error rates, p95 latency
   - Mark unhealthy if: error rate > 10% or p95 > threshold
 - [ ] Add response models (Pydantic schemas) for all endpoints
 - [ ] Add OpenAPI documentation with examples
 
-**Dependencies**: 2.1, 4.1
+**Note:** This is optional since Prometheus + Grafana provide similar functionality
+
+**Dependencies**: Phase 4
 
 **Estimated Time**: 3 hours
 
 ---
 
-### 5.2 Create Response Schemas
+## Phase 6: Testing
 
-**File**: `src/core/schemas/metrics.py` (new file)
+### 6.1 Unit Tests - Prometheus Metrics
 
-**Tasks**:
-- [ ] Create `MetricsSummaryResponse` schema:
-  - counters: dict[str, int]
-  - histograms: dict[str, PercentileMetrics]
-  - uptime_seconds: float
-- [ ] Create `PercentileMetrics` schema:
-  - count, sum, mean, p50, p75, p90, p95, p99, max
-- [ ] Create `RateMetrics` schema:
-  - rate_5s, rate_30s, rate_60s (calls per second)
-- [ ] Create `ToolMetricsResponse` schema:
-  - tool_name, total_executions, success_rate
-  - avg_duration_ms, p95_duration_ms
-  - error_breakdown: dict[str, int]
-  - recent_errors: list[ErrorDetail]
-- [ ] Create `ErrorDetail` schema:
-  - error_type, error_message, count, first_seen, last_seen
-- [ ] Create `DashboardResponse` schema:
-  - live: LiveMetrics
-  - historical: HistoricalMetrics
-  - anomalies: AnomalyReport | None
-  - generated_at: datetime
-- [ ] Create `AnomalyReport` schema:
-  - tool_name, window_hours, anomalies: list[Anomaly], has_anomalies
-- [ ] Create `Anomaly` schema:
-  - type (error_rate_spike, latency_spike)
-  - severity (high, medium, low)
-  - current, baseline, ratio
-- [ ] Add examples to schemas for OpenAPI docs
+**File**: `tests/unit/services/test_prometheus_metrics.py`
 
-**Dependencies**: None
+**Tasks:**
+- [ ] Test `record_tool_call()`:
+  - Verify counters increment
+  - Verify histogram records observations
+  - Test with success and error status
+- [ ] Test `start_tool_execution()` and `end_tool_execution()`:
+  - Verify gauge increments/decrements
+  - Test concurrent executions
+- [ ] Test metric labels are applied correctly
+- [ ] Test with different tools, domains, transports
+
+**Dependencies**: Phase 2
 
 **Estimated Time**: 1.5 hours
 
 ---
 
-### 5.3 Integrate Metrics Router into Main App
+### 6.2 Unit Tests - Tracing Context Manager
 
-**File**: `src/api/main.py` (will be created in REST API phase)
+**File**: `tests/unit/services/test_observability.py`
 
-**Tasks**:
-- [ ] Create basic FastAPI app if doesn't exist
-- [ ] Import metrics router
-- [ ] Include router: `app.include_router(metrics.router)`
-- [ ] Add CORS middleware for browser access
-- [ ] Test all metrics endpoints
-- [ ] Document how to run REST API server
+**Tasks:**
+- [ ] Test `trace_tool_execution()` success path:
+  - Verify correlation_id generated
+  - Verify TRACE_START/TRACE_END logged
+  - Verify context dict has correct fields
+- [ ] Test error path:
+  - Verify error_type captured
+  - Verify error_message captured
+  - Verify exception re-raised
+  - Verify status="error"
+- [ ] Test with provided correlation_id and session_id
+- [ ] Test `generate_correlation_id()` returns valid UUID
+- [ ] Mock Prometheus metrics to verify calls
+- [ ] Mock database to verify persistence attempted
 
-**Note**: This can be a minimal implementation just for metrics, even before full REST API phase.
+**Dependencies**: Phase 2
 
-**Dependencies**: 5.1, 5.2
+**Estimated Time**: 2 hours
+
+---
+
+### 6.3 Integration Tests - E2E Tracing
+
+**File**: `tests/integration/test_observability_integration.py`
+
+**Tasks:**
+- [ ] Test full tool execution with tracing:
+  - Call actual tool (e.g., echo)
+  - Verify execution recorded in DB
+  - Verify correlation_id in DB matches logs
+  - Query execution by correlation_id
+- [ ] Test Prometheus metrics updated:
+  - Check counter incremented
+  - Check histogram has observation
+  - Check gauge returns to 0
+- [ ] Test error scenarios:
+  - Tool raises exception
+  - Verify error recorded in DB
+  - Verify error counter incremented
+- [ ] Test session_id tracking (multiple calls in same session)
+- [ ] Test with `enable_metrics=False` (metrics not recorded)
+- [ ] Test with `enable_execution_logging=False` (DB not written)
+
+**Dependencies**: Phase 3
+
+**Estimated Time**: 2 hours
+
+---
+
+### 6.4 Integration Tests - Metrics Endpoint
+
+**File**: `tests/integration/test_metrics_endpoint.py`
+
+**Tasks:**
+- [ ] Test `GET /metrics` endpoint:
+  - Returns valid Prometheus exposition format
+  - Includes expected metric names
+  - Contains HELP and TYPE comments
+- [ ] Test metrics accumulate correctly:
+  - Call tool multiple times
+  - Verify counter increases
+  - Verify histogram updates
+- [ ] Test with TestClient from FastAPI
+- [ ] Test metric labels filter correctly
+
+**Dependencies**: Phase 3.4
 
 **Estimated Time**: 1 hour
-
----
-
-## Phase 6: Testing
-
-### 6.1 Unit Tests - Metrics Collector
-
-**File**: `tests/unit/services/test_metrics.py`
-
-**Tasks**:
-- [ ] Test `record_execution()`:
-  - Verify counters increment correctly
-  - Verify latency windows store values
-  - Verify time buckets created correctly
-- [ ] Test `get_percentiles()`:
-  - With empty data (returns zeros)
-  - With single value
-  - With multiple values
-  - Test time window filtering
-  - Verify p50, p75, p90, p95, p99 calculations
-- [ ] Test `get_rates()`:
-  - With no data
-  - With data in different time windows
-  - Verify 5s, 30s, 60s calculations
-  - Test both per-tool and global rates
-- [ ] Test `get_counters()`:
-  - Lifetime counters
-  - Per-tool filtering
-  - Error type breakdown
-- [ ] Test thread safety (concurrent record_execution calls)
-- [ ] Test reset_metrics()
-
-**Dependencies**: 2.1
-
-**Estimated Time**: 2 hours
-
----
-
-### 6.2 Unit Tests - Repository
-
-**File**: `tests/unit/repositories/test_tool_execution_repository.py`
-
-**Tasks**:
-- [ ] Test `create()` - verify record saved
-- [ ] Test `get_by_id()` - existing and non-existing
-- [ ] Test `get_by_correlation_id()` - multiple executions with same ID
-- [ ] Test `get_recent_by_tool()` - verify ordering and limit
-- [ ] Test `get_tool_stats()`:
-  - Calculate success rate correctly
-  - Calculate avg duration
-  - Handle empty results
-- [ ] Test `get_percentile_latencies()`:
-  - With various data distributions
-  - Filter by tool_name
-  - Filter by time range
-  - Verify percentile accuracy
-- [ ] Test `get_historical_rates()`:
-  - Verify bucketing by time
-  - Calculate rates per second
-  - Handle timezone correctly
-- [ ] Use in-memory SQLite for tests
-- [ ] Create fixtures for sample execution data
-
-**Dependencies**: 1.3
-
-**Estimated Time**: 2.5 hours
-
----
-
-### 6.3 Unit Tests - Error Analysis
-
-**File**: `tests/unit/services/test_error_analysis.py`
-
-**Tasks**:
-- [ ] Test `get_error_breakdown()`:
-  - With no errors (empty result)
-  - With multiple error types
-  - Verify percentage calculations
-  - Verify top 5 examples returned
-- [ ] Test `_get_top_failing_tools()`:
-  - Verify sorting by error rate
-  - Verify limit works
-  - Handle tools with 100% error rate
-- [ ] Test `detect_anomalies()`:
-  - No anomaly (stable metrics)
-  - Error rate spike detected
-  - Latency spike detected
-  - Both anomalies simultaneously
-  - Verify severity levels
-- [ ] Mock repository responses for isolation
-- [ ] Test edge cases (zero baseline, zero recent)
-
-**Dependencies**: 4.1
-
-**Estimated Time**: 2 hours
-
----
-
-### 6.4 Integration Tests - E2E Tracing
-
-**File**: `tests/integration/test_observability.py`
-
-**Tasks**:
-- [ ] Test `trace_tool_execution()` context manager:
-  - Successful execution path
-  - Error execution path
-  - Verify correlation_id generated
-  - Verify TRACE_START/TRACE_END logs
-  - Verify DB record created
-  - Verify metrics collector updated
-  - Verify duration calculated correctly
-- [ ] Test with actual tool execution:
-  - Call echo tool
-  - Verify execution recorded in DB
-  - Verify correlation_id in logs
-  - Query execution by correlation_id
-- [ ] Test session_id tracking (multiple calls in same session)
-- [ ] Test error scenarios:
-  - Handler raises exception
-  - Verify error_type and error_message captured
-  - Verify status="error"
-- [ ] Test async persistence doesn't block tool execution
-- [ ] Verify PII redaction if `log_tool_inputs=False`
-
-**Dependencies**: 2.2, 3.1
-
-**Estimated Time**: 2 hours
-
----
-
-### 6.5 Integration Tests - Metrics API
-
-**File**: `tests/integration/test_metrics_api.py`
-
-**Tasks**:
-- [ ] Test `GET /metrics` endpoint:
-  - Returns Prometheus format
-  - Includes expected metric names
-- [ ] Test `GET /metrics/json`:
-  - Returns valid JSON
-  - Includes counters, percentiles, rates
-- [ ] Test `GET /metrics/tools/{tool_name}`:
-  - Returns tool-specific metrics
-  - 404 for non-existent tool
-  - Correct success rate calculation
-- [ ] Test `GET /metrics/dashboard`:
-  - With and without tool_name
-  - Different window_minutes values
-  - Verify live and historical data present
-  - Verify anomaly detection runs
-- [ ] Test `GET /metrics/health`:
-  - Healthy state
-  - Unhealthy state (high error rate)
-- [ ] Use TestClient from FastAPI
-- [ ] Seed DB with sample execution data
-
-**Dependencies**: 5.1, 5.3
-
-**Estimated Time**: 2 hours
-
----
-
-### 6.6 Performance Tests
-
-**File**: `tests/performance/test_metrics_performance.py`
-
-**Tasks**:
-- [ ] Test metrics collector performance:
-  - Benchmark `record_execution()` (should be <1ms)
-  - Test with 10,000 concurrent recordings
-  - Verify no memory leaks with sliding windows
-- [ ] Test DB insertion performance:
-  - Bulk insert 1,000 executions
-  - Measure insert time
-- [ ] Test query performance:
-  - Query percentiles for 1M records
-  - Query rates with 1M records
-  - Ensure indexes are used (EXPLAIN ANALYZE)
-- [ ] Verify async persistence doesn't impact tool latency
-- [ ] Profile memory usage over time
-
-**Dependencies**: 2.1, 1.3
-
-**Estimated Time**: 2 hours
 
 ---
 
@@ -613,18 +384,19 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 ### 7.1 Update Documentation
 
-**Tasks**:
+**Tasks:**
 - [ ] Create `docs/OBSERVABILITY.md`:
   - Overview of observability features
-  - Metrics available (counters, rates, percentiles)
-  - How to access metrics endpoints
-  - Example queries and responses
-  - Grafana/Prometheus integration guide
+  - Prometheus metrics available
+  - How to access `/metrics` endpoint
+  - Example PromQL queries for common scenarios
+  - Grafana dashboard setup guide
+  - Database queries for debugging
   - Troubleshooting guide
 - [ ] Update `docs/ARCHITECTURE.md`:
   - Add observability layer to architecture diagram
-  - Explain dual-layer approach (in-memory + DB)
-  - Document tracing flow
+  - Explain hybrid approach (Prometheus + DB)
+  - Document tracing flow with diagram
 - [ ] Update `docs/DATABASE.md`:
   - Add `tool_executions` table schema
   - Document indexes and their purpose
@@ -637,8 +409,9 @@ This document outlines the detailed implementation plan for adding comprehensive
   - Update "Critical Constraints" if needed
 - [ ] Update `README.md`:
   - Add observability feature to feature list
-  - Add metrics endpoint example
+  - Add `/metrics` endpoint example
   - Link to detailed docs
+  - Add Grafana dashboard screenshot (optional)
 
 **Dependencies**: All previous phases
 
@@ -650,7 +423,7 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 **File**: `scripts/cleanup_old_executions.py`
 
-**Tasks**:
+**Tasks:**
 - [ ] Create script to delete executions older than retention period
 - [ ] Use `metrics_retention_days` from config
 - [ ] Log number of records deleted
@@ -659,38 +432,43 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 **File**: `scripts/db.sh` (update)
 
-**Tasks**:
+**Tasks:**
 - [ ] Add `executions` command - list recent executions
 - [ ] Add `executions-count` command - count by status
 - [ ] Add `executions-clean` command - run cleanup script
 - [ ] Add `metrics` command - show quick metrics summary
 
-**Dependencies**: 1.1, 1.3
+**Dependencies**: Phase 1
 
 **Estimated Time**: 1.5 hours
 
 ---
 
-### 7.3 Add Examples
+### 7.3 Add Prometheus Configuration Examples
 
-**File**: `examples/query_metrics.py`
+**File**: `config/prometheus/prometheus.yml`
 
-**Tasks**:
-- [ ] Example: Query tool metrics programmatically
-- [ ] Example: Detect anomalies for a tool
-- [ ] Example: Generate daily metrics report
-- [ ] Example: Export metrics to CSV
-- [ ] Add comprehensive comments
+**Tasks:**
+- [ ] Create example Prometheus config
+- [ ] Configure scrape for MCP server
+- [ ] Add recording rules for common queries
+- [ ] Add alerting rules examples:
+  - High error rate alert
+  - High latency alert
+  - Tool down alert
+- [ ] Document how to run Prometheus locally
 
-**File**: `examples/visualize_metrics.py` (optional)
+**File**: `config/prometheus/alerts.yml`
 
-**Tasks**:
-- [ ] Use matplotlib to create charts
-- [ ] Plot latency trends over time
-- [ ] Plot error rates by tool
-- [ ] Show p95 latency comparison
+**Tasks:**
+- [ ] Define alert rules:
+  - `HighErrorRate` - Error rate > 5% for 5 minutes
+  - `HighLatency` - p95 latency > 1s for 5 minutes
+  - `ToolDown` - No calls for 10 minutes
+- [ ] Add severity labels (critical, warning)
+- [ ] Add runbook URLs
 
-**Dependencies**: 4.1, 5.1
+**Dependencies**: Phase 3.4
 
 **Estimated Time**: 2 hours
 
@@ -698,51 +476,37 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 ## Phase 8: Optional Enhancements
 
-### 8.1 Prometheus Exporter
+### 8.1 Grafana Dashboard
 
-**File**: `src/api/routers/prometheus.py`
+**File**: `config/grafana/mcp_server_dashboard.json`
 
-**Tasks**:
-- [ ] Format metrics in Prometheus exposition format
-- [ ] Include HELP and TYPE comments
-- [ ] Export as `/metrics` endpoint (standard path)
-- [ ] Test with actual Prometheus scraper
-- [ ] Document Prometheus configuration
-
-**Dependencies**: 5.1
-
-**Estimated Time**: 2 hours
-
----
-
-### 8.2 Grafana Dashboard
-
-**File**: `config/grafana/dashboard.json`
-
-**Tasks**:
+**Tasks:**
 - [ ] Create Grafana dashboard JSON
 - [ ] Add panels for:
-  - Request rate (queries per second)
-  - Error rate
-  - p95/p99 latency
-  - Top failing tools
-  - Error type breakdown
+  - Request rate (queries per second) - Line graph
+  - Error rate percentage - Line graph with threshold
+  - p50/p95/p99 latency - Multi-line graph
+  - Top 10 tools by request count - Bar chart
+  - Top failing tools - Table
+  - Error type breakdown - Pie chart
+  - In-progress requests - Gauge
 - [ ] Add time range selector
 - [ ] Add tool filter variable
+- [ ] Add domain filter variable
 - [ ] Document how to import dashboard
 - [ ] Include screenshot in docs
 
-**Dependencies**: 8.1
+**Dependencies**: Phase 7.3 (Prometheus setup)
 
 **Estimated Time**: 3 hours
 
 ---
 
-### 8.3 Real-time Alerting
+### 8.2 Real-time Alerting Integration
 
 **File**: `src/core/services/alerting.py`
 
-**Tasks**:
+**Tasks:**
 - [ ] Create `AlertManager` class
 - [ ] Define alert rules:
   - Error rate > threshold
@@ -750,65 +514,96 @@ This document outlines the detailed implementation plan for adding comprehensive
   - Tool down (no calls in X minutes)
 - [ ] Implement alert destinations:
   - Log file
-  - Webhook (Slack, PagerDuty)
-  - Email
+  - Webhook (Slack, PagerDuty, Discord)
+  - Email (SMTP)
 - [ ] Add alert suppression (don't spam)
 - [ ] Add alert resolution tracking
 - [ ] Test alert triggering
 
-**Dependencies**: 4.1
+**Note:** This duplicates Prometheus Alertmanager functionality. Only needed if you want application-level alerting without Prometheus infrastructure.
+
+**Dependencies**: Phase 4
 
 **Estimated Time**: 4 hours
 
 ---
 
+### 8.3 Performance Benchmarks
+
+**File**: `tests/performance/test_observability_overhead.py`
+
+**Tasks:**
+- [ ] Benchmark tool execution with vs without tracing
+- [ ] Measure overhead of:
+  - Prometheus recording (~microseconds)
+  - Database persistence (async, shouldn't add overhead)
+  - Logging (minimal)
+- [ ] Target: <1% overhead for tracing
+- [ ] Document results
+
+**Dependencies**: Phase 3
+
+**Estimated Time**: 2 hours
+
+---
+
 ## Summary
 
-### Total Estimated Time: 46-50 hours
+### Total Estimated Time
 
-### Phase Breakdown:
-- **Phase 1**: Database Foundation - 4.25 hours
-- **Phase 2**: Core Instrumentation - 6 hours
-- **Phase 3**: Integration - 3 hours
-- **Phase 4**: Error Pattern Detection - 2.5 hours
-- **Phase 5**: Metrics API Endpoints - 5.5 hours
-- **Phase 6**: Testing - 12.5 hours
-- **Phase 7**: Documentation & Cleanup - 6.5 hours
-- **Phase 8**: Optional Enhancements - 9 hours
+| Phase | Status | Original Estimate | Revised Estimate | Actual |
+|-------|--------|------------------|------------------|--------|
+| Phase 1: Database | ✅ Complete | 4.25 hours | 4.25 hours | ~3 hours |
+| Phase 2: Instrumentation | ✅ Complete | 6 hours | 3.5 hours | ~2 hours |
+| Phase 3: Integration | ⏳ Current | 3 hours | 3.5 hours | - |
+| Phase 4: Error Analysis | 📋 Pending | 2.5 hours | 2.5 hours | - |
+| Phase 5: API Endpoints | 📋 Optional | 5.5 hours | 3 hours | - |
+| Phase 6: Testing | 📋 Pending | 12.5 hours | 6.5 hours | - |
+| Phase 7: Documentation | 📋 Pending | 6.5 hours | 6.5 hours | - |
+| Phase 8: Optional | 📋 Optional | 9 hours | 9 hours | - |
+| **Total** | - | **49.25 hours** | **38.75 hours** | **~5 hours** |
 
-### Minimum Viable Product (MVP):
-To get basic observability working, complete:
-- Phase 1 (Database)
-- Phase 2 (Instrumentation)
-- Phase 3 (Integration)
-- Phase 5.1 (Basic metrics endpoint)
-- Phase 6.1-6.4 (Core tests)
+**Time Saved by Using Prometheus:** ~10.5 hours
+- Eliminated custom MetricsCollector implementation
+- No need to build Prometheus exporter separately
+- Reduced testing complexity
+- Standard tooling reduces documentation needs
 
-**MVP Time: ~20 hours**
+### Minimum Viable Product (MVP)
 
-### Dependencies Graph:
-```
-1.1 → 1.2 → 1.3 → 2.2 → 3.1 → 3.2, 3.3
-                    ↓
-2.1 ────────────→ 5.1 → 5.3
-                    ↓
-1.3 ────────────→ 4.1 ──┘
+To get basic observability working with Prometheus:
+- ✅ Phase 1: Database (DONE)
+- ✅ Phase 2: Instrumentation (DONE)
+- ⏳ Phase 3: Integration (~3.5 hours)
+- Phase 6.1-6.3: Core tests (~5.5 hours)
+- Phase 7.3: Prometheus config (~2 hours)
 
-Testing phases (6.x) depend on their corresponding implementation phases
-Documentation (7.x) depends on all implementation phases
-Optional (8.x) can be done anytime after core features
-```
+**MVP Time Remaining: ~11 hours**
 
-### Next Steps:
-1. Review this plan and adjust priorities
-2. Decide on MVP vs full implementation
-3. Create implementation branch
-4. Start with Phase 1.1 (database migration)
-5. Work through phases sequentially, testing as you go
+### Production Ready
 
-### Notes:
-- All times are estimates for a single developer
-- Testing time is generous to ensure quality
-- Optional enhancements (Phase 8) can be deferred
-- Consider running Phases 6.1-6.5 in parallel with implementation
-- Database migration should be reviewed by DBA if in production
+For production deployment with monitoring and alerting:
+- MVP (above)
+- Phase 4: Error Analysis (~2.5 hours)
+- Phase 7: Full Documentation (~6.5 hours)
+- Phase 8.1: Grafana Dashboard (~3 hours)
+
+**Production Total: ~23 hours from current state**
+
+### Key Architecture Decisions
+
+✅ **Prometheus for operational metrics** - Industry standard, proven at scale
+✅ **PostgreSQL for audit trail** - Structured queries, long retention
+✅ **Async DB writes** - Don't slow down tool execution
+✅ **Privacy controls** - Can disable logging of sensitive data
+✅ **Feature flags** - Can disable metrics or logging independently
+✅ **Correlation IDs** - E2E tracing across multiple tools
+
+### Next Steps
+
+1. **Review this updated plan** - Ensure it aligns with your vision
+2. **Commit Phase 2** - Save the Prometheus instrumentation
+3. **Start Phase 3** - Integrate tracing into tool wrappers
+4. **Test locally** - Verify `/metrics` endpoint works
+5. **Add Prometheus locally** - Test scraping and queries
+6. **Create Grafana dashboard** - Visualize metrics

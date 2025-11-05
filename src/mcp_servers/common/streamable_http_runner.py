@@ -13,6 +13,7 @@ import sys
 import traceback
 from typing import Any
 
+from src.core.config import get_settings
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.dynamic_loader import load_tools_from_database
 
@@ -79,8 +80,6 @@ def run_streamable_http_server(domain: str, server_name: str | None = None) -> N
 
         # Run MCP server with Streamable HTTP transport
         # Tools are now loaded dynamically from database
-        from src.core.config import get_settings
-
         settings = get_settings()
 
         mcp.run(

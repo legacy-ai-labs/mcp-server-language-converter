@@ -12,18 +12,20 @@ from fastmcp import FastMCP
 
 from src.core.database import async_session_factory
 from src.core.repositories.tool_repository import ToolRepository
+from src.core.services.observability import trace_tool_execution
 from src.core.services.tool_handlers import TOOL_HANDLERS
 
 
 logger = logging.getLogger(__name__)
 
 
-async def load_tools_from_database(mcp: FastMCP, domain: str) -> None:
+async def load_tools_from_database(mcp: FastMCP, domain: str, transport: str = "stdio") -> None:
     """Load active tools for a specific domain from database and register with FastMCP.
 
     Args:
         mcp: FastMCP server instance to register tools with
         domain: Domain to filter tools by (e.g., "general", "kubernetes")
+        transport: Transport protocol being used (stdio, http, rest)
 
     Raises:
         Exception: If tool loading fails
@@ -39,7 +41,7 @@ async def load_tools_from_database(mcp: FastMCP, domain: str) -> None:
 
             for tool in active_tools:
                 try:
-                    await register_tool_from_db(mcp, tool)
+                    await register_tool_from_db(mcp, tool, domain, transport)
                     logger.info(f"Registered tool: {tool.name}")
                 except Exception as e:
                     logger.error(f"Failed to register tool {tool.name}: {e}")
@@ -49,15 +51,18 @@ async def load_tools_from_database(mcp: FastMCP, domain: str) -> None:
         raise
 
 
-async def register_tool_from_db(mcp: FastMCP, tool: Any) -> None:
-    """Register a single tool from database record.
+async def register_tool_from_db(mcp: FastMCP, tool: Any, domain: str, transport: str) -> None:
+    """Register a single tool from database record with observability tracing.
 
     This creates tool-specific wrappers with proper signatures instead of
-    using **kwargs which FastMCP doesn't support.
+    using **kwargs which FastMCP doesn't support. Each wrapper includes
+    automatic tracing for observability.
 
     Args:
         mcp: FastMCP server instance
         tool: Tool database record with name, description, and handler_name
+        domain: Domain the tool belongs to (for metrics)
+        transport: Transport protocol (stdio, http, rest) for metrics
 
     Raises:
         ValueError: If handler function not found in registry
@@ -72,12 +77,25 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any) -> None:
 
         async def echo_tool(text: str) -> dict[str, Any]:
             """Echo back the provided text."""
-            try:
-                result = handler_func({"text": text})
+            async with trace_tool_execution(
+                tool_name=tool.name,
+                parameters={"text": text},
+                domain=domain,
+                transport=transport,
+            ) as trace_ctx:
+                try:
+                    result = handler_func({"text": text})
+                except Exception as e:
+                    logger.error(f"Tool {tool.name} failed: {e}")
+                    trace_ctx["status"] = "error"
+                    trace_ctx["error_type"] = type(e).__name__
+                    trace_ctx["error_message"] = str(e)
+                    error_payload = {"success": False, "error": str(e)}
+                    trace_ctx["output_data"] = error_payload
+                    return error_payload
+
+                trace_ctx["output_data"] = result
                 return result
-            except Exception as e:
-                logger.error(f"Tool {tool.name} failed: {e}")
-                return {"success": False, "error": str(e)}
 
         decorated_tool = mcp.tool(name=tool.name, description=tool.description)(echo_tool)
 
@@ -85,12 +103,25 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any) -> None:
 
         async def calculator_add_tool(a: float, b: float) -> dict[str, Any]:
             """Add two numbers together."""
-            try:
-                result = handler_func({"a": a, "b": b})
+            async with trace_tool_execution(
+                tool_name=tool.name,
+                parameters={"a": a, "b": b},
+                domain=domain,
+                transport=transport,
+            ) as trace_ctx:
+                try:
+                    result = handler_func({"a": a, "b": b})
+                except Exception as e:
+                    logger.error(f"Tool {tool.name} failed: {e}")
+                    trace_ctx["status"] = "error"
+                    trace_ctx["error_type"] = type(e).__name__
+                    trace_ctx["error_message"] = str(e)
+                    error_payload = {"success": False, "error": str(e)}
+                    trace_ctx["output_data"] = error_payload
+                    return error_payload
+
+                trace_ctx["output_data"] = result
                 return result
-            except Exception as e:
-                logger.error(f"Tool {tool.name} failed: {e}")
-                return {"success": False, "error": str(e)}
 
         decorated_tool = mcp.tool(name=tool.name, description=tool.description)(calculator_add_tool)
 
@@ -98,12 +129,25 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any) -> None:
         # Generic fallback for unknown tools
         async def generic_tool_wrapper(text: str = "") -> dict[str, Any]:
             """Generic wrapper for unknown tools."""
-            try:
-                result = handler_func({"text": text})
+            async with trace_tool_execution(
+                tool_name=tool.name,
+                parameters={"text": text},
+                domain=domain,
+                transport=transport,
+            ) as trace_ctx:
+                try:
+                    result = handler_func({"text": text})
+                except Exception as e:
+                    logger.error(f"Tool {tool.name} failed: {e}")
+                    trace_ctx["status"] = "error"
+                    trace_ctx["error_type"] = type(e).__name__
+                    trace_ctx["error_message"] = str(e)
+                    error_payload = {"success": False, "error": str(e)}
+                    trace_ctx["output_data"] = error_payload
+                    return error_payload
+
+                trace_ctx["output_data"] = result
                 return result
-            except Exception as e:
-                logger.error(f"Tool {tool.name} failed: {e}")
-                return {"success": False, "error": str(e)}
 
         decorated_tool = mcp.tool(name=tool.name, description=tool.description)(
             generic_tool_wrapper

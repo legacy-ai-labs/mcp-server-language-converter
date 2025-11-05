@@ -74,25 +74,37 @@ Tools are **database-driven** with a 4-part registration flow:
    )
    ```
 
-4. **Wrapper Function** (`src/mcp_servers/common/dynamic_loader.py`): FastMCP tool registration
+4. **Wrapper Function** (`src/mcp_servers/common/dynamic_loader.py`): FastMCP tool registration with observability
    ```python
    # In register_tool_from_db function, add:
    elif tool.name == "my_tool":
        async def my_tool_wrapper(input: str) -> dict[str, Any]:
            """Does X."""
-           try:
-               result = handler_func({"input": input})
-               return result
-           except Exception as e:
-               logger.error(f"Tool {tool.name} failed: {e}")
-               return {"success": False, "error": str(e)}
+           with trace_tool_execution(
+               tool_name=tool.name,
+               parameters={"input": input},
+               domain=domain,
+               transport=transport,
+           ):
+               try:
+                   result = handler_func({"input": input})
+                   return result
+               except Exception as e:
+                   logger.error(f"Tool {tool.name} failed: {e}")
+                   return {"success": False, "error": str(e)}
 
        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(my_tool_wrapper)
    ```
 
 **Current limitation**: Each tool requires a specific wrapper function because FastMCP needs explicit parameter signatures. A future enhancement could use dynamic signature generation.
 
-**Startup sequence**: Tools loaded from DB **before** `mcp.run()` - handled automatically by runners in `common/`.
+**Observability**: All tool wrappers are automatically traced with `trace_tool_execution()` context manager, which:
+- Records metrics to Prometheus (request counts, latency, errors)
+- Logs execution to database for audit trail and debugging
+- Generates correlation IDs for E2E tracing
+- Provides structured logging (TRACE_START/TRACE_END)
+
+**Startup sequence**: Tools loaded from DB **before** `mcp.run()` - handled automatically by runners in `common/`. Prometheus metrics are initialized at startup.
 
 ### Multi-Server Architecture
 
@@ -231,17 +243,23 @@ ToolCreate(
 
 **4. Wrapper function** (`src/mcp_servers/common/dynamic_loader.py`):
 
-In the `register_tool_from_db` function, add a new `elif` case:
+In the `register_tool_from_db` function, add a new `elif` case with observability tracing:
 ```python
 elif tool.name == "my_tool":
     async def my_tool_wrapper(input: str) -> dict[str, Any]:
         """Does X with input text."""
-        try:
-            result = handler_func({"input": input})
-            return result
-        except Exception as e:
-            logger.error(f"Tool {tool.name} failed: {e}")
-            return {"success": False, "error": str(e)}
+        with trace_tool_execution(
+            tool_name=tool.name,
+            parameters={"input": input},
+            domain=domain,
+            transport=transport,
+        ):
+            try:
+                result = handler_func({"input": input})
+                return result
+            except Exception as e:
+                logger.error(f"Tool {tool.name} failed: {e}")
+                return {"success": False, "error": str(e)}
 
     decorated_tool = mcp.tool(name=tool.name, description=tool.description)(my_tool_wrapper)
 ```
@@ -304,7 +322,42 @@ async def my_function():
 ```python
 from src.core.config import get_settings
 settings = get_settings()  # Access: settings.database_url, settings.app_name
+
+# Observability settings
+settings.enable_metrics              # Enable/disable Prometheus metrics
+settings.enable_execution_logging    # Enable/disable DB logging
+settings.log_tool_inputs             # Store input parameters (PII concern)
+settings.log_tool_outputs            # Store output data (PII concern)
+settings.metrics_retention_days      # How long to keep execution records
 ```
+
+### Observability & Metrics
+Tools are automatically traced with Prometheus and database logging:
+
+```python
+# Metrics are recorded automatically for all tools
+# Access Prometheus metrics at: http://localhost:8000/metrics
+
+# Query execution history from database
+from src.core.repositories.tool_execution_repository import ToolExecutionRepository
+
+async with get_db() as db:
+    repo = ToolExecutionRepository(db)
+    executions = await repo.get_recent_by_tool("echo", limit=10)
+    stats = await repo.get_tool_stats("echo", start_time, end_time)
+```
+
+**Prometheus metrics available**:
+- `mcp_tool_calls_total` - Total calls by tool, status, domain, transport
+- `mcp_tool_errors_total` - Errors by type
+- `mcp_tool_duration_seconds` - Latency histogram (p50, p95, p99)
+- `mcp_tool_in_progress` - Current in-flight requests
+
+**Database tracking**:
+- Individual execution records with full context
+- E2E tracing with correlation IDs
+- Error analysis and debugging
+- Audit trail for compliance
 
 ### Error Handling
 Custom exceptions in `src/core/exceptions.py` are used for business logic. Interface layers (MCP/REST) translate them to protocol-specific errors. Use early returns and guard clauses.
@@ -314,10 +367,20 @@ Custom exceptions in `src/core/exceptions.py` are used for business logic. Inter
 **Phase 1: Tools**
 - ✅ 1.1: STDIO transport (dynamic DB loading)
 - ✅ 1.2: HTTP streaming transport
-- ⏳ 1.3: REST API (planned)
+- ✅ 1.3: Observability & Metrics (Prometheus + Database)
+- ⏳ 1.4: REST API (planned)
 
 **Phase 2: Resources** (future)
 **Phase 3: Prompts** (future)
+
+### Observability Implementation
+- ✅ **Database foundation**: `tool_executions` table with indexes
+- ✅ **Prometheus metrics**: Counters, histograms, gauges
+- ✅ **Automatic tracing**: All tools wrapped with `trace_tool_execution()`
+- ✅ **E2E tracing**: Correlation IDs and session tracking
+- ✅ **Metrics endpoint**: `/metrics` for Prometheus scraping
+- ⏳ **Error pattern detection**: (planned)
+- ⏳ **Grafana dashboards**: (planned)
 
 ## Code Style
 

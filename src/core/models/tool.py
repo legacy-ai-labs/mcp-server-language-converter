@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 from sqlalchemy.sql import func
 
 from src.core.database import Base
@@ -13,7 +13,9 @@ from src.core.database import Base
 class Tool(Base):
     """Tool model representing an MCP tool stored in the database."""
 
-    __tablename__ = "tools"  # type: ignore[assignment]
+    @declared_attr.directive  # type: ignore[misc]
+    def __tablename__(cls) -> str:
+        return "tools"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)

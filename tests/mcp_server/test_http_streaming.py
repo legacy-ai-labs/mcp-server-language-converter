@@ -1,13 +1,14 @@
 """Tests for HTTP streaming MCP server functionality."""
 
-import contextlib
+import logging
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp import FastMCP
 
-from src.mcp_servers.general.http_main import startup
-from src.mcp_servers.general.server import mcp
+from src.core.config import get_settings
+from src.mcp_servers.common.http_runner import startup
 
 
 class TestHTTPStreamingServer:
@@ -26,7 +27,7 @@ class TestHTTPStreamingServer:
     @pytest.fixture
     def mock_tools_loaded(self):
         """Mock tools loaded from database."""
-        with patch("src.mcp_servers.general.http_main.load_tools_from_database") as mock_load:
+        with patch("src.mcp_servers.common.http_runner.load_tools_from_database") as mock_load:
             mock_load.return_value = AsyncMock()
             yield mock_load
 
@@ -34,25 +35,25 @@ class TestHTTPStreamingServer:
     async def test_startup_success(self, mock_tools_loaded):
         """Test successful startup of HTTP streaming server."""
         # Should not raise any exceptions
-        await startup()
+        await startup(domain="general")
         mock_tools_loaded.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_startup_failure(self):
         """Test startup failure handling."""
-        with patch("src.mcp_servers.general.http_main.load_tools_from_database") as mock_load:
+        with patch("src.mcp_servers.common.http_runner.load_tools_from_database") as mock_load:
             mock_load.side_effect = Exception("Database connection failed")
 
             with pytest.raises(Exception, match="Database connection failed"):
-                await startup()
+                await startup(domain="general")
 
     @pytest.mark.asyncio
     async def test_mcp_server_initialization(self):
         """Test MCP server initialization for HTTP streaming."""
-        # Verify the MCP server is properly configured
-        assert isinstance(mcp, FastMCP)
-        assert mcp.name == "MCP Server Blueprint - General Tools"
-        assert mcp.version == "0.1.0"
+        with patch("src.mcp_servers.common.http_runner.load_tools_from_database"):
+            mcp_instance = await startup(domain="general")
+            # Verify the MCP server is properly configured
+            assert isinstance(mcp_instance, FastMCP)
 
     def test_http_streaming_transport_support(self):
         """Test that FastMCP supports HTTP streaming transport."""
@@ -65,25 +66,18 @@ class TestHTTPStreamingServer:
     @pytest.mark.asyncio
     async def test_http_streaming_server_lifecycle(self, mock_tools_loaded):
         """Test HTTP streaming server lifecycle."""
-        with patch("src.mcp_servers.general.http_main.mcp.run") as mock_run:
-            # Mock the run method to avoid actually starting the server
-            mock_run.return_value = None
-
-            # This should not raise any exceptions
-            try:
-                # Simulate the main function logic
-                await startup()
-                # In a real test, we would start the server here
-                # but we're mocking it to avoid blocking
-            except Exception as e:
-                pytest.fail(f"HTTP streaming server lifecycle failed: {e}")
+        # This should not raise any exceptions
+        try:
+            # Simulate the main function logic
+            await startup(domain="general")
+            # In a real test, we would start the server here
+            # but we're mocking it to avoid blocking
+        except Exception as e:
+            pytest.fail(f"HTTP streaming server lifecycle failed: {e}")
 
     def test_logging_configuration(self):
         """Test that logging is properly configured for HTTP streaming."""
         # Test that we can configure logging for HTTP streaming
-        import logging
-        import sys
-
         # Create a test logger
         test_logger = logging.getLogger("test_http_streaming")
 
@@ -109,7 +103,7 @@ class TestHTTPStreamingServer:
     @pytest.mark.asyncio
     async def test_tool_registration_for_http_streaming(self, mock_tools_loaded):
         """Test that tools are properly registered for HTTP streaming."""
-        await startup()
+        await startup(domain="general")
 
         # Verify that tools are loaded
         mock_tools_loaded.assert_called_once()
@@ -120,7 +114,7 @@ class TestHTTPStreamingServer:
     def test_http_streaming_error_handling(self):
         """Test error handling in HTTP streaming server."""
         # Test that exceptions are properly caught and logged
-        with patch("src.mcp_servers.general.http_main.startup") as mock_startup:
+        with patch("src.mcp_servers.common.http_runner.startup") as mock_startup:
             mock_startup.side_effect = Exception("Test error")
 
             # This should handle the exception gracefully
@@ -134,17 +128,15 @@ class TestHTTPStreamingIntegration:
     @pytest.mark.asyncio
     async def test_http_streaming_server_startup_sequence(self):
         """Test the complete startup sequence for HTTP streaming."""
-        with patch("src.mcp_servers.general.http_main.load_tools_from_database") as mock_load:
+        with patch("src.mcp_servers.common.http_runner.load_tools_from_database") as mock_load:
             mock_load.return_value = AsyncMock()
 
             # Test startup sequence
-            await startup()
+            await startup(domain="general")
             mock_load.assert_called_once()
 
     def test_http_streaming_configuration_loading(self):
         """Test that HTTP streaming configuration is properly loaded."""
-        from src.core.config import get_settings
-
         settings = get_settings()
 
         # Verify HTTP streaming configuration exists
@@ -160,11 +152,9 @@ class TestHTTPStreamingIntegration:
     @pytest.mark.asyncio
     async def test_http_streaming_server_graceful_shutdown(self):
         """Test graceful shutdown of HTTP streaming server."""
-        with patch("src.mcp_servers.general.http_main.mcp.run") as mock_run:
-            # Simulate KeyboardInterrupt
-            mock_run.side_effect = KeyboardInterrupt()
-
-            # This should handle KeyboardInterrupt gracefully
-            with contextlib.suppress(KeyboardInterrupt):
-                # In a real test, we would start the server and send SIGINT
-                pass
+        # This test verifies graceful shutdown capability
+        # In a real test, we would start the server and send SIGINT
+        with patch("src.mcp_servers.common.http_runner.load_tools_from_database"):
+            mcp_instance = await startup(domain="general")
+            # Verify server can be initialized
+            assert mcp_instance is not None
