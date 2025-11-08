@@ -1,6 +1,7 @@
 """Service layer package."""
 
-from src.core.services.tool_service import ToolService
+from src.core.services.ast_builder_service import build_ast
+from src.core.services.tool_service_service import ToolService
 
 
-__all__: list[str] = ["ToolService"]
+__all__: list[str] = ["ToolService", "build_ast"]

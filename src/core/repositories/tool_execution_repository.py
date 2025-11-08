@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.models.tool_execution import ToolExecution
+from src.core.models.tool_execution_model import ToolExecution
 
 
 class ToolExecutionRepository:

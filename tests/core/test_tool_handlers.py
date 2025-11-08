@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.core.services.tool_handlers import (
+from src.core.services.tool_handlers_service import (
     calculator_add_handler,
     echo_handler,
     get_handler,

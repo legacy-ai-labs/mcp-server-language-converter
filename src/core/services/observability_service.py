@@ -20,7 +20,7 @@ from typing import Any
 from src.core.config import get_settings
 from src.core.database import async_session_factory
 from src.core.repositories.tool_execution_repository import ToolExecutionRepository
-from src.core.services.prometheus_metrics import PROMETHEUS_METRICS
+from src.core.services.prometheus_metrics_service import PROMETHEUS_METRICS
 
 
 logger = logging.getLogger(__name__)

@@ -60,7 +60,7 @@ uv run pytest -v
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service import ToolService
+from src.core.services.tool_service_service import ToolService
 
 async def test_echo_tool():
     async with async_session_factory() as session:
@@ -84,7 +84,7 @@ asyncio.run(test_echo_tool())
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service import ToolService
+from src.core.services.tool_service_service import ToolService
 
 async def list_tools():
     async with async_session_factory() as session:
@@ -102,8 +102,8 @@ asyncio.run(list_tools())
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service import ToolService
-from src.core.schemas.tool import ToolCreate
+from src.core.services.tool_service_service import ToolService
+from src.core.schemas.tool_schema import ToolCreate
 
 async def create_tool():
     tool_data = ToolCreate(
@@ -133,7 +133,7 @@ asyncio.run(create_tool())
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service import ToolService
+from src.core.services.tool_service_service import ToolService
 
 async def deactivate_tool(tool_id: int):
     async with async_session_factory() as session:
@@ -241,7 +241,7 @@ For detailed testing instructions including MCP Inspector, browser testing, Pyth
 
 ### 1. Define Handler Function
 
-Create a new handler in `src/core/services/tool_handlers.py`:
+Create a new handler in `src/core/services/tool_handlers_service.py`:
 
 ```python
 def my_custom_handler(parameters: dict[str, Any]) -> dict[str, Any]:
@@ -277,7 +277,7 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
 ### 3. Create Tool Using Handler
 
 ```python
-from src.core.schemas.tool import ToolCreate
+from src.core.schemas.tool_schema import ToolCreate
 
 tool_data = ToolCreate(
     name="my_tool",
@@ -345,7 +345,7 @@ uv run python -m src.mcp_server 2>&1 | tee server.log
 
 1. Check handler exists in registry:
    ```python
-   from src.core.services.tool_handlers import list_handlers
+   from src.core.services.tool_handlers_service import list_handlers
    print(list_handlers())
    ```
 

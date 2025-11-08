@@ -12,8 +12,8 @@ from fastmcp import FastMCP
 
 from src.core.database import async_session_factory
 from src.core.repositories.tool_repository import ToolRepository
-from src.core.services.observability import trace_tool_execution
-from src.core.services.tool_handlers import TOOL_HANDLERS
+from src.core.services.observability_service import trace_tool_execution
+from src.core.services.tool_handlers_service import TOOL_HANDLERS
 
 
 logger = logging.getLogger(__name__)

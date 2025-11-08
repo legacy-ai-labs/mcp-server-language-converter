@@ -207,7 +207,7 @@ LOG_LEVEL=DEBUG uv run python -m src.mcp_server
 Once you've verified the tools work:
 - ✅ Phase 1.1 is complete!
 - Next: Phase 1.2 (HTTP Streaming) or Phase 1.3 (REST API)
-- Add more tools by creating handlers in `src/core/services/tool_handlers.py`
+- Add more tools by creating handlers in `src/core/services/tool_handlers_service.py`
 - Add REST API endpoints for tool management
 
 ## Support

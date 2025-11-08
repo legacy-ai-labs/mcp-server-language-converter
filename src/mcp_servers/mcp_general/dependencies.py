@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 
 from src.core.database import get_session
-from src.core.services.tool_service import ToolService
+from src.core.services.tool_service_service import ToolService
 
 
 async def get_tool_service() -> AsyncGenerator[ToolService, None]:

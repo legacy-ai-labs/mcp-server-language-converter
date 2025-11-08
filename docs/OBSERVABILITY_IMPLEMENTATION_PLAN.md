@@ -62,7 +62,7 @@ This document outlines the detailed implementation plan for adding comprehensive
 
 **Files Created:**
 - `migrations/versions/d483646e26ae_add_tool_executions_table.py`
-- `src/core/models/tool_execution.py`
+- `src/core/models/tool_execution_model.py`
 - `src/core/repositories/tool_execution_repository.py`
 - `alembic.ini`
 - `migrations/env.py`
@@ -81,8 +81,8 @@ This document outlines the detailed implementation plan for adding comprehensive
 - ✅ Non-blocking async DB persistence
 
 **Files Created:**
-- `src/core/services/prometheus_metrics.py` - Prometheus metric definitions
-- `src/core/services/observability.py` - Tracing context manager
+- `src/core/services/prometheus_metrics_service.py` - Prometheus metric definitions
+- `src/core/services/observability_service.py` - Tracing context manager
 
 **Files Modified:**
 - `src/core/config.py` - Added observability settings

@@ -12,7 +12,7 @@ import traceback
 from typing import Any
 
 from src.core.config import get_settings
-from src.core.services.prometheus_metrics import PROMETHEUS_METRICS
+from src.core.services.prometheus_metrics_service import PROMETHEUS_METRICS
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.dynamic_loader import load_tools_from_database
 

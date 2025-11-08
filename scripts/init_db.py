@@ -6,8 +6,8 @@ import logging
 from src.core.database import init_db
 
 # Import models first so they're registered with Base.metadata
-from src.core.models.tool import Tool  # noqa: F401
-from src.core.models.tool_execution import ToolExecution  # noqa: F401
+from src.core.models.tool_execution_model import ToolExecution  # noqa: F401
+from src.core.models.tool_model import Tool  # noqa: F401
 
 
 logging.basicConfig(level=logging.INFO)

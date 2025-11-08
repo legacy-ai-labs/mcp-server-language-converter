@@ -125,7 +125,7 @@ async def some_operation():
 
 ```python
 from src.core.repositories.tool_repository import ToolRepository
-from src.core.schemas.tool import ToolCreate
+from src.core.schemas.tool_schema import ToolCreate
 
 async def add_tool():
     async with get_db() as db:

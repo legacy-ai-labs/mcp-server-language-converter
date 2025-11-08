@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.models.tool import Tool
+from src.core.models.tool_model import Tool
 from src.core.repositories.base import BaseRepository
 
 

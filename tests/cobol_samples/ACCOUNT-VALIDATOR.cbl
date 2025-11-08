@@ -1,0 +1,67 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ACCOUNT-VALIDATOR.
+       AUTHOR. Test Suite.
+       DATE-WRITTEN. 2024.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-VALIDATION-RESULT   PIC X(1).
+           88 VALID-ACCOUNT      VALUE 'Y'.
+           88 INVALID-ACCOUNT    VALUE 'N'.
+       01 WS-ERROR-MESSAGE       PIC X(100).
+       01 WS-CHECK-COUNT         PIC 9(3) VALUE ZERO.
+
+       LINKAGE SECTION.
+       01 LS-CUSTOMER-ID         PIC X(10).
+       01 LS-ACCOUNT-BALANCE     PIC S9(9)V99 COMP-3.
+       01 LS-ACCOUNT-STATUS      PIC X(1).
+       01 LS-VALIDATION-CODE     PIC X(1).
+
+       PROCEDURE DIVISION USING LS-CUSTOMER-ID
+                                LS-ACCOUNT-BALANCE
+                                LS-ACCOUNT-STATUS
+                                LS-VALIDATION-CODE.
+       VALIDATE-ACCOUNT-MAIN.
+           MOVE 'Y' TO WS-VALIDATION-RESULT
+           MOVE SPACE TO WS-ERROR-MESSAGE
+           MOVE ZERO TO WS-CHECK-COUNT
+
+           PERFORM CHECK-CUSTOMER-ID
+           PERFORM CHECK-ACCOUNT-BALANCE
+           PERFORM CHECK-ACCOUNT-STATUS
+
+           IF VALID-ACCOUNT
+               MOVE 'V' TO LS-VALIDATION-CODE
+           ELSE
+               MOVE 'I' TO LS-VALIDATION-CODE
+           END-IF
+
+           EXIT PROGRAM.
+
+       CHECK-CUSTOMER-ID.
+           ADD 1 TO WS-CHECK-COUNT
+           IF LS-CUSTOMER-ID = SPACE
+               MOVE 'N' TO WS-VALIDATION-RESULT
+               MOVE 'Customer ID is blank' TO WS-ERROR-MESSAGE
+           END-IF.
+
+       CHECK-ACCOUNT-BALANCE.
+           ADD 1 TO WS-CHECK-COUNT
+           IF LS-ACCOUNT-BALANCE < -1000000
+               MOVE 'N' TO WS-VALIDATION-RESULT
+               MOVE 'Account balance exceeds limit' TO WS-ERROR-MESSAGE
+           END-IF.
+
+       CHECK-ACCOUNT-STATUS.
+           ADD 1 TO WS-CHECK-COUNT
+           EVALUATE LS-ACCOUNT-STATUS
+               WHEN 'A'
+                   CONTINUE
+               WHEN 'I'
+                   CONTINUE
+               WHEN 'S'
+                   CONTINUE
+               WHEN OTHER
+                   MOVE 'N' TO WS-VALIDATION-RESULT
+                   MOVE 'Invalid account status' TO WS-ERROR-MESSAGE
+           END-EVALUATE.

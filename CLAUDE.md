@@ -40,7 +40,7 @@ mcp_servers/
 
 Tools are **database-driven** with a 4-part registration flow:
 
-1. **Handler Function** (`src/core/services/tool_handlers.py`): Pure business logic
+1. **Handler Function** (`src/core/services/tool_handlers_service.py`): Pure business logic
    ```python
    def my_tool_handler(parameters: dict[str, Any]) -> dict[str, Any]:
        """Business logic for my_tool."""
@@ -121,7 +121,7 @@ This pattern is useful for:
 
 ## Tool Model Fields
 
-Database schema for tools (`src/core/models/tool.py:13-34`):
+Database schema for tools (`src/core/models/tool_model.py:13-34`):
 - `name`: Unique identifier for MCP tool registration
 - `description`: Shown to AI agents/users
 - `handler_name`: Key to lookup function in `TOOL_HANDLERS` registry
@@ -200,7 +200,7 @@ uv run mypy src/                   # Type check
 
 ## Adding a New Tool (4-Step Process)
 
-**1. Handler function** (`src/core/services/tool_handlers.py`):
+**1. Handler function** (`src/core/services/tool_handlers_service.py`):
 ```python
 def my_tool_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Business logic for my_tool."""
@@ -426,7 +426,7 @@ Based on `.cursor/rules/python.mdc`:
 ## Debugging Tools
 
 Tool not working? Check in order:
-1. Handler in `tool_handlers.py` + registered in `TOOL_HANDLERS`
+1. Handler in `tool_handlers_service.py` + registered in `TOOL_HANDLERS`
 2. Wrapper function added to `register_tool_from_db()` in `dynamic_loader.py`
 3. Tool record exists in DB with `is_active=True` and correct `domain`
 4. DB was initialized before startup (log: "Loading N tools for domain...")
