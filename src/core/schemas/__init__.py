@@ -1,6 +1,56 @@
 """Pydantic schemas package."""
 
+from src.core.schemas.cobol_analysis_schema import (
+    ASTNodeSchema,
+    BuildCfgRequest,
+    BuildCfgResponse,
+    BuildDfgRequest,
+    BuildDfgResponse,
+    CFGEdgeSchema,
+    CFGNodeSchema,
+    CFGStructureSchema,
+    DFGEdgeSchema,
+    DFGNodeSchema,
+    DFGStructureSchema,
+    DivisionNodeSchema,
+    ExpressionNodeSchema,
+    LiteralNodeSchema,
+    ParagraphNodeSchema,
+    ParseCobolRequest,
+    ParseCobolResponse,
+    ProgramNodeSchema,
+    SectionNodeSchema,
+    SourceLocationSchema,
+    StatementNodeSchema,
+    VariableNodeSchema,
+)
 from src.core.schemas.tool_schema import ToolCreate, ToolResponse, ToolUpdate
 
 
-__all__: list[str] = ["ToolCreate", "ToolResponse", "ToolUpdate"]
+__all__: list[str] = [
+    "ASTNodeSchema",
+    "BuildCfgRequest",
+    "BuildCfgResponse",
+    "BuildDfgRequest",
+    "BuildDfgResponse",
+    "CFGEdgeSchema",
+    "CFGNodeSchema",
+    "CFGStructureSchema",
+    "DFGEdgeSchema",
+    "DFGNodeSchema",
+    "DFGStructureSchema",
+    "DivisionNodeSchema",
+    "ExpressionNodeSchema",
+    "LiteralNodeSchema",
+    "ParagraphNodeSchema",
+    "ParseCobolRequest",
+    "ParseCobolResponse",
+    "ProgramNodeSchema",
+    "SectionNodeSchema",
+    "SourceLocationSchema",
+    "StatementNodeSchema",
+    "ToolCreate",
+    "ToolResponse",
+    "ToolUpdate",
+    "VariableNodeSchema",
+]

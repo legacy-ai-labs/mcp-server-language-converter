@@ -15,6 +15,11 @@ This directory contains all documentation related to the COBOL reverse engineeri
 - **[COBOL_PHASE1_STEP3.md](phase1/COBOL_PHASE1_STEP3.md)** - Step 3 (AST Builder) implementation summary
 - **[COBOL_PHASE1_STEP4.md](phase1/COBOL_PHASE1_STEP4.md)** - Step 4 (CFG Builder) implementation summary
 - **[COBOL_PHASE1_STEP5.md](phase1/COBOL_PHASE1_STEP5.md)** - Step 5 (DFG Builder) implementation summary
+- **[COBOL_PHASE1_STEP6.md](phase1/COBOL_PHASE1_STEP6.md)** - Step 6 (Tool Handlers) implementation summary
+- **[COBOL_PHASE1_STEP7.md](phase1/COBOL_PHASE1_STEP7.md)** - Step 7 (Tool Registration) implementation summary
+- **[COBOL_PHASE1_STEP8.md](phase1/COBOL_PHASE1_STEP8.md)** - Step 8 (MCP Domain Server) implementation summary
+- **[COBOL_PHASE1_STEP9.md](phase1/COBOL_PHASE1_STEP9.md)** - Step 9 (Pydantic Schemas) implementation summary
+- **[COBOL_PHASE1_STEP10.md](phase1/COBOL_PHASE1_STEP10.md)** - Step 10 (Testing) implementation summary
 
 ## Quick Links
 

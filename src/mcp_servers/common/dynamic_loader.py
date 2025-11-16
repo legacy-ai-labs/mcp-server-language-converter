@@ -19,6 +19,152 @@ from src.core.services.tool_handlers_service import TOOL_HANDLERS
 logger = logging.getLogger(__name__)
 
 
+def _create_traced_tool(
+    tool_name: str,
+    domain: str,
+    transport: str,
+    tool_func: Any,
+) -> Any:
+    """Create a tool function with observability tracing.
+
+    Args:
+        tool_name: Name of the tool
+        domain: Domain the tool belongs to
+        transport: Transport protocol
+        tool_func: Async function that calls the handler
+
+    Returns:
+        Tool function with tracing
+    """
+
+    async def traced_tool(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Tool wrapper with observability."""
+        # Build parameters dict from args/kwargs for tracing
+        parameters = kwargs.copy() if kwargs else {}
+        if args:
+            # For tools with positional args, map them appropriately
+            param_names = list(tool_func.__code__.co_varnames[: tool_func.__code__.co_argcount])
+            param_names = [p for p in param_names if p != "self"]
+            for idx, arg in enumerate(args):
+                if idx < len(param_names):
+                    parameters[param_names[idx]] = arg
+
+        async with trace_tool_execution(
+            tool_name=tool_name,
+            parameters=parameters,
+            domain=domain,
+            transport=transport,
+        ) as trace_ctx:
+            try:
+                result = await tool_func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Tool {tool_name} failed: {e}")
+                trace_ctx["status"] = "error"
+                trace_ctx["error_type"] = type(e).__name__
+                trace_ctx["error_message"] = str(e)
+                return {"success": False, "error": str(e)}
+            trace_ctx["output_data"] = result
+            return result
+
+    return traced_tool
+
+
+def _create_echo_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create echo tool wrapper."""
+
+    async def tool_impl(text: str) -> dict[str, Any]:
+        return handler_func({"text": text})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def echo_tool(text: str) -> dict[str, Any]:
+        """Echo back the provided text."""
+        return await traced(text)
+
+    return echo_tool
+
+
+def _create_calculator_add_tool(
+    handler_func: Any, tool_name: str, domain: str, transport: str
+) -> Any:
+    """Create calculator_add tool wrapper."""
+
+    async def tool_impl(a: float, b: float) -> dict[str, Any]:
+        return handler_func({"a": a, "b": b})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def calculator_add_tool(a: float, b: float) -> dict[str, Any]:
+        """Add two numbers together."""
+        return await traced(a, b)
+
+    return calculator_add_tool
+
+
+def _create_parse_cobol_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create parse_cobol tool wrapper."""
+
+    async def tool_impl(
+        source_code: str | None = None, file_path: str | None = None
+    ) -> dict[str, Any]:
+        return handler_func({"source_code": source_code, "file_path": file_path})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def parse_cobol_tool(
+        source_code: str | None = None, file_path: str | None = None
+    ) -> dict[str, Any]:
+        """Parse COBOL source code into AST."""
+        return await traced(source_code, file_path)
+
+    return parse_cobol_tool
+
+
+def _create_build_cfg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create build_cfg tool wrapper."""
+
+    async def tool_impl(ast: dict[str, Any]) -> dict[str, Any]:
+        return handler_func({"ast": ast})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def build_cfg_tool(ast: dict[str, Any]) -> dict[str, Any]:
+        """Build Control Flow Graph (CFG) from AST."""
+        return await traced(ast)
+
+    return build_cfg_tool
+
+
+def _create_build_dfg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create build_dfg tool wrapper."""
+
+    async def tool_impl(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+        return handler_func({"ast": ast, "cfg": cfg})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def build_dfg_tool(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
+        """Build Data Flow Graph (DFG) from AST + CFG."""
+        return await traced(ast, cfg)
+
+    return build_dfg_tool
+
+
+def _create_generic_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create generic tool wrapper."""
+
+    async def tool_impl(text: str = "") -> dict[str, Any]:
+        return handler_func({"text": text})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def generic_tool_wrapper(text: str = "") -> dict[str, Any]:
+        """Generic wrapper for unknown tools."""
+        return await traced(text)
+
+    return generic_tool_wrapper
+
+
 async def load_tools_from_database(mcp: FastMCP, domain: str, transport: str = "stdio") -> None:
     """Load active tools for a specific domain from database and register with FastMCP.
 
@@ -67,93 +213,25 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any, domain: str, transport:
     Raises:
         ValueError: If handler function not found in registry
     """
-    # Get the handler function from registry
     handler_func = TOOL_HANDLERS.get(tool.handler_name)
     if not handler_func:
         raise ValueError(f"Handler {tool.handler_name} not found for tool {tool.name}")
 
-    # Create specific tool wrappers based on tool name
     if tool.name == "echo":
-
-        async def echo_tool(text: str) -> dict[str, Any]:
-            """Echo back the provided text."""
-            async with trace_tool_execution(
-                tool_name=tool.name,
-                parameters={"text": text},
-                domain=domain,
-                transport=transport,
-            ) as trace_ctx:
-                try:
-                    result = handler_func({"text": text})
-                except Exception as e:
-                    logger.error(f"Tool {tool.name} failed: {e}")
-                    trace_ctx["status"] = "error"
-                    trace_ctx["error_type"] = type(e).__name__
-                    trace_ctx["error_message"] = str(e)
-                    error_payload = {"success": False, "error": str(e)}
-                    trace_ctx["output_data"] = error_payload
-                    return error_payload
-
-                trace_ctx["output_data"] = result
-                return result
-
-        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(echo_tool)
-
+        tool_func = _create_echo_tool(handler_func, tool.name, domain, transport)
     elif tool.name == "calculator_add":
-
-        async def calculator_add_tool(a: float, b: float) -> dict[str, Any]:
-            """Add two numbers together."""
-            async with trace_tool_execution(
-                tool_name=tool.name,
-                parameters={"a": a, "b": b},
-                domain=domain,
-                transport=transport,
-            ) as trace_ctx:
-                try:
-                    result = handler_func({"a": a, "b": b})
-                except Exception as e:
-                    logger.error(f"Tool {tool.name} failed: {e}")
-                    trace_ctx["status"] = "error"
-                    trace_ctx["error_type"] = type(e).__name__
-                    trace_ctx["error_message"] = str(e)
-                    error_payload = {"success": False, "error": str(e)}
-                    trace_ctx["output_data"] = error_payload
-                    return error_payload
-
-                trace_ctx["output_data"] = result
-                return result
-
-        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(calculator_add_tool)
-
+        tool_func = _create_calculator_add_tool(handler_func, tool.name, domain, transport)
+    elif tool.name == "parse_cobol":
+        tool_func = _create_parse_cobol_tool(handler_func, tool.name, domain, transport)
+    elif tool.name == "build_cfg":
+        tool_func = _create_build_cfg_tool(handler_func, tool.name, domain, transport)
+    elif tool.name == "build_dfg":
+        tool_func = _create_build_dfg_tool(handler_func, tool.name, domain, transport)
     else:
-        # Generic fallback for unknown tools
-        async def generic_tool_wrapper(text: str = "") -> dict[str, Any]:
-            """Generic wrapper for unknown tools."""
-            async with trace_tool_execution(
-                tool_name=tool.name,
-                parameters={"text": text},
-                domain=domain,
-                transport=transport,
-            ) as trace_ctx:
-                try:
-                    result = handler_func({"text": text})
-                except Exception as e:
-                    logger.error(f"Tool {tool.name} failed: {e}")
-                    trace_ctx["status"] = "error"
-                    trace_ctx["error_type"] = type(e).__name__
-                    trace_ctx["error_message"] = str(e)
-                    error_payload = {"success": False, "error": str(e)}
-                    trace_ctx["output_data"] = error_payload
-                    return error_payload
+        tool_func = _create_generic_tool(handler_func, tool.name, domain, transport)
 
-                trace_ctx["output_data"] = result
-                return result
+    decorated_tool = mcp.tool(name=tool.name, description=tool.description)(tool_func)
 
-        decorated_tool = mcp.tool(name=tool.name, description=tool.description)(
-            generic_tool_wrapper
-        )
-
-    # Store reference to prevent garbage collection
     if not hasattr(mcp, "_dynamic_tools"):
         mcp._dynamic_tools = []
     mcp._dynamic_tools.append(decorated_tool)

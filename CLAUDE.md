@@ -119,6 +119,33 @@ This pattern is useful for:
 
 **Note**: Most real-world MCP servers use a single server with many tools. Use multiple servers only when you need the benefits above.
 
+### COBOL Analysis Domain (Work in Progress)
+
+This project includes a specialized domain for **COBOL reverse engineering** that demonstrates advanced tool implementation:
+
+**Location**: `src/mcp_servers/mcp_cobol_analysis/`
+
+**Key Features**:
+- Control Flow Graph (CFG) generation from COBOL code
+- Data Flow Graph (DFG) analysis
+- AST (Abstract Syntax Tree) building
+- COBOL parser integration using PLY (Python Lex-Yacc)
+
+**Services**:
+- `cfg_builder_service.py` - Control flow analysis (`src/core/services/cfg_builder_service.py`)
+- `dfg_builder_service.py` - Data flow analysis (`src/core/services/dfg_builder_service.py`)
+- COBOL-specific tool handlers with complex parameter schemas
+
+**Documentation**: See `docs/cobol/` for implementation details, phase plans, and progress tracking
+
+**Running COBOL server**:
+```bash
+# Ensure COBOL tools are seeded in database with domain="cobol_analysis"
+uv run python -m src.mcp_servers.mcp_cobol_analysis
+```
+
+This domain showcases how to build domain-specific servers with complex business logic while maintaining the shared infrastructure pattern.
+
 ## Tool Model Fields
 
 Database schema for tools (`src/core/models/tool_model.py:13-34`):
@@ -175,27 +202,69 @@ uv run python -m src.mcp_servers.mcp_general
 
 # HTTP streaming mode (web clients, port 8000)
 uv run python -m src.mcp_servers.mcp_general.http_main
+
+# Streamable HTTP mode (full MCP protocol, port 8002)
+uv run python -m src.mcp_servers.mcp_general.streamable_http_main
 ```
 
-**Current implementation**: Only `mcp_general` domain is fully functional. Other domain servers exist as placeholders.
+**Implemented domains**:
+- `mcp_general`: Fully functional general-purpose tools
+- `mcp_cobol_analysis`: COBOL reverse engineering tools (in development)
+- `mcp_kubernetes`, `mcp_os_commands`, `mcp_shopping`: Placeholders for demonstration
 
 ### Testing
 ```bash
 uv run pytest                                      # All tests
 uv run pytest --cov=src                           # With coverage
+uv run pytest --cov=src --cov-report=html         # Coverage with HTML report
 uv run pytest tests/core/test_tool_handlers.py    # Specific file
 uv run pytest -m unit                             # Unit tests only
 uv run pytest -m integration                      # Integration tests only
 uv run pytest tests/path/file.py::test_function  # Single test
 uv run pytest -k "test_name"                      # Tests matching pattern
+uv run pytest -v                                  # Verbose output
+uv run pytest -x                                  # Stop on first failure
+uv run pytest -s                                  # Show print statements
+uv run pytest -vxs                                # Verbose, stop on fail, show prints
 ```
 
 ### Code Quality
 ```bash
 uv run pre-commit run --all-files  # All hooks
 uv run ruff check .                # Lint
+uv run ruff check --fix .          # Lint with auto-fix
 uv run ruff format .               # Format
 uv run mypy src/                   # Type check
+```
+
+### Database Migrations (Alembic)
+```bash
+# Generate migration from model changes
+uv run alembic revision --autogenerate -m "Description"
+
+# Apply migrations
+uv run alembic upgrade head
+
+# Downgrade one version
+uv run alembic downgrade -1
+
+# Show migration history
+uv run alembic history
+
+# Show current revision
+uv run alembic current
+```
+
+### Observability & Monitoring
+```bash
+# Access Prometheus metrics (HTTP server must be running)
+curl http://localhost:8000/metrics
+
+# View execution logs in database
+./scripts/db.sh query "SELECT * FROM tool_executions ORDER BY started_at DESC LIMIT 10;"
+
+# Check tool performance
+./scripts/db.sh query "SELECT tool_name, COUNT(*) as calls, AVG(duration_ms) as avg_duration FROM tool_executions GROUP BY tool_name;"
 ```
 
 ## Adding a New Tool (4-Step Process)
@@ -264,7 +333,7 @@ elif tool.name == "my_tool":
     decorated_tool = mcp.tool(name=tool.name, description=tool.description)(my_tool_wrapper)
 ```
 
-**5. Deploy**:
+**Deploy** (after completing all 4 steps):
 ```bash
 # Reset database with new tool
 uv run python scripts/init_db.py
@@ -273,6 +342,8 @@ uv run python scripts/seed_tools.py
 # Restart server to load new tool
 uv run python -m src.mcp_servers.mcp_general
 ```
+
+**Important**: All 4 steps are required - the tool won't work if any step is missing. The handler (step 1) contains business logic, the registry (step 2) makes it discoverable, the database record (step 3) provides metadata, and the wrapper (step 4) bridges FastMCP's explicit signatures with your handler.
 
 ## Creating a New Domain Server (14 Lines of Code)
 
@@ -443,10 +514,46 @@ Use `./scripts/db.sh tools` to verify tool is in database.
 - **Pydantic v2** (validation), **pytest** (testing)
 - **Ruff** (lint/format), **mypy** (types)
 
+## Common Development Tasks
+
+### Adding a New Domain Server
+See "Creating a New Domain Server (14 Lines of Code)" section above.
+
+### Debugging Tool Registration
+If a tool isn't appearing:
+1. Verify tool exists in database: `./scripts/db.sh tools | grep tool_name`
+2. Check `is_active=True` and correct `domain` value
+3. Ensure handler registered in `TOOL_HANDLERS` dict
+4. Verify wrapper function exists in `dynamic_loader.py`
+5. Check server startup logs for "Loading N tools for domain..."
+6. Restart server after database/code changes
+
+### Working with Complex Tool Parameters
+For tools requiring complex parameter validation:
+1. Define comprehensive `parameters_schema` in database record
+2. Use Pydantic models in `src/core/schemas/` for validation
+3. Convert and validate parameters in wrapper function before passing to handler
+4. See COBOL analysis tools for examples of complex schemas
+
+### Testing Transport-Specific Behavior
+```bash
+# Test STDIO transport (Claude Desktop simulation)
+uv run pytest tests/mcp_server/test_stdio.py -v
+
+# Test HTTP streaming transport
+uv run pytest tests/mcp_server/test_http_streaming.py -v
+
+# Test specific tool across all transports
+uv run pytest -k "test_echo_tool" -v
+```
+
 ## Key Documentation
 
 - `README.md` - Quick start and overview
 - `docs/ARCHITECTURE.md` - Hexagonal architecture details
 - `docs/HTTP_STREAMING.md` - HTTP streaming guide with SSE protocol comparison, pros/cons vs WebSockets/Long Polling, and MCP Inspector testing
-- `TESTING_GUIDE.md` - Claude Desktop integration testing
+- `docs/STREAMABLE_HTTP.md` - Streamable HTTP transport guide
+- `docs/TESTING_QUICKSTART.md` - Minimal steps to test all transport types
+- `docs/TESTING_GUIDE.md` - Claude Desktop integration testing
 - `docs/DATABASE.md` - Database schema and management
+- `docs/cobol/` - COBOL reverse engineering implementation (advanced example)

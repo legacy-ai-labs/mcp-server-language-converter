@@ -53,6 +53,68 @@ INITIAL_TOOLS = [
         domain="general",
         is_active=True,
     ),
+    ToolCreate(
+        name="parse_cobol",
+        description="Parse COBOL source code into Abstract Syntax Tree (AST)",
+        handler_name="parse_cobol_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "source_code": {
+                    "type": "string",
+                    "description": "COBOL source code",
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to COBOL file",
+                },
+            },
+            "required": [],
+        },
+        category="parsing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
+    ToolCreate(
+        name="build_cfg",
+        description="Build Control Flow Graph (CFG) from AST",
+        handler_name="build_cfg_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "ast": {
+                    "type": "object",
+                    "description": "AST representation",
+                },
+            },
+            "required": ["ast"],
+        },
+        category="parsing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
+    ToolCreate(
+        name="build_dfg",
+        description="Build Data Flow Graph (DFG) from AST + CFG",
+        handler_name="build_dfg_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "ast": {
+                    "type": "object",
+                    "description": "AST representation",
+                },
+                "cfg": {
+                    "type": "object",
+                    "description": "CFG representation",
+                },
+            },
+            "required": ["ast", "cfg"],
+        },
+        category="parsing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
 ]
 
 
