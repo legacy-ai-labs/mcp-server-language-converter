@@ -152,7 +152,7 @@ The data models are designed to work with the parse tree from `cobol_parser_serv
 
 ## Next Steps
 
-1. **Proceed to Step 3**: AST Builder Implementation
+1. **Proceed to Step 3**: AST Builder Implementation — see [Step 3 Summary](COBOL_PHASE1_STEP3.md)
    - Convert parse tree to AST nodes
    - Map parser's `ParseNode` to our `ASTNode` hierarchy
    - Preserve source location information

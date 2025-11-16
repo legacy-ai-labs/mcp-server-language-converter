@@ -12,6 +12,9 @@ This directory contains all documentation related to the COBOL reverse engineeri
 - **[COBOL_PARSER_RESEARCH.md](COBOL_PARSER_RESEARCH.md)** - Parser research and selection decision
 - **[COBOL_PHASE1_STEP1.md](phase1/COBOL_PHASE1_STEP1.md)** - Step 1 (Parser) implementation summary
 - **[COBOL_PHASE1_STEP2.md](phase1/COBOL_PHASE1_STEP2.md)** - Step 2 (Data Models) implementation summary
+- **[COBOL_PHASE1_STEP3.md](phase1/COBOL_PHASE1_STEP3.md)** - Step 3 (AST Builder) implementation summary
+- **[COBOL_PHASE1_STEP4.md](phase1/COBOL_PHASE1_STEP4.md)** - Step 4 (CFG Builder) implementation summary
+- **[COBOL_PHASE1_STEP5.md](phase1/COBOL_PHASE1_STEP5.md)** - Step 5 (DFG Builder) implementation summary
 
 ## Quick Links
 

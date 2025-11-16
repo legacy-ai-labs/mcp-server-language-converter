@@ -363,8 +363,8 @@ src/
 │   ├── services/
 │   │   ├── cobol_parser_service.py          # COBOL parsing logic
 │   │   ├── ast_builder.py            # AST construction
-│   │   ├── cfg_builder.py            # CFG construction (from AST)
-│   │   ├── dfg_builder.py            # DFG construction (from AST + CFG)
+│   │   ├── cfg_builder_service.py            # CFG construction (from AST)
+│   │   ├── dfg_builder_service.py            # DFG construction (from AST + CFG)
 │   │   ├── pattern_matcher.py       # Pattern recognition
 │   │   ├── semantic_analyzer.py     # LLM integration
 │   │   └── story_generator.py       # Story generation
@@ -377,7 +377,7 @@ src/
 │       └── http_main.py            # HTTP entry point
 ```
 
-**Note**: `dfg_builder.py` requires both AST and CFG as inputs. CFG must be built before DFG.
+**Note**: `dfg_builder_service.py` requires both AST and CFG as inputs. CFG must be built before DFG.
 
 **Tool Categories:**
 - **parsing**: AST/CFG/DFG construction

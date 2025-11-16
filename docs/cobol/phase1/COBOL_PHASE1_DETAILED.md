@@ -18,8 +18,8 @@ Phase 1 establishes the foundational infrastructure for COBOL reverse engineerin
 
 - COBOL parser integration or custom parser
 - AST builder service (`ast_builder.py`)
-- CFG builder service (`cfg_builder.py`)
-- DFG builder service (`dfg_builder.py`)
+- CFG builder service (`cfg_builder_service.py`)
+- DFG builder service (`dfg_builder_service.py`)
 - MCP domain server (`mcp_cobol_analysis`)
 - Three MCP tools: `parse_cobol`, `build_cfg`, `build_dfg`
 - Unit tests for each component
@@ -149,6 +149,7 @@ COBOL Source → Parser → AST → CFG → DFG
 
 **Files**:
 - `src/core/services/ast_builder_service.py` - AST construction logic
+- `docs/cobol/phase1/COBOL_PHASE1_STEP3.md` - Step 3 implementation summary
 
 **Function Signature**:
 ```python
@@ -191,7 +192,8 @@ def build_ast(parsed_cobol: Any) -> ProgramNode:
 **Deliverable**: CFG builder service
 
 **Files**:
-- `src/core/services/cfg_builder.py` - CFG construction logic
+- `src/core/services/cfg_builder_service.py` - CFG construction logic
+- `docs/cobol/phase1/COBOL_PHASE1_STEP4.md` - Step 4 implementation summary
 
 **Function Signature**:
 ```python
@@ -241,7 +243,9 @@ END-IF
 **Deliverable**: DFG builder service
 
 **Files**:
-- `src/core/services/dfg_builder.py` - DFG construction logic
+- `src/core/services/dfg_builder_service.py` - DFG construction logic
+- `docs/cobol/phase1/COBOL_PHASE1_STEP5.md` - Step 5 implementation summary
+- `tests/core/test_dfg_builder.py` - DFG unit tests
 
 **Function Signature**:
 ```python

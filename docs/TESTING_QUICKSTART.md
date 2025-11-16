@@ -6,38 +6,70 @@ Minimal steps to test all transports with MCP Inspector.
 ```bash
 npx @modelcontextprotocol/inspector
 ```
-Open http://localhost:3000 in your browser, then connect each transport using the URLs below.
+Open http://localhost:3000 in your browser, then connect each transport using the commands/URLs below.
 
 ### STDIO (Claude Desktop/Cursor style)
 1) Start server (keep running):
 ```bash
-uv run python -m src.mcp_servers.mcp_general
+uv run python scripts/start_stdio.py
 ```
 2) MCP Inspector → Transport: STDIO
-   - Command: `uv run python -m src.mcp_servers.mcp_general`
+   - Command: `uv run python scripts/start_stdio.py`
    - Working dir: `/Users/hyalen/workspace/mcp-server-blueprint`
 3) Test:
    - Initialize → List tools → Call `echo` with `{ "text": "hello" }`
 
+**Alternative (using module directly):**
+```bash
+uv run python -m src.mcp_servers.mcp_general
+```
+
+**Alternative (with environment variables and explicit directory):**
+```bash
+npx @modelcontextprotocol/inspector \
+  -e DATABASE_URL="postgresql+asyncpg://user@localhost:5432/mcp_server" \
+  -e LOG_LEVEL="INFO" \
+  -- \
+  uv --directory /path/to/mcp-server-blueprint \
+     run python -m src.mcp_servers.mcp_general
+```
+> **Note:** This is an example command. Update the `DATABASE_URL`, directory path, and module path according to your MCP server configuration.
+
+**MCP Inspector Configuration (if using UI):**
+- Command: `uv`
+- Arguments: `--directory /path/to/mcp-server-blueprint run python -m src.mcp_servers.mcp_general`
+- Working Directory: `/path/to/mcp-server-blueprint`
+> **Note:** Replace `/path/to/mcp-server-blueprint` with your actual project directory path.
+
+### SSE (Server‑Sent Events)
+1) Start server:
+```bash
+uv run python scripts/start_sse.py
+```
+2) MCP Inspector → Transport: Server‑Sent Events (SSE)
+   - URL: `http://127.0.0.1:8000/sse`
+3) Test:
+   - Initialize → List tools → Call `echo`, `calculator_add`
+
+**Alternative (using module directly):**
+```bash
+uv run python -m src.mcp_servers.mcp_general.http_main
+```
+
 ### Streamable HTTP (recommended for web/microservices)
 1) Start server:
 ```bash
-uv run python -m src.mcp_servers.mcp_general.streamable_http_main
+uv run python scripts/start_streamable_http.py
 ```
 2) MCP Inspector → Transport: Streamable HTTP
    - URL: `http://127.0.0.1:8002/mcp`
 3) Test:
    - Initialize → List tools → Call `echo`, `calculator_add`
 
-### SSE (Server‑Sent Events)
-1) Start server:
+**Alternative (using module directly):**
 ```bash
-uv run python -m src.mcp_servers.mcp_general.http_main
+uv run python -m src.mcp_servers.mcp_general.streamable_http_main
 ```
-2) MCP Inspector → Transport: Server‑Sent Events (SSE)
-   - URL: `http://127.0.0.1:8000/sse`
-3) Test:
-   - Initialize → List tools → Call `echo`
 
 Notes
 - If a port is busy, stop the other process or change the port via env vars.
@@ -64,6 +96,13 @@ lsof -i :8002 -sTCP:LISTEN
 Get only PIDs and kill them:
 ```bash
 lsof -ti:8000,8002 | xargs -r kill
+```
+
+Kill by script name (recommended):
+```bash
+pkill -f "scripts/start_sse.py" || true
+pkill -f "scripts/start_streamable_http.py" || true
+pkill -f "scripts/start_stdio.py" || true
 ```
 
 Kill by module name (fallback):
