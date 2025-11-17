@@ -2,18 +2,17 @@
 """Test what happens if user passes wrong data to build_cfg."""
 
 from src.core.services.tool_handlers_service import (
-    parse_cobol_handler,
     build_cfg_handler,
+    parse_cobol_handler,
 )
+
 
 print("=" * 80)
 print("Testing various incorrect inputs to build_cfg")
 print("=" * 80)
 
 # Get a parse result
-parse_result = parse_cobol_handler({
-    "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl"
-})
+parse_result = parse_cobol_handler({"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl"})
 
 # Test 1: Passing the whole parse_result instead of just the ast
 print("\n TEST 1: Passing whole parse_result (with success, ast, program_name)")

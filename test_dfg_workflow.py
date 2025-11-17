@@ -2,11 +2,13 @@
 """Test the complete workflow: parse_cobol → build_cfg → build_dfg."""
 
 import json
+
 from src.core.services.tool_handlers_service import (
-    parse_cobol_handler,
     build_cfg_handler,
     build_dfg_handler,
+    parse_cobol_handler,
 )
+
 
 print("=" * 80)
 print("COMPLETE WORKFLOW TEST: parse_cobol → build_cfg → build_dfg")
@@ -15,15 +17,13 @@ print("=" * 80)
 # Step 1: Parse COBOL
 print("\nSTEP 1: Parse COBOL")
 print("-" * 80)
-parse_result = parse_cobol_handler({
-    "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl"
-})
+parse_result = parse_cobol_handler({"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl"})
 
 if not parse_result.get("success"):
     print(f"❌ Parse failed: {parse_result.get('error')}")
     exit(1)
 
-print(f"✅ Parse successful!")
+print("✅ Parse successful!")
 print(f"   Program: {parse_result.get('program_name')}")
 
 # Check statement counts in AST
@@ -48,28 +48,25 @@ if not cfg_result.get("success"):
     print(f"❌ CFG build failed: {cfg_result.get('error')}")
     exit(1)
 
-print(f"✅ CFG build successful!")
+print("✅ CFG build successful!")
 print(f"   Nodes: {cfg_result.get('node_count')}")
 print(f"   Edges: {cfg_result.get('edge_count')}")
 
 # Step 3: Build DFG
 print("\nSTEP 3: Build DFG")
 print("-" * 80)
-dfg_result = build_dfg_handler({
-    "ast": parse_result["ast"],
-    "cfg": cfg_result["cfg"]
-})
+dfg_result = build_dfg_handler({"ast": parse_result["ast"], "cfg": cfg_result["cfg"]})
 
 if not dfg_result.get("success"):
     print(f"❌ DFG build failed: {dfg_result.get('error')}")
     print(f"   Error details: {dfg_result}")
     exit(1)
 
-print(f"✅ DFG build successful!")
+print("✅ DFG build successful!")
 print(f"   Nodes: {dfg_result.get('node_count')}")
 print(f"   Edges: {dfg_result.get('edge_count')}")
 
-if dfg_result.get('node_count') == 0:
+if dfg_result.get("node_count") == 0:
     print("\n⚠️  WARNING: DFG is empty (no nodes)!")
     print("   This is expected because the AST has no statements.")
     print("   The parser is not yet extracting statement details from COBOL code.")
@@ -92,11 +89,11 @@ else:
 print("\nSTEP 4: Save Results")
 print("-" * 80)
 with open("dfg_workflow_output.json", "w") as f:
-    json.dump({
-        "parse_result": parse_result,
-        "cfg_result": cfg_result,
-        "dfg_result": dfg_result
-    }, f, indent=2)
+    json.dump(
+        {"parse_result": parse_result, "cfg_result": cfg_result, "dfg_result": dfg_result},
+        f,
+        indent=2,
+    )
 print("✅ Results saved to: dfg_workflow_output.json")
 
 print("\n" + "=" * 80)

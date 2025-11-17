@@ -10,13 +10,13 @@ This test verifies that:
 """
 
 import sys
-import json
+
 
 sys.path.insert(0, "src")
 
-from src.core.services.cobol_parser_antlr_service import parse_cobol
 from src.core.services.ast_builder_service import build_ast
 from src.core.services.cfg_builder_service import build_cfg
+from src.core.services.cobol_parser_antlr_service import parse_cobol
 from src.core.services.dfg_builder_service import build_dfg
 
 
@@ -138,7 +138,7 @@ def test_dfg_variable_extraction():
     for var_name in sorted(all_vars_in_dfg):
         print(f"   - {var_name}")
 
-    print(f"\n   Checking expected variables:")
+    print("\n   Checking expected variables:")
     all_found = True
     for var_name in expected_variables:
         if var_name in all_vars_in_dfg:
@@ -191,41 +191,41 @@ def test_dfg_variable_extraction():
     if len(dfg.nodes) > 0:
         print(f"   ✓ DFG has nodes: {len(dfg.nodes)}")
     else:
-        print(f"   ✗ DFG has no nodes")
+        print("   ✗ DFG has no nodes")
         success = False
 
     # Check 2: DFG has edges
     if len(dfg.edges) > 0:
         print(f"   ✓ DFG has edges: {len(dfg.edges)}")
     else:
-        print(f"   ✗ DFG has no edges")
+        print("   ✗ DFG has no edges")
         success = False
 
     # Check 3: Variables extracted from statements
     if len(move_targets) > 0:
         print(f"   ✓ MOVE targets extracted: {len(move_targets)}")
     else:
-        print(f"   ✗ No MOVE targets extracted")
+        print("   ✗ No MOVE targets extracted")
         success = False
 
     if len(add_targets) > 0:
         print(f"   ✓ ADD targets extracted: {len(add_targets)}")
     else:
-        print(f"   ✗ No ADD targets extracted")
+        print("   ✗ No ADD targets extracted")
         success = False
 
     # Check 4: Expected variables found
     if all_found:
-        print(f"   ✓ All expected variables found in DFG")
+        print("   ✓ All expected variables found in DFG")
     else:
-        print(f"   ✗ Some expected variables missing from DFG")
+        print("   ✗ Some expected variables missing from DFG")
         success = False
 
     # Check 5: Variable definitions created
     if len(variable_defs) > 0:
         print(f"   ✓ Variable definitions created: {len(variable_defs)}")
     else:
-        print(f"   ✗ No variable definitions created")
+        print("   ✗ No variable definitions created")
         success = False
 
     print()

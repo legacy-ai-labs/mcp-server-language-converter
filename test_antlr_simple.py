@@ -4,6 +4,7 @@
 import sys
 from pathlib import Path
 
+
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from core.services.cobol_parser_antlr_service import parse_cobol
@@ -33,4 +34,5 @@ try:
 except Exception as e:
     print(f"\n✗ Failed: {e}")
     import traceback
+
     traceback.print_exc()

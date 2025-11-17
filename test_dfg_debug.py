@@ -2,12 +2,15 @@
 """Debug DFG building."""
 
 import logging
-logging.basicConfig(level=logging.DEBUG, format='%(name)s - %(levelname)s - %(message)s')
 
-from src.core.services.cobol_parser_antlr_service import parse_cobol_file
+
+logging.basicConfig(level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s")
+
 from src.core.services.ast_builder_service import build_ast
 from src.core.services.cfg_builder_service import build_cfg
+from src.core.services.cobol_parser_antlr_service import parse_cobol_file
 from src.core.services.dfg_builder_service import build_dfg
+
 
 print("=" * 80)
 print("DFG Building Debug Test")
@@ -26,7 +29,9 @@ for div in ast.divisions:
             for para in section.paragraphs:
                 print(f"   {para.paragraph_name}: {len(para.statements)} statements")
                 for i, stmt in enumerate(para.statements):
-                    print(f"      [{i+1}] {stmt.statement_type.value}: {list(stmt.attributes.keys())}")
+                    print(
+                        f"      [{i+1}] {stmt.statement_type.value}: {list(stmt.attributes.keys())}"
+                    )
                     total_stmts += 1
 
 print(f"\n   Total statements: {total_stmts}")
@@ -49,6 +54,7 @@ try:
 except Exception as e:
     print(f"   ❌ Error building DFG: {e}")
     import traceback
+
     traceback.print_exc()
 
 print("\n" + "=" * 80)

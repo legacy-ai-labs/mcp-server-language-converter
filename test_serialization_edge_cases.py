@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test serialization edge cases."""
 
+from src.core.models.cobol_analysis_model import ProgramNode
 from src.core.services.tool_handlers_service import _serialize_ast_node
-from src.core.models.cobol_analysis_model import ProgramNode, DivisionNode, DivisionType
+
 
 print("=" * 80)
 print("Testing AST serialization edge cases")

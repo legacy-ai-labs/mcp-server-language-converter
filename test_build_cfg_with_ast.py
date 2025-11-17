@@ -2,7 +2,9 @@
 """Test build_cfg with the specific AST that failed."""
 
 import json
+
 from src.core.services.tool_handlers_service import build_cfg_handler
+
 
 # The exact AST provided by the user
 ast_data = {
@@ -24,26 +26,19 @@ ast_data = {
                                 {
                                     "type": "StatementNode",
                                     "statement_type": "DISPLAY",
-                                    "attributes": {
-                                        "program_id": "PROGRAM-ID"
-                                    },
-                                    "location": None
+                                    "attributes": {"program_id": "PROGRAM-ID"},
+                                    "location": None,
                                 }
                             ],
-                            "location": None
+                            "location": None,
                         }
                     ],
-                    "location": None
+                    "location": None,
                 }
             ],
-            "location": None
+            "location": None,
         },
-        {
-            "type": "DivisionNode",
-            "division_type": "DATA",
-            "sections": [],
-            "location": None
-        },
+        {"type": "DivisionNode", "division_type": "DATA", "sections": [], "location": None},
         {
             "type": "DivisionNode",
             "division_type": "PROCEDURE",
@@ -56,34 +51,34 @@ ast_data = {
                             "type": "ParagraphNode",
                             "paragraph_name": "PARAGRAPH",
                             "statements": [],
-                            "location": None
+                            "location": None,
                         },
                         {
                             "type": "ParagraphNode",
                             "paragraph_name": "PARAGRAPH",
                             "statements": [],
-                            "location": None
+                            "location": None,
                         },
                         {
                             "type": "ParagraphNode",
                             "paragraph_name": "PARAGRAPH",
                             "statements": [],
-                            "location": None
+                            "location": None,
                         },
                         {
                             "type": "ParagraphNode",
                             "paragraph_name": "PARAGRAPH",
                             "statements": [],
-                            "location": None
-                        }
+                            "location": None,
+                        },
                     ],
-                    "location": None
+                    "location": None,
                 }
             ],
-            "location": None
-        }
+            "location": None,
+        },
     ],
-    "location": None
+    "location": None,
 }
 
 print("Testing build_cfg with provided AST...")
@@ -94,19 +89,20 @@ try:
 
     print(f"Success: {result.get('success')}")
 
-    if result.get('success'):
-        print(f"\n✅ CFG built successfully!")
+    if result.get("success"):
+        print("\n✅ CFG built successfully!")
         print(f"   Node count: {result.get('node_count')}")
         print(f"   Edge count: {result.get('edge_count')}")
-        print(f"\nCFG structure:")
+        print("\nCFG structure:")
         print(json.dumps(result, indent=2))
     else:
         print(f"\n❌ Error: {result.get('error')}")
 
 except Exception as e:
-    print(f"\n❌ Exception occurred:")
+    print("\n❌ Exception occurred:")
     print(f"   Type: {type(e).__name__}")
-    print(f"   Message: {str(e)}")
+    print(f"   Message: {e!s}")
     import traceback
-    print(f"\nFull traceback:")
+
+    print("\nFull traceback:")
     traceback.print_exc()

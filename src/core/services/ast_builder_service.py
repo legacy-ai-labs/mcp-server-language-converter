@@ -240,15 +240,11 @@ def _extract_paragraphs(node: ParseNode) -> list[ParagraphNode]:
         # Look for SENTENCE nodes and extract statements from them
         statements: list[StatementNode] = []
         sentence_nodes = list(_walk_nodes(candidate, {"SENTENCE"}))
-        logger.debug(
-            f"Paragraph '{paragraph_name}': found {len(sentence_nodes)} SENTENCE nodes"
-        )
+        logger.debug(f"Paragraph '{paragraph_name}': found {len(sentence_nodes)} SENTENCE nodes")
 
         for sentence_node in sentence_nodes:
             sentence_statements = _build_statements_from_sentence(sentence_node)
-            logger.debug(
-                f"  SENTENCE yielded {len(sentence_statements)} statements"
-            )
+            logger.debug(f"  SENTENCE yielded {len(sentence_statements)} statements")
             statements.extend(sentence_statements)
 
         paragraph = ParagraphNode(paragraph_name=paragraph_name, statements=statements)
@@ -739,9 +735,7 @@ def _build_evaluate_statement(node: ParseNode) -> StatementNode:
         condition_value = _extract_evaluate_condition_value(when_condition)
         statements = _extract_statements_from_node(when_phrase)
 
-        when_clauses.append(
-            {"value": _create_literal(condition_value), "statements": statements}
-        )
+        when_clauses.append({"value": _create_literal(condition_value), "statements": statements})
 
     # Extract WHEN OTHER (default) clause
     when_other = _find_child_node(node, "EVALUATEWHENOTHER")
@@ -920,7 +914,7 @@ def _parse_numeric_literal(numeric_literal: ParseNode) -> float | int | str:
     """
     value_str = str(numeric_literal.value)
     try:
-        return float(value_str) if '.' in value_str else int(value_str)
+        return float(value_str) if "." in value_str else int(value_str)
     except ValueError:
         return value_str
 

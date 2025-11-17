@@ -269,7 +269,14 @@ def p_program(p: yacc.YaccProduction) -> None:
 
 def p_identification_division(p: yacc.YaccProduction) -> None:
     """identification_division : IDENTIFICATION DIVISION DOT identification_clauses"""
-    p[0] = ParseNode("IDENTIFICATION_DIVISION", children=p[4].children if len(p) > 4 and hasattr(p[4], 'children') else [p[4]] if len(p) > 4 else [])
+    p[0] = ParseNode(
+        "IDENTIFICATION_DIVISION",
+        children=p[4].children
+        if len(p) > 4 and hasattr(p[4], "children")
+        else [p[4]]
+        if len(p) > 4
+        else [],
+    )
 
 
 def p_identification_clauses(p: yacc.YaccProduction) -> None:
@@ -295,7 +302,11 @@ def p_identification_clause(p: yacc.YaccProduction) -> None:
         if isinstance(clause_value, list):
             # Multiple identifiers - join them
             clause_value = " ".join(str(v) for v in clause_value)
-        p[0] = ParseNode("IDENTIFICATION_CLAUSE", value=clause_name, children=[ParseNode("VALUE", value=clause_value)])
+        p[0] = ParseNode(
+            "IDENTIFICATION_CLAUSE",
+            value=clause_name,
+            children=[ParseNode("VALUE", value=clause_value)],
+        )
     else:
         p[0] = ParseNode("IDENTIFICATION_CLAUSE", value=clause_name, children=[])
 
@@ -521,7 +532,9 @@ def p_level_88_definition(p: yacc.YaccProduction) -> None:
         children=[
             ParseNode("LEVEL", value=int(p[1])),
             ParseNode("CONDITION_NAME", value=p[2]),
-            ParseNode("VALUE", value=p[4] if isinstance(p[4], str) else " ".join(str(v) for v in p[4])),
+            ParseNode(
+                "VALUE", value=p[4] if isinstance(p[4], str) else " ".join(str(v) for v in p[4])
+            ),
         ],
     )
 
@@ -539,8 +552,7 @@ def p_linkage_definition(p: yacc.YaccProduction) -> None:
 
 
 def p_pic_clause(p: yacc.YaccProduction) -> None:
-    """pic_clause : PIC pic_spec
-    """
+    """pic_clause : PIC pic_spec"""
     p[0] = p[2]  # pic_spec already contains the PIC_CLAUSE node
 
 
@@ -555,31 +567,31 @@ def p_pic_spec(p: yacc.YaccProduction) -> None:
     if len(p) == 6 and isinstance(p[1], str):
         # IDENTIFIER LPAREN NUMBER RPAREN pic_spec_continuation
         pic_base = f"{p[1]}({p[3]})"
-        continuation = p[5].value if hasattr(p[5], 'value') and p[5].value else ""
+        continuation = p[5].value if hasattr(p[5], "value") and p[5].value else ""
         pic_value = f"{pic_base}{continuation}" if continuation else pic_base
         p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
     elif len(p) == 6 and isinstance(p[1], (int, float)):
         # NUMBER LPAREN NUMBER RPAREN pic_spec_continuation
         pic_base = f"{int(p[1])}({int(p[3])})"
-        continuation = p[5].value if hasattr(p[5], 'value') and p[5].value else ""
+        continuation = p[5].value if hasattr(p[5], "value") and p[5].value else ""
         pic_value = f"{pic_base}{continuation}" if continuation else pic_base
         p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
     elif len(p) == 7:
         # IDENTIFIER IDENTIFIER LPAREN NUMBER RPAREN pic_spec_continuation
         pic_base = f"{p[1]}{p[2]}({p[4]})"
-        continuation = p[6].value if hasattr(p[6], 'value') and p[6].value else ""
+        continuation = p[6].value if hasattr(p[6], "value") and p[6].value else ""
         pic_value = f"{pic_base}{continuation}" if continuation else pic_base
         p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
     elif len(p) == 3 and isinstance(p[1], str):
         # IDENTIFIER pic_spec_continuation
         identifier = p[1]
-        continuation = p[2].value if hasattr(p[2], 'value') and p[2].value else ""
+        continuation = p[2].value if hasattr(p[2], "value") and p[2].value else ""
         pic_value = f"{identifier}{continuation}" if continuation else identifier
         p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
     elif len(p) == 3 and isinstance(p[1], (int, float)):
         # NUMBER pic_spec_continuation
         number = int(p[1])
-        continuation = p[2].value if hasattr(p[2], 'value') and p[2].value else ""
+        continuation = p[2].value if hasattr(p[2], "value") and p[2].value else ""
         pic_value = f"{number}{continuation}" if continuation else str(number)
         p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
     else:
@@ -942,36 +954,36 @@ def parse_cobol(source_code: str) -> ParseNode:
     # COBOL is case-insensitive, so we normalize to uppercase for parsing
     # but preserve string literals (inside quotes) as-is
     normalized_source = source_code.replace("\r\n", "\n").replace("\r", "\n")
-    
+
     # Preserve string literals while uppercasing everything else
     # This is a simple approach: find all string literals, replace with placeholders,
     # uppercase the rest, then restore literals
     string_literals = []
     placeholder_pattern = r"'[^']*'"
-    
+
     def replace_literal(match: re.Match[str]) -> str:
         """Replace string literal with placeholder."""
         literal = match.group(0)
         string_literals.append(literal)
         return f"__STRING_LITERAL_{len(string_literals)-1}__"
-    
+
     # Replace all string literals with placeholders
     source_with_placeholders = re.sub(placeholder_pattern, replace_literal, normalized_source)
-    
+
     # Uppercase everything (COBOL is case-insensitive)
     source_uppercased = source_with_placeholders.upper()
-    
+
     # Restore string literals (preserve original case)
     for idx, literal in enumerate(string_literals):
         source_uppercased = source_uppercased.replace(f"__STRING_LITERAL_{idx}__", literal)
-    
+
     normalized_source = source_uppercased
-    
+
     # Strip trailing whitespace from each line but preserve structure
     lines = normalized_source.split("\n")
     cleaned_lines = [line.rstrip() for line in lines]
     normalized_source = "\n".join(cleaned_lines)
-    
+
     # Ensure source ends with newline for parser
     if normalized_source and not normalized_source.endswith("\n"):
         normalized_source += "\n"
@@ -1002,16 +1014,16 @@ def parse_cobol_file(file_path: str) -> ParseNode:
         SyntaxError: If the COBOL code cannot be parsed
     """
     path = Path(file_path)
-    
+
     if not path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
-    
+
     if path.is_dir():
         raise IsADirectoryError(f"Path is a directory, not a file: {file_path}")
-    
+
     if not path.is_file():
         raise ValueError(f"Path is not a file: {file_path}")
-    
+
     try:
         source_code = path.read_text(encoding="utf-8")
         return parse_cobol(source_code)

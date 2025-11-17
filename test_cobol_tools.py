@@ -2,26 +2,23 @@
 """Test COBOL tools to verify ANTLR integration."""
 
 import sys
-from pathlib import Path
 
 from src.core.services.tool_handlers_service import (
-    parse_cobol_handler,
-    parse_cobol_raw_handler,
-    build_ast_handler,
     build_cfg_handler,
     build_dfg_handler,
+    parse_cobol_handler,
+    parse_cobol_raw_handler,
 )
+
 
 def test_parse_cobol_tool():
     """Test parse_cobol tool handler."""
     print("Testing parse_cobol tool handler...")
 
-    result = parse_cobol_handler({
-        "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl"
-    })
+    result = parse_cobol_handler({"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl"})
 
     if result["success"]:
-        print(f"  ✓ Success!")
+        print("  ✓ Success!")
         print(f"  Program: {result['program_name']}")
         print(f"  AST keys: {list(result['ast'].keys())}")
     else:
@@ -34,12 +31,12 @@ def test_parse_cobol_raw_tool():
     """Test parse_cobol_raw tool handler."""
     print("\nTesting parse_cobol_raw tool handler...")
 
-    result = parse_cobol_raw_handler({
-        "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl"
-    })
+    result = parse_cobol_raw_handler(
+        {"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl"}
+    )
 
     if result["success"]:
-        print(f"  ✓ Success!")
+        print("  ✓ Success!")
         print(f"  Root node: {result['node_type']}")
         print(f"  Parse tree keys: {list(result['parse_tree'].keys())}")
     else:
@@ -53,28 +50,23 @@ def test_full_pipeline():
     print("\nTesting full pipeline...")
 
     # Step 1: Parse COBOL
-    parse_result = parse_cobol_handler({
-        "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl"
-    })
+    parse_result = parse_cobol_handler(
+        {"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl"}
+    )
     if not parse_result["success"]:
         print(f"  ✗ Parse failed: {parse_result['error']}")
         return False
-    print(f"  ✓ Parse successful")
+    print("  ✓ Parse successful")
 
     # Step 2: Build CFG (parse_cobol_handler already builds AST)
-    cfg_result = build_cfg_handler({
-        "ast": parse_result["ast"]
-    })
+    cfg_result = build_cfg_handler({"ast": parse_result["ast"]})
     if not cfg_result["success"]:
         print(f"  ✗ CFG failed: {cfg_result['error']}")
         return False
     print(f"  ✓ CFG successful: {cfg_result['node_count']} nodes")
 
     # Step 3: Build DFG
-    dfg_result = build_dfg_handler({
-        "ast": parse_result["ast"],
-        "cfg": cfg_result["cfg"]
-    })
+    dfg_result = build_dfg_handler({"ast": parse_result["ast"], "cfg": cfg_result["cfg"]})
     if not dfg_result["success"]:
         print(f"  ✗ DFG failed: {dfg_result['error']}")
         return False

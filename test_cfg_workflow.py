@@ -2,9 +2,10 @@
 """Test script for COBOL parse → build_cfg workflow."""
 
 import json
+
 from src.core.services.tool_handlers_service import (
-    parse_cobol_handler,
     build_cfg_handler,
+    parse_cobol_handler,
 )
 
 
@@ -16,15 +17,15 @@ def test_cfg_workflow():
     print("STEP 1: Parsing COBOL file")
     print("=" * 80)
 
-    parse_result = parse_cobol_handler({
-        "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl"
-    })
+    parse_result = parse_cobol_handler(
+        {"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl"}
+    )
 
     if not parse_result.get("success"):
         print(f"❌ Parse failed: {parse_result.get('error')}")
         return
 
-    print(f"✅ Parse successful!")
+    print("✅ Parse successful!")
     print(f"   Program name: {parse_result.get('program_name')}")
     print(f"   AST type: {parse_result['ast']['type']}")
 
@@ -33,15 +34,13 @@ def test_cfg_workflow():
     print("STEP 2: Building Control Flow Graph")
     print("=" * 80)
 
-    cfg_result = build_cfg_handler({
-        "ast": parse_result["ast"]
-    })
+    cfg_result = build_cfg_handler({"ast": parse_result["ast"]})
 
     if not cfg_result.get("success"):
         print(f"❌ CFG build failed: {cfg_result.get('error')}")
         return
 
-    print(f"✅ CFG build successful!")
+    print("✅ CFG build successful!")
     print(f"   Node count: {cfg_result.get('node_count')}")
     print(f"   Edge count: {cfg_result.get('edge_count')}")
 
@@ -77,10 +76,7 @@ def test_cfg_workflow():
 
     output_file = "cfg_test_output.json"
     with open(output_file, "w") as f:
-        json.dump({
-            "parse_result": parse_result,
-            "cfg_result": cfg_result
-        }, f, indent=2)
+        json.dump({"parse_result": parse_result, "cfg_result": cfg_result}, f, indent=2)
 
     print(f"✅ Results saved to: {output_file}")
 

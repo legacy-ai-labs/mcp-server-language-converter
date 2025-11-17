@@ -3,9 +3,11 @@
 
 import json
 
+
 # Load parse tree
-with open("raw_parse_tree_output.json", "r") as f:
+with open("raw_parse_tree_output.json") as f:
     tree = json.load(f)
+
 
 def find_first_move(node, depth=0):
     """Find first MOVE_STATEMENT node."""
@@ -20,6 +22,7 @@ def find_first_move(node, depth=0):
 
     return None, 0
 
+
 move_node, depth = find_first_move(tree)
 
 if move_node:
@@ -27,7 +30,7 @@ if move_node:
     print(f"  Type: {move_node.get('node_type')}")
     print(f"  Depth: {depth}")
     print(f"  Children count: {len(move_node.get('children', []))}")
-    print(f"\n  Children types:")
+    print("\n  Children types:")
     for i, child in enumerate(move_node.get("children", [])[:10]):
         if isinstance(child, dict):
             print(f"    [{i}] {child.get('node_type')}: {child.get('value')}")
@@ -35,7 +38,7 @@ if move_node:
             print(f"    [{i}] {type(child).__name__}: {child}")
 
     # Show full structure
-    print(f"\n  Full structure (first 500 chars):")
+    print("\n  Full structure (first 500 chars):")
     print(json.dumps(move_node, indent=2)[:500])
 else:
     print("No MOVE statement found")

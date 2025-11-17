@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Test if SENTENCE nodes are being found."""
 
+from src.core.services.ast_builder_service import build_ast
 from src.core.services.cobol_parser_antlr_service import parse_cobol_file
-from src.core.services.ast_builder_service import build_ast, _walk_nodes
+
 
 print("=" * 80)
 print("Testing SENTENCE node extraction")
@@ -38,21 +39,23 @@ if procedure_div:
 
             # Now let's check the parsed tree directly
             # We need to find corresponding ParseNode
-            print(f"     Checking raw parse tree for SENTENCE nodes...")
+            print("     Checking raw parse tree for SENTENCE nodes...")
 
 # Let's check the parsed_tree directly
 print("\n\n5. Direct check of parsed tree for SENTENCE nodes:")
 print("-" * 80)
 
+
 def count_nodes_by_type(node, target_type):
     """Count nodes of a specific type."""
     count = 0
-    if hasattr(node, 'node_type') and node.node_type == target_type:
+    if hasattr(node, "node_type") and node.node_type == target_type:
         count = 1
-    if hasattr(node, 'children'):
+    if hasattr(node, "children"):
         for child in node.children:
             count += count_nodes_by_type(child, target_type)
     return count
+
 
 sentence_count = count_nodes_by_type(parsed_tree, "SENTENCE")
 statement_count = count_nodes_by_type(parsed_tree, "STATEMENT")

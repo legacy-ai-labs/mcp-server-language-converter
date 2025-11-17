@@ -78,31 +78,34 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
     # Terminal node (leaf) - has token value
     if isinstance(tree, TerminalNode):
         symbol = tree.getSymbol()
-        token_type = parser.symbolicNames[symbol.type] if symbol.type < len(parser.symbolicNames) else "UNKNOWN"
-        node = ParseNode(
-            node_type=token_type,
-            value=symbol.text
+        token_type = (
+            parser.symbolicNames[symbol.type]
+            if symbol.type < len(parser.symbolicNames)
+            else "UNKNOWN"
         )
+        node = ParseNode(node_type=token_type, value=symbol.text)
         node.line_number = symbol.line
         return node
 
     # Rule node (internal) - has children
     rule_name = parser.ruleNames[tree.getRuleIndex()]
-    children = [_antlr_to_parse_node(child, parser) for child in tree.children] if tree.children else []
+    children = (
+        [_antlr_to_parse_node(child, parser) for child in tree.children] if tree.children else []
+    )
 
     # Create node with appropriate name
     node_type = rule_name.upper()
 
     # Special handling for some nodes to extract values
     value = None
-    if rule_name in ['programName', 'paragraphName', 'procedureName', 'dataName', 'fileName']:
+    if rule_name in ["programName", "paragraphName", "procedureName", "dataName", "fileName"]:
         # Extract identifier value from children (recursively if needed)
         value = _extract_value_from_children(children)
 
     node = ParseNode(node_type=node_type, children=children, value=value)
 
     # Try to get line number from first token
-    if hasattr(tree, 'start') and tree.start:
+    if hasattr(tree, "start") and tree.start:
         node.line_number = tree.start.line
 
     return node
@@ -278,10 +281,10 @@ def parse_cobol_file(file_path: str) -> ParseNode:
 
     try:
         # Create file input stream
-        input_stream = FileStream(str(path), encoding='utf-8')
+        input_stream = FileStream(str(path), encoding="utf-8")
 
         # Preprocess: convert to uppercase (COBOL is case-insensitive)
-        source = path.read_text(encoding='utf-8').upper()
+        source = path.read_text(encoding="utf-8").upper()
         input_stream = InputStream(source)
 
         # Create lexer and token stream

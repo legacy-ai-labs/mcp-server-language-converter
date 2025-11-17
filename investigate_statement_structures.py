@@ -20,10 +20,7 @@ def find_nodes_by_type(node, target_type, max_results=5):
         if isinstance(n, dict):
             node_type = n.get("node_type", "")
             if target_type.upper() in node_type.upper():
-                results.append({
-                    "node": n,
-                    "depth": depth
-                })
+                results.append({"node": n, "depth": depth})
 
             for child in n.get("children", []):
                 search(child, depth + 1)
@@ -53,7 +50,7 @@ def show_node_structure(node, max_depth=3, current_depth=0, indent=""):
     children = node.get("children", [])
     for i, child in enumerate(children):
         if isinstance(child, dict):
-            is_last = (i == len(children) - 1)
+            is_last = i == len(children) - 1
             child_indent = indent + ("   " if is_last else "│  ")
             lines.extend(show_node_structure(child, max_depth, current_depth + 1, child_indent))
 
@@ -64,7 +61,7 @@ def investigate_statement_type(tree, statement_keyword, description):
     """Investigate a specific statement type."""
     print(f"\n{'=' * 80}")
     print(f"{description}")
-    print('=' * 80)
+    print("=" * 80)
 
     results = find_nodes_by_type(tree, statement_keyword, max_results=2)
 
@@ -79,14 +76,14 @@ def investigate_statement_type(tree, statement_keyword, description):
         print(f"Example {idx + 1}:")
         print(f"  Node type: {node.get('node_type')}")
         print(f"  Line: {node.get('line_number')}")
-        print(f"\n  Structure (3 levels deep):")
+        print("\n  Structure (3 levels deep):")
 
         structure_lines = show_node_structure(node, max_depth=3)
         for line in structure_lines:
             print(f"  {line}")
 
         # Extract key information
-        print(f"\n  Key child node types:")
+        print("\n  Key child node types:")
         for child in node.get("children", [])[:10]:
             if isinstance(child, dict):
                 child_type = child.get("node_type")

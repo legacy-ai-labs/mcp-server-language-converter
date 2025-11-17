@@ -5,10 +5,11 @@ import json
 import sys
 from pathlib import Path
 
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from core.services.cobol_parser_antlr_service import parse_cobol_file, ParseNode
+from core.services.cobol_parser_antlr_service import ParseNode, parse_cobol_file
 
 
 def print_parse_tree(node: ParseNode, indent: int = 0) -> None:
@@ -84,7 +85,7 @@ def main():
         # Extract key information
         print("\n4. Summary:")
         print("-" * 80)
-        print(f"Parser: ANTLR4 (Cobol85.g4 grammar)")
+        print("Parser: ANTLR4 (Cobol85.g4 grammar)")
         print(f"Input file: {cobol_file}")
         print(f"Parse tree root: {parse_tree.node_type}")
         print(f"Number of top-level children: {len(parse_tree.children)}")
@@ -111,6 +112,7 @@ def main():
     except Exception as e:
         print(f"\n✗ Unexpected Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

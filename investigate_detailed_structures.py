@@ -26,19 +26,25 @@ def show_full_structure(node, max_depth=5, current_depth=0, indent="", show_valu
     children = node.get("children", [])
     for i, child in enumerate(children):
         if isinstance(child, dict):
-            is_last = (i == len(children) - 1)
+            is_last = i == len(children) - 1
             child_indent = indent + ("   " if is_last else "│  ")
-            lines.extend(show_full_structure(child, max_depth, current_depth + 1, child_indent, show_values))
+            lines.extend(
+                show_full_structure(child, max_depth, current_depth + 1, child_indent, show_values)
+            )
 
     return lines
 
 
 def find_first_node(tree, node_type_pattern):
     """Find first node matching a pattern."""
+
     def search(node):
         if isinstance(node, dict):
             nt = node.get("node_type", "")
-            if node_type_pattern.upper() in nt.upper() and node_type_pattern.upper() + "STATEMENT" == nt.upper():
+            if (
+                node_type_pattern.upper() in nt.upper()
+                and node_type_pattern.upper() + "STATEMENT" == nt.upper()
+            ):
                 return node
 
             for child in node.get("children", []):
@@ -54,7 +60,7 @@ def investigate_detailed(tree, statement_type, description):
     """Show detailed structure for a statement type."""
     print(f"\n{'=' * 80}")
     print(f"{description}")
-    print('=' * 80)
+    print("=" * 80)
 
     node = find_first_node(tree, statement_type)
 
@@ -62,7 +68,7 @@ def investigate_detailed(tree, statement_type, description):
         print(f"❌ No {statement_type}STATEMENT nodes found\n")
         return
 
-    print(f"Full structure (5 levels deep):\n")
+    print("Full structure (5 levels deep):\n")
     lines = show_full_structure(node, max_depth=5)
     for line in lines:
         print(line)
@@ -79,12 +85,9 @@ def extract_identifiers(node, path="", identifiers=None):
 
         if "IDENTIFIER" in node_type or "DATANAME" in node_type or "QUALIFIEDDATANAME" in node_type:
             value = node.get("value")
-            identifiers.append({
-                "path": new_path,
-                "node_type": node_type,
-                "value": value,
-                "node": node
-            })
+            identifiers.append(
+                {"path": new_path, "node_type": node_type, "value": value, "node": node}
+            )
 
         for child in node.get("children", []):
             extract_identifiers(child, new_path, identifiers)
@@ -105,14 +108,14 @@ def show_identifier_locations(tree, statement_type):
         print(f"\n  Identifiers found in {statement_type}:")
         for ident in identifiers:
             # Show path from statement root
-            parts = ident['path'].split('/')
-            short_path = ' → '.join(parts[-4:])  # Last 4 parts
+            parts = ident["path"].split("/")
+            short_path = " → ".join(parts[-4:])  # Last 4 parts
             print(f"    {short_path}")
-            if ident['value']:
+            if ident["value"]:
                 # Try to get actual identifier value
-                if ident['node'].get('children'):
-                    for child in ident['node'].get('children', []):
-                        if isinstance(child, dict) and child.get('value'):
+                if ident["node"].get("children"):
+                    for child in ident["node"].get("children", []):
+                        if isinstance(child, dict) and child.get("value"):
                             print(f"      Value: '{child.get('value')}'")
                             break
                 else:

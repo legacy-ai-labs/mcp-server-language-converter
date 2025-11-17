@@ -4,10 +4,11 @@
 import sys
 from pathlib import Path
 
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from core.services.cobol_parser_service import get_lexer, get_parser
+from core.services.cobol_parser_service import get_lexer
 
 
 def test_lexer(source_code: str):
@@ -21,7 +22,7 @@ def test_lexer(source_code: str):
     tokens = []
     for tok in lexer:
         tokens.append(tok)
-        print(f"Line {tok.lineno:3d}: {tok.type:20s} = {repr(tok.value)}")
+        print(f"Line {tok.lineno:3d}: {tok.type:20s} = {tok.value!r}")
 
     print(f"\nTotal tokens: {len(tokens)}")
     return tokens
@@ -53,6 +54,7 @@ def test_simple_cobol():
 
     try:
         from core.services.cobol_parser_service import parse_cobol
+
         result = parse_cobol(simple_program)
         print("\n✓ Simple program parsed successfully!")
         print(f"Result: {result}")
@@ -60,6 +62,7 @@ def test_simple_cobol():
     except Exception as e:
         print(f"\n✗ Simple program failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

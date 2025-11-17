@@ -3,9 +3,11 @@
 
 import json
 
+
 # Load the raw parse tree
-with open("raw_parse_tree_output.json", "r") as f:
+with open("raw_parse_tree_output.json") as f:
     parse_tree = json.load(f)
+
 
 def find_path_to_node(node, target_type, current_path=""):
     """Find paths to nodes of a specific type."""
@@ -24,6 +26,7 @@ def find_path_to_node(node, target_type, current_path=""):
 
     return paths
 
+
 def show_node_structure(node, target_type, max_depth=10):
     """Show the structure of nodes matching target type."""
     if not isinstance(node, dict):
@@ -34,19 +37,24 @@ def show_node_structure(node, target_type, max_depth=10):
 
     if target_type.lower() in node_type.lower():
         # Found a match - show its structure
-        children_types = [c.get("node_type") if isinstance(c, dict) else str(type(c).__name__)
-                         for c in node.get("children", [])]
-        results.append({
-            "node_type": node_type,
-            "children_count": len(node.get("children", [])),
-            "children_types": children_types[:5]  # First 5 children
-        })
+        children_types = [
+            c.get("node_type") if isinstance(c, dict) else str(type(c).__name__)
+            for c in node.get("children", [])
+        ]
+        results.append(
+            {
+                "node_type": node_type,
+                "children_count": len(node.get("children", [])),
+                "children_types": children_types[:5],  # First 5 children
+            }
+        )
 
     if max_depth > 0:
         for child in node.get("children", []):
             results.extend(show_node_structure(child, target_type, max_depth - 1))
 
     return results
+
 
 print("=" * 80)
 print("Parse Tree Structure Analysis")

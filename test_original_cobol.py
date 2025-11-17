@@ -2,7 +2,9 @@
 """Test parse_cobol tool with original ACCOUNT-VALIDATOR.cbl file."""
 
 import sys
+
 from src.core.services.tool_handlers_service import parse_cobol_handler
+
 
 def test_original_file():
     """Test parsing original ACCOUNT-VALIDATOR.cbl."""
@@ -10,9 +12,7 @@ def test_original_file():
     print("Testing parse_cobol with ACCOUNT-VALIDATOR.cbl")
     print("=" * 80)
 
-    result = parse_cobol_handler({
-        "file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR.cbl"
-    })
+    result = parse_cobol_handler({"file_path": "tests/cobol_samples/ACCOUNT-VALIDATOR.cbl"})
 
     if result["success"]:
         print("\n✅ SUCCESS!")
@@ -20,9 +20,9 @@ def test_original_file():
         print(f"AST structure: {list(result['ast'].keys())}")
 
         # Show divisions
-        if 'divisions' in result['ast']:
+        if "divisions" in result["ast"]:
             print(f"\nDivisions found: {len(result['ast']['divisions'])}")
-            for div in result['ast']['divisions']:
+            for div in result["ast"]["divisions"]:
                 print(f"  - {div.get('type', 'UNKNOWN')}")
 
         return True
@@ -45,6 +45,7 @@ def test_original_file():
         print("  3. Add preprocessor support (future enhancement)")
 
         return False
+
 
 if __name__ == "__main__":
     success = test_original_file()

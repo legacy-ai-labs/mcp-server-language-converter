@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """Test the new helper functions for extracting variables and literals."""
 
-from src.core.services.cobol_parser_antlr_service import parse_cobol_file
 from src.core.services.ast_builder_service import (
-    _extract_variable_name,
-    _extract_literal_value,
-    _extract_identifier_from_sending_area,
     _extract_literal_from_sending_area,
+    _extract_literal_value,
+    _extract_variable_name,
     _find_child_node,
     _walk_nodes,
 )
+from src.core.services.cobol_parser_antlr_service import parse_cobol_file
 
 
 def find_first_statement(tree, statement_type):
@@ -28,6 +27,7 @@ def find_first_statement(tree, statement_type):
                 if result:
                     return result
         return None
+
     return search(tree)
 
 
@@ -63,7 +63,7 @@ if move_stmt:
             target_identifier = identifier_nodes[-1]
             variable_name = _extract_variable_name(target_identifier)
             print(f"   ✅ Extracted variable name: '{variable_name}'")
-            print(f"      Expected: 'WS-VALIDATION-RESULT'")
+            print("      Expected: 'WS-VALIDATION-RESULT'")
             print(f"      Match: {'✅' if variable_name == 'WS-VALIDATION-RESULT' else '❌'}")
 
         # Test literal extraction from source
@@ -71,7 +71,7 @@ if move_stmt:
         if literal_node:
             literal_value = _extract_literal_value(literal_node)
             print(f"   ✅ Extracted literal value: '{literal_value}'")
-            print(f"      Expected: 'Y'")
+            print("      Expected: 'Y'")
             print(f"      Match: {'✅' if literal_value == 'Y' else '❌'}")
 
 # Test 2: Extract variable from ADD statement
@@ -94,7 +94,7 @@ if add_stmt:
             identifier = _find_child_node(addto, "IDENTIFIER")
             variable_name = _extract_variable_name(identifier)
             print(f"   ✅ Extracted variable name: '{variable_name}'")
-            print(f"      Expected: 'WS-CHECK-COUNT'")
+            print("      Expected: 'WS-CHECK-COUNT'")
             print(f"      Match: {'✅' if variable_name == 'WS-CHECK-COUNT' else '❌'}")
 
         # Find ADDFROM (value)
@@ -103,7 +103,7 @@ if add_stmt:
             literal = _find_child_node(addfrom, "LITERAL")
             value = _extract_literal_value(literal)
             print(f"   ✅ Extracted literal value: {value}")
-            print(f"      Expected: 1")
+            print("      Expected: 1")
             print(f"      Match: {'✅' if value == 1 else '❌'}")
 
 # Test 3: Extract paragraph name from PERFORM statement
@@ -131,7 +131,7 @@ if perform_stmt:
                     if identifier:
                         para_name = identifier.value
                         print(f"   ✅ Extracted paragraph name: '{para_name}'")
-                        print(f"      Expected: 'CHECK-CUSTOMER-ID'")
+                        print("      Expected: 'CHECK-CUSTOMER-ID'")
                         print(f"      Match: {'✅' if para_name == 'CHECK-CUSTOMER-ID' else '❌'}")
 
 # Test 4: Extract condition name from IF statement
@@ -159,7 +159,7 @@ if if_stmt:
                     if identifier:
                         cond_name = identifier.value
                         print(f"   ✅ Extracted condition name: '{cond_name}'")
-                        print(f"      Expected: 'VALID-ACCOUNT'")
+                        print("      Expected: 'VALID-ACCOUNT'")
                         print(f"      Match: {'✅' if cond_name == 'VALID-ACCOUNT' else '❌'}")
 
 print("\n" + "=" * 80)

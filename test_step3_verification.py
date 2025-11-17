@@ -11,13 +11,13 @@ This script tests that:
 """
 
 import sys
-import json
+
 
 sys.path.insert(0, "src")
 
-from src.core.services.cobol_parser_antlr_service import parse_cobol
 from src.core.services.ast_builder_service import build_ast
 from src.core.services.cfg_builder_service import build_cfg
+from src.core.services.cobol_parser_antlr_service import parse_cobol
 from src.core.services.dfg_builder_service import build_dfg
 
 
@@ -66,17 +66,13 @@ def test_with_cobol_file():
                                 source = stmt.attributes.get("source")
                                 target = stmt.attributes.get("target")
                                 if hasattr(target, "variable_name"):
-                                    print(
-                                        f"   MOVE: target='{target.variable_name}'"
-                                    )
+                                    print(f"   MOVE: target='{target.variable_name}'")
                         elif "ADD" in stmt_type:
                             add_count += 1
                             if hasattr(stmt, "attributes") and stmt.attributes:
                                 target = stmt.attributes.get("target")
                                 if hasattr(target, "variable_name"):
-                                    print(
-                                        f"   ADD: target='{target.variable_name}'"
-                                    )
+                                    print(f"   ADD: target='{target.variable_name}'")
                         elif "PERFORM" in stmt_type:
                             perform_count += 1
                             if hasattr(stmt, "attributes") and stmt.attributes:
@@ -172,9 +168,7 @@ def test_with_cobol_file():
     if len(dfg.nodes) >= 20:
         print(f"✓ DFG has sufficient nodes ({len(dfg.nodes)} >= 20 expected)")
     else:
-        print(
-            f"⚠ DFG has fewer nodes than expected ({len(dfg.nodes)} < 20 expected)"
-        )
+        print(f"⚠ DFG has fewer nodes than expected ({len(dfg.nodes)} < 20 expected)")
         # Not a hard failure, but worth noting
 
     print()

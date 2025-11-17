@@ -114,9 +114,7 @@ def _deserialize_ast_node(node_dict: dict[str, Any]) -> ASTNode:
             f"AST node missing 'type' field. Node keys: {list(node_dict.keys())}, "
             f"Sample data: {str(node_dict)[:200]}"
         )
-        raise ValueError(
-            f"AST node missing 'type' field. Available keys: {list(node_dict.keys())}"
-        )
+        raise ValueError(f"AST node missing 'type' field. Available keys: {list(node_dict.keys())}")
 
     location = _deserialize_source_location(node_dict.get("location"))
 

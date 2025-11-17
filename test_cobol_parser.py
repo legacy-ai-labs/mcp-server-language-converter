@@ -5,10 +5,11 @@ import json
 import sys
 from pathlib import Path
 
+
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from core.services.cobol_parser_service import parse_cobol_file, ParseNode, _reset_parser
+from core.services.cobol_parser_service import ParseNode, _reset_parser, parse_cobol_file
 
 
 # Force parser rebuild to pick up grammar changes
@@ -82,9 +83,9 @@ def main():
         # Count sections
         for child in parse_tree.children:
             if child.node_type == "DATA_DIVISION":
-                print(f"\nData Division sections:")
+                print("\nData Division sections:")
                 for data_child in child.children:
-                    if hasattr(data_child, 'children'):
+                    if hasattr(data_child, "children"):
                         for section in data_child.children:
                             print(f"  - {section.node_type}")
 
@@ -118,6 +119,7 @@ def main():
     except Exception as e:
         print(f"\n✗ Unexpected Error: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -120,7 +120,9 @@ def _create_parse_cobol_tool(handler_func: Any, tool_name: str, domain: str, tra
     return parse_cobol_tool
 
 
-def _create_parse_cobol_raw_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+def _create_parse_cobol_raw_tool(
+    handler_func: Any, tool_name: str, domain: str, transport: str
+) -> Any:
     """Create parse_cobol_raw tool wrapper."""
 
     async def tool_impl(
