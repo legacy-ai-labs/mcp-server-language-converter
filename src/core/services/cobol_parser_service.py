@@ -6,6 +6,7 @@ for AST construction.
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -203,10 +204,11 @@ def t_NUMBER(t: lex.LexToken) -> lex.LexToken:
     return t
 
 
-def t_NEWLINE(t: lex.LexToken) -> lex.LexToken:
+def t_NEWLINE(t: lex.LexToken) -> None:
     r"\n+"
     t.lexer.lineno += len(t.value)
-    return t
+    # Don't return token - ignore newlines (they're just whitespace for COBOL)
+    del t
 
 
 def t_WS(t: lex.LexToken) -> None:
@@ -248,26 +250,90 @@ class ParseNode:
 
 
 def p_program(p: yacc.YaccProduction) -> None:
-    """program : identification_division environment_division data_division procedure_division"""
-    p[0] = ParseNode(
-        "PROGRAM",
-        children=[p[1], p[2], p[3], p[4]],
-    )
+    """program : identification_division environment_division data_division procedure_division
+    | identification_division data_division procedure_division
+    """
+    if len(p) == 5:
+        # All divisions present
+        p[0] = ParseNode(
+            "PROGRAM",
+            children=[p[1], p[2], p[3], p[4]],
+        )
+    else:
+        # Environment division is optional
+        p[0] = ParseNode(
+            "PROGRAM",
+            children=[p[1], p[2], p[3]],
+        )
 
 
 def p_identification_division(p: yacc.YaccProduction) -> None:
-    """identification_division : IDENTIFICATION DIVISION DOT program_id_clause"""
-    p[0] = ParseNode("IDENTIFICATION_DIVISION", children=[p[4]] if len(p) > 4 else [])
+    """identification_division : IDENTIFICATION DIVISION DOT identification_clauses"""
+    p[0] = ParseNode("IDENTIFICATION_DIVISION", children=p[4].children if len(p) > 4 and hasattr(p[4], 'children') else [p[4]] if len(p) > 4 else [])
+
+
+def p_identification_clauses(p: yacc.YaccProduction) -> None:
+    """identification_clauses : program_id_clause
+    | program_id_clause identification_clauses
+    | identification_clause identification_clauses
+    | identification_clause
+    """
+    if len(p) == 2:
+        p[0] = ParseNode("IDENTIFICATION_CLAUSES", children=[p[1]])
+    else:
+        p[0] = ParseNode("IDENTIFICATION_CLAUSES", children=[p[1], *p[2].children])
+
+
+def p_identification_clause(p: yacc.YaccProduction) -> None:
+    """identification_clause : IDENTIFIER DOT identifier_sequence DOT
+    | IDENTIFIER DOT STRING_LITERAL DOT
+    | IDENTIFIER DOT NUMBER DOT
+    """
+    clause_name = p[1]
+    if len(p) == 5:
+        clause_value = p[3]
+        if isinstance(clause_value, list):
+            # Multiple identifiers - join them
+            clause_value = " ".join(str(v) for v in clause_value)
+        p[0] = ParseNode("IDENTIFICATION_CLAUSE", value=clause_name, children=[ParseNode("VALUE", value=clause_value)])
+    else:
+        p[0] = ParseNode("IDENTIFICATION_CLAUSE", value=clause_name, children=[])
+
+
+def p_identifier_sequence(p: yacc.YaccProduction) -> None:
+    """identifier_sequence : IDENTIFIER
+    | IDENTIFIER identifier_sequence
+    """
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = [p[1]] + p[2]
 
 
 def p_program_id_clause(p: yacc.YaccProduction) -> None:
-    """program_id_clause : PROGRAM_ID IDENTIFIER DOT"""
-    p[0] = ParseNode("PROGRAM_ID", value=p[2])
+    """program_id_clause : PROGRAM_ID DOT IDENTIFIER DOT"""
+    p[0] = ParseNode("PROGRAM_ID", value=p[3])
+
+
+def p_empty(p: yacc.YaccProduction) -> None:
+    """empty :"""
+    p[0] = ParseNode("EMPTY", children=[])
 
 
 def p_environment_division(p: yacc.YaccProduction) -> None:
-    """environment_division : ENVIRONMENT DIVISION DOT input_output_section"""
-    p[0] = ParseNode("ENVIRONMENT_DIVISION", children=[p[4]] if len(p) > 4 else [])
+    """environment_division : ENVIRONMENT DIVISION DOT input_output_section
+    | ENVIRONMENT DIVISION DOT
+    | empty
+    """
+    if len(p) == 2 and p[1].node_type == "EMPTY":
+        # empty production
+        p[0] = ParseNode("ENVIRONMENT_DIVISION", children=[])
+    elif len(p) == 4:
+        # ENVIRONMENT DIVISION DOT (no input_output_section)
+        p[0] = ParseNode("ENVIRONMENT_DIVISION", children=[])
+    else:
+        # ENVIRONMENT DIVISION DOT input_output_section
+        p[0] = ParseNode("ENVIRONMENT_DIVISION", children=[p[4]] if len(p) > 4 else [])
 
 
 def p_input_output_section(p: yacc.YaccProduction) -> None:
@@ -293,20 +359,32 @@ def p_file_org_clause(p: yacc.YaccProduction) -> None:
 
 
 def p_data_division(p: yacc.YaccProduction) -> None:
-    """data_division : DATA DIVISION DOT data_sections"""
-    p[0] = ParseNode("DATA_DIVISION", children=[p[4]] if len(p) > 4 else [])
+    """data_division : DATA DIVISION DOT data_sections
+    | DATA DIVISION DOT
+    """
+    if len(p) > 4:
+        p[0] = ParseNode("DATA_DIVISION", children=[p[4]])
+    else:
+        p[0] = ParseNode("DATA_DIVISION", children=[])
 
 
 def p_data_sections(p: yacc.YaccProduction) -> None:
-    """data_sections : file_section working_storage_section
+    """data_sections : file_section working_storage_section linkage_section
+    | file_section working_storage_section
+    | working_storage_section linkage_section
+    | file_section linkage_section
     | file_section
     | working_storage_section
     | linkage_section
-    | file_section linkage_section
     """
-    if len(p) == 3:
+    if len(p) == 4:
+        # Three sections
+        p[0] = ParseNode("DATA_SECTIONS", children=[p[1], p[2], p[3]])
+    elif len(p) == 3:
+        # Two sections
         p[0] = ParseNode("DATA_SECTIONS", children=[p[1], p[2]])
     else:
+        # One section
         p[0] = ParseNode("DATA_SECTIONS", children=[p[1]])
 
 
@@ -341,25 +419,20 @@ def p_record_definition_list(p: yacc.YaccProduction) -> None:
 
 
 def p_record_definition(p: yacc.YaccProduction) -> None:
-    """record_definition : level_number IDENTIFIER PIC pic_clause DOT"""
+    """record_definition : NUMBER IDENTIFIER PIC pic_spec DOT"""
     p[0] = ParseNode(
         "RECORD_DEFINITION",
         children=[
-            ParseNode("LEVEL", value=p[1]),
+            ParseNode("LEVEL", value=int(p[1])),
             ParseNode("FIELD_NAME", value=p[2]),
-            p[4],
+            p[4],  # pic_spec (already a PIC_CLAUSE node)
         ],
     )
 
 
-def p_level_number(p: yacc.YaccProduction) -> None:
-    """level_number : NUMBER"""
-    p[0] = int(p[1])
-
-
 def p_working_storage_section(p: yacc.YaccProduction) -> None:
     """working_storage_section : WORKING_STORAGE SECTION DOT ws_definitions"""
-    p[0] = ParseNode("WORKING_STORAGE_SECTION", children=[p[3]] if len(p) > 3 else [])
+    p[0] = ParseNode("WORKING_STORAGE_SECTION", children=[p[4]] if len(p) > 4 else [])
 
 
 def p_linkage_section(p: yacc.YaccProduction) -> None:
@@ -388,41 +461,146 @@ def p_ws_definitions(p: yacc.YaccProduction) -> None:
 
 
 def p_ws_definition(p: yacc.YaccProduction) -> None:
-    """ws_definition : level_number IDENTIFIER PIC pic_clause value_clause DOT
-    | level_number IDENTIFIER PIC pic_clause DOT
-    | level_number IDENTIFIER value_clause DOT
-    | level_number IDENTIFIER DOT
+    """ws_definition : NUMBER IDENTIFIER PIC pic_spec value_clause DOT
+    | NUMBER IDENTIFIER PIC pic_spec DOT
+    | NUMBER IDENTIFIER value_clause DOT
+    | NUMBER IDENTIFIER DOT
+    | level_88_definition
     """
-    children = [
-        ParseNode("LEVEL", value=p[1]),
-        ParseNode("VARIABLE_NAME", value=p[2]),
-    ]
-    if len(p) > 4 and p[3] == "PIC":
-        children.append(p[4])  # PIC clause
-        if len(p) > 5 and p[5] != ".":
-            children.append(p[5])  # VALUE clause
-    elif len(p) > 4 and p[3] != ".":
-        children.append(p[3])  # VALUE clause without PIC
-    p[0] = ParseNode("WS_DEFINITION", children=children)
+    if len(p) == 2:
+        # level_88_definition (1 element)
+        p[0] = p[1]
+    elif len(p) == 7:
+        # NUMBER IDENTIFIER PIC pic_spec value_clause DOT (6 elements)
+        p[0] = ParseNode(
+            "WS_DEFINITION",
+            children=[
+                ParseNode("LEVEL", value=int(p[1])),
+                ParseNode("VARIABLE_NAME", value=p[2]),
+                p[4],  # pic_spec
+                p[5],  # value_clause
+            ],
+        )
+    elif len(p) == 6:
+        # NUMBER IDENTIFIER PIC pic_spec DOT (5 elements)
+        p[0] = ParseNode(
+            "WS_DEFINITION",
+            children=[
+                ParseNode("LEVEL", value=int(p[1])),
+                ParseNode("VARIABLE_NAME", value=p[2]),
+                p[4],  # pic_spec
+            ],
+        )
+    elif len(p) == 5:
+        # NUMBER IDENTIFIER value_clause DOT (4 elements)
+        p[0] = ParseNode(
+            "WS_DEFINITION",
+            children=[
+                ParseNode("LEVEL", value=int(p[1])),
+                ParseNode("VARIABLE_NAME", value=p[2]),
+                p[3],  # value_clause
+            ],
+        )
+    else:
+        # NUMBER IDENTIFIER DOT (3 elements, len=4)
+        p[0] = ParseNode(
+            "WS_DEFINITION",
+            children=[
+                ParseNode("LEVEL", value=int(p[1])),
+                ParseNode("VARIABLE_NAME", value=p[2]),
+            ],
+        )
+
+
+def p_level_88_definition(p: yacc.YaccProduction) -> None:
+    """level_88_definition : NUMBER IDENTIFIER VALUE STRING_LITERAL DOT
+    | NUMBER IDENTIFIER VALUE identifier_sequence DOT
+    """
+    p[0] = ParseNode(
+        "LEVEL_88_DEFINITION",
+        children=[
+            ParseNode("LEVEL", value=int(p[1])),
+            ParseNode("CONDITION_NAME", value=p[2]),
+            ParseNode("VALUE", value=p[4] if isinstance(p[4], str) else " ".join(str(v) for v in p[4])),
+        ],
+    )
 
 
 def p_linkage_definition(p: yacc.YaccProduction) -> None:
-    """linkage_definition : level_number IDENTIFIER PIC pic_clause DOT"""
+    """linkage_definition : NUMBER IDENTIFIER PIC pic_spec DOT"""
     p[0] = ParseNode(
         "LINKAGE_DEFINITION",
         children=[
-            ParseNode("LEVEL", value=p[1]),
+            ParseNode("LEVEL", value=int(p[1])),
             ParseNode("PARAMETER_NAME", value=p[2]),
-            p[4],
+            p[4],  # pic_spec (already a PIC_CLAUSE node)
         ],
     )
 
 
 def p_pic_clause(p: yacc.YaccProduction) -> None:
-    """pic_clause : PIC STRING_LITERAL
-    | PIC IDENTIFIER
+    """pic_clause : PIC pic_spec
     """
-    p[0] = ParseNode("PIC_CLAUSE", value=p[2])
+    p[0] = p[2]  # pic_spec already contains the PIC_CLAUSE node
+
+
+def p_pic_spec(p: yacc.YaccProduction) -> None:
+    """pic_spec : IDENTIFIER LPAREN NUMBER RPAREN pic_spec_continuation
+    | NUMBER LPAREN NUMBER RPAREN pic_spec_continuation
+    | IDENTIFIER IDENTIFIER LPAREN NUMBER RPAREN pic_spec_continuation
+    | IDENTIFIER pic_spec_continuation
+    | NUMBER pic_spec_continuation
+    | STRING_LITERAL
+    """
+    if len(p) == 6 and isinstance(p[1], str):
+        # IDENTIFIER LPAREN NUMBER RPAREN pic_spec_continuation
+        pic_base = f"{p[1]}({p[3]})"
+        continuation = p[5].value if hasattr(p[5], 'value') and p[5].value else ""
+        pic_value = f"{pic_base}{continuation}" if continuation else pic_base
+        p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
+    elif len(p) == 6 and isinstance(p[1], (int, float)):
+        # NUMBER LPAREN NUMBER RPAREN pic_spec_continuation
+        pic_base = f"{int(p[1])}({int(p[3])})"
+        continuation = p[5].value if hasattr(p[5], 'value') and p[5].value else ""
+        pic_value = f"{pic_base}{continuation}" if continuation else pic_base
+        p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
+    elif len(p) == 7:
+        # IDENTIFIER IDENTIFIER LPAREN NUMBER RPAREN pic_spec_continuation
+        pic_base = f"{p[1]}{p[2]}({p[4]})"
+        continuation = p[6].value if hasattr(p[6], 'value') and p[6].value else ""
+        pic_value = f"{pic_base}{continuation}" if continuation else pic_base
+        p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
+    elif len(p) == 3 and isinstance(p[1], str):
+        # IDENTIFIER pic_spec_continuation
+        identifier = p[1]
+        continuation = p[2].value if hasattr(p[2], 'value') and p[2].value else ""
+        pic_value = f"{identifier}{continuation}" if continuation else identifier
+        p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
+    elif len(p) == 3 and isinstance(p[1], (int, float)):
+        # NUMBER pic_spec_continuation
+        number = int(p[1])
+        continuation = p[2].value if hasattr(p[2], 'value') and p[2].value else ""
+        pic_value = f"{number}{continuation}" if continuation else str(number)
+        p[0] = ParseNode("PIC_CLAUSE", value=pic_value)
+    else:
+        # STRING_LITERAL
+        p[0] = ParseNode("PIC_CLAUSE", value=str(p[1]))
+
+
+def p_pic_spec_continuation(p: yacc.YaccProduction) -> None:
+    """pic_spec_continuation : IDENTIFIER IDENTIFIER
+    | IDENTIFIER
+    | empty
+    """
+    if len(p) == 3:
+        # IDENTIFIER IDENTIFIER (like V99 COMP-3)
+        p[0] = ParseNode("PIC_CONTINUATION", value=f" {p[1]} {p[2]}")
+    elif len(p) == 2 and not (isinstance(p[1], ParseNode) and p[1].node_type == "EMPTY"):
+        # IDENTIFIER (like V99)
+        p[0] = ParseNode("PIC_CONTINUATION", value=f" {p[1]}")
+    else:
+        # empty
+        p[0] = ParseNode("PIC_CONTINUATION", value="")
 
 
 def p_value_clause(p: yacc.YaccProduction) -> None:
@@ -464,10 +642,16 @@ def p_identifier_list(p: yacc.YaccProduction) -> None:
 def p_procedure_body(p: yacc.YaccProduction) -> None:
     """procedure_body : paragraph procedure_body
     | paragraph
+    | statements DOT
     """
-    if len(p) == 3:
+    if len(p) == 3 and isinstance(p[1], ParseNode) and p[1].node_type == "PARAGRAPH":
+        # paragraph procedure_body
         p[0] = ParseNode("PROCEDURE_BODY", children=[p[1], *p[2].children])
+    elif len(p) == 3:
+        # statements DOT (no paragraph name)
+        p[0] = ParseNode("PROCEDURE_BODY", children=[p[1]])
     else:
+        # paragraph
         p[0] = ParseNode("PROCEDURE_BODY", children=[p[1]])
 
 
@@ -599,11 +783,22 @@ def p_expression(p: yacc.YaccProduction) -> None:
 
 
 def p_move_statement(p: yacc.YaccProduction) -> None:
-    """move_statement : MOVE IDENTIFIER TO IDENTIFIER DOT"""
+    """move_statement : MOVE IDENTIFIER TO IDENTIFIER DOT
+    | MOVE STRING_LITERAL TO IDENTIFIER DOT
+    | MOVE NUMBER TO IDENTIFIER DOT
+    | MOVE ZERO TO IDENTIFIER DOT
+    | MOVE SPACE TO IDENTIFIER DOT
+    """
+    source_value = p[2]
+    if p[2] == "ZERO":
+        source_value = 0
+    elif p[2] == "SPACE" or p[2] == "SPACES":
+        source_value = " "
+
     p[0] = ParseNode(
         "MOVE_STATEMENT",
         children=[
-            ParseNode("SOURCE", value=p[2]),
+            ParseNode("SOURCE", value=source_value),
             ParseNode("TARGET", value=p[4]),
         ],
     )
@@ -699,6 +894,12 @@ _lexer: lex.Lexer | None = None
 _parser: yacc.LRParser | None = None
 
 
+def _reset_parser() -> None:
+    """Reset parser to force rebuild after grammar changes."""
+    global _parser  # noqa: PLW0603
+    _parser = None
+
+
 def get_lexer() -> lex.Lexer:
     """Get or create the lexer instance."""
     global _lexer  # noqa: PLW0603
@@ -711,7 +912,9 @@ def get_parser() -> yacc.LRParser:
     """Get or create the parser instance."""
     global _parser  # noqa: PLW0603
     if _parser is None:
-        _parser = yacc.yacc(debug=False, write_tables=False)
+        # Use write_tables=False to avoid file I/O, but this means parser rebuilds each time
+        # For production, consider write_tables=True with cache management
+        _parser = yacc.yacc(debug=False, write_tables=False, errorlog=yacc.NullLogger())
     return _parser
 
 
@@ -736,8 +939,42 @@ def parse_cobol(source_code: str) -> ParseNode:
     parser = get_parser()
 
     # Normalize line endings and handle COBOL fixed format (columns 7-72)
-    # For now, we'll handle free format
+    # COBOL is case-insensitive, so we normalize to uppercase for parsing
+    # but preserve string literals (inside quotes) as-is
     normalized_source = source_code.replace("\r\n", "\n").replace("\r", "\n")
+    
+    # Preserve string literals while uppercasing everything else
+    # This is a simple approach: find all string literals, replace with placeholders,
+    # uppercase the rest, then restore literals
+    string_literals = []
+    placeholder_pattern = r"'[^']*'"
+    
+    def replace_literal(match: re.Match[str]) -> str:
+        """Replace string literal with placeholder."""
+        literal = match.group(0)
+        string_literals.append(literal)
+        return f"__STRING_LITERAL_{len(string_literals)-1}__"
+    
+    # Replace all string literals with placeholders
+    source_with_placeholders = re.sub(placeholder_pattern, replace_literal, normalized_source)
+    
+    # Uppercase everything (COBOL is case-insensitive)
+    source_uppercased = source_with_placeholders.upper()
+    
+    # Restore string literals (preserve original case)
+    for idx, literal in enumerate(string_literals):
+        source_uppercased = source_uppercased.replace(f"__STRING_LITERAL_{idx}__", literal)
+    
+    normalized_source = source_uppercased
+    
+    # Strip trailing whitespace from each line but preserve structure
+    lines = normalized_source.split("\n")
+    cleaned_lines = [line.rstrip() for line in lines]
+    normalized_source = "\n".join(cleaned_lines)
+    
+    # Ensure source ends with newline for parser
+    if normalized_source and not normalized_source.endswith("\n"):
+        normalized_source += "\n"
 
     try:
         result = parser.parse(normalized_source, lexer=lexer, debug=False)
@@ -761,10 +998,22 @@ def parse_cobol_file(file_path: str) -> ParseNode:
 
     Raises:
         FileNotFoundError: If file doesn't exist
+        IsADirectoryError: If path is a directory, not a file
         SyntaxError: If the COBOL code cannot be parsed
     """
+    path = Path(file_path)
+    
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    if path.is_dir():
+        raise IsADirectoryError(f"Path is a directory, not a file: {file_path}")
+    
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {file_path}")
+    
     try:
-        source_code = Path(file_path).read_text(encoding="utf-8")
+        source_code = path.read_text(encoding="utf-8")
         return parse_cobol(source_code)
     except FileNotFoundError:
         logger.error(f"File not found: {file_path}")

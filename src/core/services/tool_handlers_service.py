@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from src.core.models.cobol_analysis_model import (
     ASTNode,
@@ -30,7 +30,7 @@ from src.core.models.cobol_analysis_model import (
 )
 from src.core.services.ast_builder_service import build_ast
 from src.core.services.cfg_builder_service import build_cfg
-from src.core.services.cobol_parser_service import parse_cobol, parse_cobol_file
+from src.core.services.cobol_parser_antlr_service import ParseNode, parse_cobol, parse_cobol_file
 from src.core.services.dfg_builder_service import build_dfg
 
 
@@ -103,13 +103,30 @@ def _deserialize_source_location(location_dict: dict[str, Any] | None) -> Source
 
 def _deserialize_ast_node(node_dict: dict[str, Any]) -> ASTNode:
     """Deserialize AST node from dict."""
+    if not isinstance(node_dict, dict):
+        raise ValueError(f"Expected dict for AST node, got {type(node_dict).__name__}")
+
     node_type = node_dict.get("type", "")
+
+    # Handle empty or missing type field
+    if not node_type:
+        logger.warning(
+            f"AST node missing 'type' field. Node keys: {list(node_dict.keys())}, "
+            f"Sample data: {str(node_dict)[:200]}"
+        )
+        raise ValueError(
+            f"AST node missing 'type' field. Available keys: {list(node_dict.keys())}"
+        )
+
     location = _deserialize_source_location(node_dict.get("location"))
 
     if node_type == "ProgramNode":
         return ProgramNode(
             program_name=node_dict.get("program_name", ""),
-            divisions=[_deserialize_ast_node(div) for div in node_dict.get("divisions", [])],
+            divisions=cast(
+                list[DivisionNode],
+                [_deserialize_ast_node(div) for div in node_dict.get("divisions", [])],
+            ),
             location=location,
         )
     if node_type == "DivisionNode":
@@ -121,19 +138,28 @@ def _deserialize_ast_node(node_dict: dict[str, Any]) -> ASTNode:
         )
         return DivisionNode(
             division_type=division_type,
-            sections=[_deserialize_ast_node(sec) for sec in node_dict.get("sections", [])],
+            sections=cast(
+                list[SectionNode],
+                [_deserialize_ast_node(sec) for sec in node_dict.get("sections", [])],
+            ),
             location=location,
         )
     if node_type == "SectionNode":
         return SectionNode(
             section_name=node_dict.get("section_name"),
-            paragraphs=[_deserialize_ast_node(para) for para in node_dict.get("paragraphs", [])],
+            paragraphs=cast(
+                list[ParagraphNode],
+                [_deserialize_ast_node(para) for para in node_dict.get("paragraphs", [])],
+            ),
             location=location,
         )
     if node_type == "ParagraphNode":
         return ParagraphNode(
             paragraph_name=node_dict.get("paragraph_name", ""),
-            statements=[_deserialize_ast_node(stmt) for stmt in node_dict.get("statements", [])],
+            statements=cast(
+                list[StatementNode],
+                [_deserialize_ast_node(stmt) for stmt in node_dict.get("statements", [])],
+            ),
             location=location,
         )
     if node_type == "StatementNode":
@@ -143,7 +169,7 @@ def _deserialize_ast_node(node_dict: dict[str, Any]) -> ASTNode:
             if statement_type_str in [st.value for st in StatementType]
             else StatementType.IF
         )
-        attrs = {}
+        attrs: dict[str, Any] = {}
         for key, value in node_dict.get("attributes", {}).items():
             if isinstance(value, dict) and value.get("type") in [
                 "ExpressionNode",
@@ -209,7 +235,10 @@ def _deserialize_cfg_node(node_dict: dict[str, Any]) -> CFGNode:
     if node_type == "ExitNode" or node_id == "exit":
         return ExitNode(node_id=node_id, location=location)
     if node_type == "BasicBlock":
-        statements = [_deserialize_ast_node(stmt) for stmt in node_dict.get("statements", [])]
+        statements: list[StatementNode] = cast(
+            list[StatementNode],
+            [_deserialize_ast_node(stmt) for stmt in node_dict.get("statements", [])],
+        )
         block = BasicBlock(node_id=node_id, label=label, location=location)
         block.statements = statements
         return block
@@ -286,6 +315,35 @@ def _deserialize_cfg(cfg_dict: dict[str, Any]) -> ControlFlowGraph:
         cfg.add_edge(edge)
 
     return cfg
+
+
+def _deserialize_parse_node(node_dict: dict[str, Any]) -> ParseNode:
+    """Deserialize ParseNode from dict.
+
+    Args:
+        node_dict: Dictionary representation of ParseNode
+
+    Returns:
+        ParseNode instance
+    """
+    node_type = node_dict.get("node_type", "")
+    value = node_dict.get("value")
+    line_number = node_dict.get("line_number")
+    children = node_dict.get("children", [])
+
+    # Recursively deserialize children
+    deserialized_children = []
+    for child in children:
+        if isinstance(child, dict):
+            deserialized_children.append(_deserialize_parse_node(child))
+        else:
+            deserialized_children.append(child)
+
+    parse_node = ParseNode(node_type=node_type, children=deserialized_children, value=value)
+    if line_number is not None:
+        parse_node.line_number = line_number
+
+    return parse_node
 
 
 # ============================================================================
@@ -449,6 +507,26 @@ def _serialize_dfg_edge(edge: DFGEdge) -> dict[str, Any]:
     }
 
 
+def _serialize_parse_node(node: ParseNode) -> dict[str, Any]:
+    """Serialize ParseNode to dict.
+
+    Args:
+        node: ParseNode instance to serialize
+
+    Returns:
+        Dictionary representation of ParseNode
+    """
+    return {
+        "node_type": node.node_type,
+        "value": node.value,
+        "line_number": node.line_number,
+        "children": [
+            _serialize_parse_node(child) if isinstance(child, ParseNode) else child
+            for child in node.children
+        ],
+    }
+
+
 # ============================================================================
 # COBOL Analysis Tool Handlers
 # ============================================================================
@@ -491,6 +569,88 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Parse COBOL source code into raw ParseNode (parse tree).
+
+    This tool returns the raw parse tree without building the AST.
+    Use this when you want to inspect the parse tree or build the AST separately.
+
+    Args:
+        parameters: Handler parameters containing 'source_code' or 'file_path'
+
+    Returns:
+        Dictionary with ParseNode representation
+    """
+    source_code = parameters.get("source_code")
+    file_path = parameters.get("file_path")
+
+    if not source_code and not file_path:
+        return {
+            "success": False,
+            "error": "Either 'source_code' or 'file_path' must be provided",
+        }
+
+    try:
+        parsed_tree = parse_cobol_file(file_path) if file_path else parse_cobol(source_code)
+        parse_tree_dict = _serialize_parse_node(parsed_tree)
+
+        return {
+            "success": True,
+            "parse_tree": parse_tree_dict,
+            "node_type": parsed_tree.node_type,
+        }
+    except Exception as e:
+        logger.exception("Failed to parse COBOL")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Build Abstract Syntax Tree (AST) from ParseNode.
+
+    Args:
+        parameters: Handler parameters containing 'parse_tree' (ParseNode as dict)
+
+    Returns:
+        Dictionary with AST representation
+    """
+    parse_tree_dict = parameters.get("parse_tree")
+    if not parse_tree_dict:
+        return {
+            "success": False,
+            "error": "Parse tree representation is required",
+        }
+
+    try:
+        # Accept ParseNode directly or deserialize from dict
+        if isinstance(parse_tree_dict, ParseNode):
+            parse_tree = parse_tree_dict
+        elif isinstance(parse_tree_dict, dict):
+            parse_tree = _deserialize_parse_node(parse_tree_dict)
+        else:
+            return {
+                "success": False,
+                "error": "Parse tree must be a ParseNode instance or a serialized dictionary",
+            }
+
+        ast = build_ast(parse_tree)
+        ast_dict = _serialize_ast_node(ast)
+
+        return {
+            "success": True,
+            "ast": ast_dict,
+            "program_name": ast.program_name,
+        }
+    except Exception as e:
+        logger.exception("Failed to build AST")
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
 def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build Control Flow Graph (CFG) from AST.
 
@@ -508,6 +668,12 @@ def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
+        # Log what we received for debugging
+        logger.debug(
+            f"build_cfg_handler received ast_dict type={type(ast_dict).__name__}, "
+            f"keys={list(ast_dict.keys()) if isinstance(ast_dict, dict) else 'N/A'}"
+        )
+
         # Accept ProgramNode directly or deserialize from dict
         if isinstance(ast_dict, ProgramNode):
             ast = ast_dict
@@ -622,6 +788,8 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "echo_handler": echo_handler,
     "calculator_add_handler": calculator_add_handler,
     "parse_cobol_handler": parse_cobol_handler,
+    "parse_cobol_raw_handler": parse_cobol_raw_handler,
+    "build_ast_handler": build_ast_handler,
     "build_cfg_handler": build_cfg_handler,
     "build_dfg_handler": build_dfg_handler,
 }

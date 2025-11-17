@@ -120,6 +120,40 @@ def _create_parse_cobol_tool(handler_func: Any, tool_name: str, domain: str, tra
     return parse_cobol_tool
 
 
+def _create_parse_cobol_raw_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create parse_cobol_raw tool wrapper."""
+
+    async def tool_impl(
+        source_code: str | None = None, file_path: str | None = None
+    ) -> dict[str, Any]:
+        return handler_func({"source_code": source_code, "file_path": file_path})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def parse_cobol_raw_tool(
+        source_code: str | None = None, file_path: str | None = None
+    ) -> dict[str, Any]:
+        """Parse COBOL source code into raw ParseNode (parse tree)."""
+        return await traced(source_code, file_path)
+
+    return parse_cobol_raw_tool
+
+
+def _create_build_ast_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create build_ast tool wrapper."""
+
+    async def tool_impl(parse_tree: dict[str, Any]) -> dict[str, Any]:
+        return handler_func({"parse_tree": parse_tree})
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def build_ast_tool(parse_tree: dict[str, Any]) -> dict[str, Any]:
+        """Build Abstract Syntax Tree (AST) from ParseNode."""
+        return await traced(parse_tree)
+
+    return build_ast_tool
+
+
 def _create_build_cfg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
     """Create build_cfg tool wrapper."""
 
@@ -223,6 +257,10 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any, domain: str, transport:
         tool_func = _create_calculator_add_tool(handler_func, tool.name, domain, transport)
     elif tool.name == "parse_cobol":
         tool_func = _create_parse_cobol_tool(handler_func, tool.name, domain, transport)
+    elif tool.name == "parse_cobol_raw":
+        tool_func = _create_parse_cobol_raw_tool(handler_func, tool.name, domain, transport)
+    elif tool.name == "build_ast":
+        tool_func = _create_build_ast_tool(handler_func, tool.name, domain, transport)
     elif tool.name == "build_cfg":
         tool_func = _create_build_cfg_tool(handler_func, tool.name, domain, transport)
     elif tool.name == "build_dfg":

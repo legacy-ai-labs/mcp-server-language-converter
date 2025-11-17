@@ -76,6 +76,46 @@ INITIAL_TOOLS = [
         is_active=True,
     ),
     ToolCreate(
+        name="parse_cobol_raw",
+        description="Parse COBOL source code into raw ParseNode (parse tree) without building AST",
+        handler_name="parse_cobol_raw_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "source_code": {
+                    "type": "string",
+                    "description": "COBOL source code",
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to COBOL file",
+                },
+            },
+            "required": [],
+        },
+        category="parsing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
+    ToolCreate(
+        name="build_ast",
+        description="Build Abstract Syntax Tree (AST) from ParseNode",
+        handler_name="build_ast_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "parse_tree": {
+                    "type": "object",
+                    "description": "ParseNode representation (from parse_cobol)",
+                },
+            },
+            "required": ["parse_tree"],
+        },
+        category="parsing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
+    ToolCreate(
         name="build_cfg",
         description="Build Control Flow Graph (CFG) from AST",
         handler_name="build_cfg_handler",

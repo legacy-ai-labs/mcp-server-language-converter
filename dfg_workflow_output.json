@@ -1,0 +1,1170 @@
+{
+  "parse_result": {
+    "success": true,
+    "ast": {
+      "type": "ProgramNode",
+      "program_name": "PROGRAM-ID",
+      "divisions": [
+        {
+          "type": "DivisionNode",
+          "division_type": "IDENTIFICATION",
+          "sections": [
+            {
+              "type": "SectionNode",
+              "section_name": "PROGRAM-ID",
+              "paragraphs": [
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "PROGRAM-ID",
+                  "statements": [
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "DISPLAY",
+                      "attributes": {
+                        "program_id": "PROGRAM-ID"
+                      },
+                      "location": null
+                    }
+                  ],
+                  "location": null
+                }
+              ],
+              "location": null
+            }
+          ],
+          "location": null
+        },
+        {
+          "type": "DivisionNode",
+          "division_type": "DATA",
+          "sections": [],
+          "location": null
+        },
+        {
+          "type": "DivisionNode",
+          "division_type": "PROCEDURE",
+          "sections": [
+            {
+              "type": "SectionNode",
+              "section_name": "PROCEDURE",
+              "paragraphs": [
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "VALIDATE-ACCOUNT-MAIN",
+                  "statements": [
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "PERFORM",
+                      "attributes": {
+                        "target_paragraph": "CHECK-CUSTOMER-ID"
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "PERFORM",
+                      "attributes": {
+                        "target_paragraph": "CHECK-ACCOUNT-BALANCE"
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "PERFORM",
+                      "attributes": {
+                        "target_paragraph": "CHECK-ACCOUNT-STATUS"
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "IF",
+                      "attributes": {
+                        "condition": {
+                          "type": "ExpressionNode",
+                          "operator": null,
+                          "left": null,
+                          "right": null,
+                          "value": null,
+                          "location": null
+                        },
+                        "then_statements": []
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "EXIT",
+                      "attributes": {},
+                      "location": null
+                    }
+                  ],
+                  "location": null
+                },
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "CHECK-CUSTOMER-ID",
+                  "statements": [
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "ADD",
+                      "attributes": {
+                        "value": {
+                          "type": "LiteralNode",
+                          "value": "None",
+                          "literal_type": "STRING",
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "IF",
+                      "attributes": {
+                        "condition": {
+                          "type": "ExpressionNode",
+                          "operator": null,
+                          "left": null,
+                          "right": null,
+                          "value": null,
+                          "location": null
+                        },
+                        "then_statements": []
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    }
+                  ],
+                  "location": null
+                },
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "CHECK-ACCOUNT-BALANCE",
+                  "statements": [
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "ADD",
+                      "attributes": {
+                        "value": {
+                          "type": "LiteralNode",
+                          "value": "None",
+                          "literal_type": "STRING",
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "IF",
+                      "attributes": {
+                        "condition": {
+                          "type": "ExpressionNode",
+                          "operator": null,
+                          "left": null,
+                          "right": null,
+                          "value": null,
+                          "location": null
+                        },
+                        "then_statements": []
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    }
+                  ],
+                  "location": null
+                },
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "CHECK-ACCOUNT-STATUS",
+                  "statements": [
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "ADD",
+                      "attributes": {
+                        "value": {
+                          "type": "LiteralNode",
+                          "value": "None",
+                          "literal_type": "STRING",
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "EVALUATE",
+                      "attributes": {
+                        "expression": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "when_clauses": [],
+                        "default_statements": []
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    },
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "MOVE",
+                      "attributes": {
+                        "source": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        },
+                        "target": {
+                          "type": "VariableNode",
+                          "variable_name": "",
+                          "pic_clause": null,
+                          "level_number": null,
+                          "location": null
+                        }
+                      },
+                      "location": null
+                    }
+                  ],
+                  "location": null
+                }
+              ],
+              "location": null
+            }
+          ],
+          "location": null
+        }
+      ],
+      "location": null
+    },
+    "program_name": "PROGRAM-ID"
+  },
+  "cfg_result": {
+    "success": true,
+    "cfg": {
+      "entry_node": {
+        "node_id": "entry",
+        "label": "Entry",
+        "location": null,
+        "node_type": "EntryNode"
+      },
+      "exit_node": {
+        "node_id": "exit",
+        "label": "Exit",
+        "location": null,
+        "node_type": "ExitNode"
+      },
+      "nodes": [
+        {
+          "node_id": "entry",
+          "label": "Entry",
+          "location": null,
+          "node_type": "EntryNode"
+        },
+        {
+          "node_id": "exit",
+          "label": "Exit",
+          "location": null,
+          "node_type": "ExitNode"
+        },
+        {
+          "node_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "label": "VALIDATE-ACCOUNT-MAIN",
+          "location": null,
+          "statements": [
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "PERFORM",
+              "attributes": {
+                "target_paragraph": "CHECK-CUSTOMER-ID"
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "PERFORM",
+              "attributes": {
+                "target_paragraph": "CHECK-ACCOUNT-BALANCE"
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "PERFORM",
+              "attributes": {
+                "target_paragraph": "CHECK-ACCOUNT-STATUS"
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "IF",
+              "attributes": {
+                "condition": {
+                  "type": "ExpressionNode",
+                  "operator": null,
+                  "left": null,
+                  "right": null,
+                  "value": null,
+                  "location": null
+                },
+                "then_statements": []
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "EXIT",
+              "attributes": {},
+              "location": null
+            }
+          ],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "paragraph_CHECK-CUSTOMER-ID",
+          "label": "CHECK-CUSTOMER-ID",
+          "location": null,
+          "statements": [
+            {
+              "type": "StatementNode",
+              "statement_type": "ADD",
+              "attributes": {
+                "value": {
+                  "type": "LiteralNode",
+                  "value": "None",
+                  "literal_type": "STRING",
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "IF",
+              "attributes": {
+                "condition": {
+                  "type": "ExpressionNode",
+                  "operator": null,
+                  "left": null,
+                  "right": null,
+                  "value": null,
+                  "location": null
+                },
+                "then_statements": []
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            }
+          ],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "label": "CHECK-ACCOUNT-BALANCE",
+          "location": null,
+          "statements": [
+            {
+              "type": "StatementNode",
+              "statement_type": "ADD",
+              "attributes": {
+                "value": {
+                  "type": "LiteralNode",
+                  "value": "None",
+                  "literal_type": "STRING",
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "IF",
+              "attributes": {
+                "condition": {
+                  "type": "ExpressionNode",
+                  "operator": null,
+                  "left": null,
+                  "right": null,
+                  "value": null,
+                  "location": null
+                },
+                "then_statements": []
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            }
+          ],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "label": "CHECK-ACCOUNT-STATUS",
+          "location": null,
+          "statements": [
+            {
+              "type": "StatementNode",
+              "statement_type": "ADD",
+              "attributes": {
+                "value": {
+                  "type": "LiteralNode",
+                  "value": "None",
+                  "literal_type": "STRING",
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "EVALUATE",
+              "attributes": {
+                "expression": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "when_clauses": [],
+                "default_statements": []
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            },
+            {
+              "type": "StatementNode",
+              "statement_type": "MOVE",
+              "attributes": {
+                "source": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                },
+                "target": {
+                  "type": "VariableNode",
+                  "variable_name": "",
+                  "pic_clause": null,
+                  "level_number": null,
+                  "location": null
+                }
+              },
+              "location": null
+            }
+          ],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "perform_VALIDATE-ACCOUNT-MAIN_3",
+          "label": "PERFORM CHECK-CUSTOMER-ID",
+          "location": null,
+          "control_type": "PERFORM",
+          "condition": null,
+          "target_paragraph": "CHECK-CUSTOMER-ID",
+          "node_type": "ControlFlowNode"
+        },
+        {
+          "node_id": "perform_VALIDATE-ACCOUNT-MAIN_4",
+          "label": "PERFORM CHECK-ACCOUNT-BALANCE",
+          "location": null,
+          "control_type": "PERFORM",
+          "condition": null,
+          "target_paragraph": "CHECK-ACCOUNT-BALANCE",
+          "node_type": "ControlFlowNode"
+        },
+        {
+          "node_id": "perform_VALIDATE-ACCOUNT-MAIN_5",
+          "label": "PERFORM CHECK-ACCOUNT-STATUS",
+          "location": null,
+          "control_type": "PERFORM",
+          "condition": null,
+          "target_paragraph": "CHECK-ACCOUNT-STATUS",
+          "node_type": "ControlFlowNode"
+        },
+        {
+          "node_id": "if_VALIDATE-ACCOUNT-MAIN_6",
+          "label": "IF VALIDATE-ACCOUNT-MAIN#6",
+          "location": null,
+          "control_type": "IF",
+          "condition": {
+            "type": "ExpressionNode",
+            "operator": null,
+            "left": null,
+            "right": null,
+            "value": null,
+            "location": null
+          },
+          "target_paragraph": null,
+          "node_type": "ControlFlowNode"
+        },
+        {
+          "node_id": "VALIDATE-ACCOUNT-MAIN_if_then_6",
+          "label": "VALIDATE-ACCOUNT-MAIN-THEN-6",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "if_CHECK-CUSTOMER-ID_1",
+          "label": "IF CHECK-CUSTOMER-ID#1",
+          "location": null,
+          "control_type": "IF",
+          "condition": {
+            "type": "ExpressionNode",
+            "operator": null,
+            "left": null,
+            "right": null,
+            "value": null,
+            "location": null
+          },
+          "target_paragraph": null,
+          "node_type": "ControlFlowNode"
+        },
+        {
+          "node_id": "CHECK-CUSTOMER-ID_if_then_1",
+          "label": "CHECK-CUSTOMER-ID-THEN-1",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "if_CHECK-ACCOUNT-BALANCE_1",
+          "label": "IF CHECK-ACCOUNT-BALANCE#1",
+          "location": null,
+          "control_type": "IF",
+          "condition": {
+            "type": "ExpressionNode",
+            "operator": null,
+            "left": null,
+            "right": null,
+            "value": null,
+            "location": null
+          },
+          "target_paragraph": null,
+          "node_type": "ControlFlowNode"
+        },
+        {
+          "node_id": "CHECK-ACCOUNT-BALANCE_if_then_1",
+          "label": "CHECK-ACCOUNT-BALANCE-THEN-1",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "entry",
+          "target_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "target_id": "perform_VALIDATE-ACCOUNT-MAIN_3",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "perform_VALIDATE-ACCOUNT-MAIN_3",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "CALL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-CUSTOMER-ID",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "RETURN",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "target_id": "perform_VALIDATE-ACCOUNT-MAIN_4",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "perform_VALIDATE-ACCOUNT-MAIN_4",
+          "target_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "edge_type": "CALL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "RETURN",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "target_id": "perform_VALIDATE-ACCOUNT-MAIN_5",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "perform_VALIDATE-ACCOUNT-MAIN_5",
+          "target_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "edge_type": "CALL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "RETURN",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "target_id": "if_VALIDATE-ACCOUNT-MAIN_6",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "if_VALIDATE-ACCOUNT-MAIN_6",
+          "target_id": "VALIDATE-ACCOUNT-MAIN_if_then_6",
+          "edge_type": "TRUE",
+          "label": ""
+        },
+        {
+          "source_id": "VALIDATE-ACCOUNT-MAIN_if_then_6",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "if_VALIDATE-ACCOUNT-MAIN_6",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "FALSE",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-CUSTOMER-ID",
+          "target_id": "if_CHECK-CUSTOMER-ID_1",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "if_CHECK-CUSTOMER-ID_1",
+          "target_id": "CHECK-CUSTOMER-ID_if_then_1",
+          "edge_type": "TRUE",
+          "label": ""
+        },
+        {
+          "source_id": "CHECK-CUSTOMER-ID_if_then_1",
+          "target_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "if_CHECK-CUSTOMER-ID_1",
+          "target_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "edge_type": "FALSE",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "target_id": "if_CHECK-ACCOUNT-BALANCE_1",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "if_CHECK-ACCOUNT-BALANCE_1",
+          "target_id": "CHECK-ACCOUNT-BALANCE_if_then_1",
+          "edge_type": "TRUE",
+          "label": ""
+        },
+        {
+          "source_id": "CHECK-ACCOUNT-BALANCE_if_then_1",
+          "target_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "if_CHECK-ACCOUNT-BALANCE_1",
+          "target_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "edge_type": "FALSE",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "target_id": "exit",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        }
+      ]
+    },
+    "node_count": 15,
+    "edge_count": 23
+  },
+  "dfg_result": {
+    "success": true,
+    "dfg": {
+      "nodes": [],
+      "edges": []
+    },
+    "node_count": 0,
+    "edge_count": 0
+  }
+}

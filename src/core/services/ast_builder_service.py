@@ -1,6 +1,6 @@
 """Build Abstract Syntax Trees (AST) from COBOL parse trees.
 
-The COBOL parser (see ``cobol_parser_service.py``) produces a generic parse tree built
+The COBOL parser (see ``cobol_parser_antlr_service.py``) produces a generic parse tree built
 from :class:`ParseNode`.  This module converts that intermediate representation
 into the strongly typed AST models defined in ``src/core/models/cobol_analysis_model.py``.
 
@@ -29,7 +29,7 @@ from src.core.models.cobol_analysis_model import (
     StatementType,
     VariableNode,
 )
-from src.core.services.cobol_parser_service import ParseNode
+from src.core.services.cobol_parser_antlr_service import ParseNode
 
 
 logger = logging.getLogger(__name__)
@@ -235,12 +235,43 @@ def _extract_paragraphs(node: ParseNode) -> list[ParagraphNode]:
     paragraphs: list[ParagraphNode] = []
     for candidate in _walk_nodes(node, {"PARAGRAPH"}):
         paragraph_name = _find_child_value(candidate, "PARAGRAPH_NAME") or "PARAGRAPH"
-        statements_node = _find_child_node(candidate, "STATEMENTS")
-        statements = _build_statements(statements_node) if statements_node else []
+
+        # ANTLR grammar uses SENTENCE nodes containing STATEMENT nodes
+        # Look for SENTENCE nodes and extract statements from them
+        statements: list[StatementNode] = []
+        sentence_nodes = list(_walk_nodes(candidate, {"SENTENCE"}))
+        logger.debug(
+            f"Paragraph '{paragraph_name}': found {len(sentence_nodes)} SENTENCE nodes"
+        )
+
+        for sentence_node in sentence_nodes:
+            sentence_statements = _build_statements_from_sentence(sentence_node)
+            logger.debug(
+                f"  SENTENCE yielded {len(sentence_statements)} statements"
+            )
+            statements.extend(sentence_statements)
+
         paragraph = ParagraphNode(paragraph_name=paragraph_name, statements=statements)
         paragraph.children = list(statements)
         paragraphs.append(paragraph)
     return paragraphs
+
+
+def _build_statements_from_sentence(sentence_node: ParseNode) -> list[StatementNode]:
+    """Extract STATEMENT nodes from a SENTENCE node.
+
+    ANTLR grammar structure: SENTENCE → STATEMENT → (specific statement type)
+    The STATEMENT node is a wrapper; we need to look at its children for the actual statement type.
+    """
+    statements: list[StatementNode] = []
+    for statement_wrapper in _walk_nodes(sentence_node, {"STATEMENT"}):
+        # STATEMENT is a wrapper node - look at its children for the actual statement type
+        for child in statement_wrapper.children:
+            if isinstance(child, ParseNode):
+                statement = _build_statement(child)
+                if statement:
+                    statements.append(statement)
+    return statements
 
 
 def _build_statements(node: ParseNode | None) -> list[StatementNode]:
@@ -343,9 +374,54 @@ def _build_statement(node: ParseNode) -> StatementNode | None:
 
 
 def _build_perform_statement(node: ParseNode) -> StatementNode:
+    """Build PERFORM statement from ANTLR parse tree.
+
+    ANTLR structure:
+    PERFORMSTATEMENT → PERFORMPROCEDURESTATEMENT
+        └─ PROCEDURENAME
+           └─ PARAGRAPHNAME
+              └─ COBOLWORD
+                 └─ IDENTIFIER (terminal with paragraph name)
+    """
+    # Find PERFORMPROCEDURESTATEMENT
+    perform_proc = _find_child_node(node, "PERFORMPROCEDURESTATEMENT")
+    if not perform_proc:
+        logger.warning("PERFORM statement missing PERFORMPROCEDURESTATEMENT node")
+        return StatementNode(
+            statement_type=StatementType.PERFORM,
+            attributes={"target_paragraph": ""},
+        )
+
+    # Find PROCEDURENAME
+    procedure_name = _find_child_node(perform_proc, "PROCEDURENAME")
+    if not procedure_name:
+        logger.warning("PERFORM statement missing PROCEDURENAME node")
+        return StatementNode(
+            statement_type=StatementType.PERFORM,
+            attributes={"target_paragraph": ""},
+        )
+
+    # Find PARAGRAPHNAME
+    paragraph_name_node = _find_child_node(procedure_name, "PARAGRAPHNAME")
+    if not paragraph_name_node:
+        logger.warning("PERFORM statement missing PARAGRAPHNAME node")
+        return StatementNode(
+            statement_type=StatementType.PERFORM,
+            attributes={"target_paragraph": ""},
+        )
+
+    # Extract value: PARAGRAPHNAME → COBOLWORD → IDENTIFIER
+    cobol_word = _find_child_node(paragraph_name_node, "COBOLWORD")
+    if cobol_word:
+        identifier = _find_child_node(cobol_word, "IDENTIFIER")
+        target_paragraph = str(identifier.value) if identifier and identifier.value else ""
+    else:
+        logger.warning("PERFORM statement missing COBOLWORD node")
+        target_paragraph = ""
+
     return StatementNode(
         statement_type=StatementType.PERFORM,
-        attributes={"target_paragraph": _find_child_value(node, "PARAGRAPH_NAME")},
+        attributes={"target_paragraph": target_paragraph},
     )
 
 
@@ -364,8 +440,54 @@ def _build_perform_until_statement(node: ParseNode) -> StatementNode:
 
 
 def _build_if_statement(node: ParseNode) -> StatementNode:
-    condition = _build_expression(_find_child_node(node, "CONDITION"))
-    then_statements = _build_statements(_find_child_node(node, "STATEMENTS"))
+    """Build IF statement from ANTLR parse tree.
+
+    ANTLR structure:
+    IFSTATEMENT
+        ├─ CONDITION
+        ├─ IFTHEN
+        │  └─ STATEMENT (wrapper for actual statements)
+        └─ IFELSE (optional)
+           └─ STATEMENT (wrapper for actual statements)
+    """
+    # Extract condition
+    condition_node = _find_child_node(node, "CONDITION")
+    condition = _build_expression(condition_node)
+
+    # Extract THEN statements
+    ifthen_node = _find_child_node(node, "IFTHEN")
+    then_statements: list[StatementNode] = []
+    if ifthen_node:
+        # IFTHEN contains STATEMENT wrappers
+        for stmt_node in _walk_nodes(ifthen_node, {"STATEMENT"}):
+            # Extract statement from wrapper (same as sentence handling)
+            for child in stmt_node.children:
+                if isinstance(child, ParseNode):
+                    stmt = _build_statement(child)
+                    if stmt:
+                        then_statements.append(stmt)
+
+    # Check for ELSE branch
+    ifelse_node = _find_child_node(node, "IFELSE")
+    if ifelse_node:
+        # This is actually an IF-ELSE statement
+        else_statements: list[StatementNode] = []
+        for stmt_node in _walk_nodes(ifelse_node, {"STATEMENT"}):
+            for child in stmt_node.children:
+                if isinstance(child, ParseNode):
+                    stmt = _build_statement(child)
+                    if stmt:
+                        else_statements.append(stmt)
+        return StatementNode(
+            statement_type=StatementType.IF,
+            attributes={
+                "condition": condition,
+                "then_statements": then_statements,
+                "else_statements": else_statements,
+            },
+        )
+
+    # No ELSE branch
     return StatementNode(
         statement_type=StatementType.IF,
         attributes={
@@ -376,17 +498,13 @@ def _build_if_statement(node: ParseNode) -> StatementNode:
 
 
 def _build_if_else_statement(node: ParseNode) -> StatementNode:
-    condition = _build_expression(_find_child_node(node, "CONDITION"))
-    then_statements = _build_statements(_find_child_node(node, "STATEMENTS"))
-    else_statements = _build_statements(_find_child_node(node, "STATEMENTS", occurrence=1))
-    return StatementNode(
-        statement_type=StatementType.IF,
-        attributes={
-            "condition": condition,
-            "then_statements": then_statements,
-            "else_statements": else_statements,
-        },
-    )
+    """Build IF-ELSE statement (delegates to _build_if_statement).
+
+    The ANTLR grammar represents IF-ELSE with a single IFSTATEMENT node
+    that contains both IFTHEN and IFELSE children, so we use the same
+    builder function.
+    """
+    return _build_if_statement(node)
 
 
 def _build_call_statement(node: ParseNode) -> StatementNode:
@@ -423,51 +541,218 @@ def _build_compute_statement(node: ParseNode) -> StatementNode:
 
 
 def _build_move_statement(node: ParseNode) -> StatementNode:
-    source_name = _find_child_value(node, "SOURCE")
-    target_name = _find_child_value(node, "TARGET")
+    """Build MOVE statement from ANTLR parse tree.
+
+    ANTLR structure:
+    MOVESTATEMENT → MOVETOSTATEMENT
+        ├─ MOVETOSENDINGAREA (source)
+        │  ├─ LITERAL (if literal source)
+        │  └─ IDENTIFIER (if variable source)
+        └─ IDENTIFIER (target)
+    """
+    # Find MOVETOSTATEMENT
+    movetostatement = _find_child_node(node, "MOVETOSTATEMENT")
+    if not movetostatement:
+        logger.warning("MOVE statement missing MOVETOSTATEMENT node")
+        return StatementNode(
+            statement_type=StatementType.MOVE,
+            attributes={
+                "source": VariableNode(variable_name=""),
+                "target": VariableNode(variable_name=""),
+            },
+        )
+
+    # Extract source (from MOVETOSENDINGAREA)
+    source_literal = _extract_literal_from_sending_area(movetostatement)
+    source_identifier = _extract_identifier_from_sending_area(movetostatement)
+
+    source: VariableNode | LiteralNode
+    if source_literal:
+        # It's a literal - extract value and create LiteralNode
+        source_value = _extract_literal_value(source_literal)
+        source = _create_literal(source_value)
+    elif source_identifier:
+        # It's a variable - extract name
+        source_name = _extract_variable_name(source_identifier)
+        source = VariableNode(variable_name=source_name or "")
+    else:
+        logger.warning("MOVE statement missing source (neither literal nor identifier)")
+        source = VariableNode(variable_name="")
+
+    # Extract target (direct IDENTIFIER child of MOVETOSTATEMENT)
+    target_identifier = _find_child_node(movetostatement, "IDENTIFIER")
+    target_name = _extract_variable_name(target_identifier)
+    target = VariableNode(variable_name=target_name or "")
+
     return StatementNode(
         statement_type=StatementType.MOVE,
         attributes={
-            "source": VariableNode(variable_name=source_name or ""),
-            "target": VariableNode(variable_name=target_name or ""),
+            "source": source,
+            "target": target,
         },
     )
 
 
 def _build_add_statement(node: ParseNode) -> StatementNode:
-    value_node = _find_child_value(node, "VALUE")
-    target_name = _find_child_value(node, "TARGET")
-    literal = _create_literal(value_node)
+    """Build ADD statement from ANTLR parse tree.
+
+    ANTLR structure:
+    ADDSTATEMENT → ADDTOSTATEMENT
+        ├─ ADDFROM (value to add)
+        │  └─ LITERAL (or IDENTIFIER for variable)
+        └─ ADDTO (target variable)
+           └─ IDENTIFIER
+    """
+    # Find ADDTOSTATEMENT
+    addtostatement = _find_child_node(node, "ADDTOSTATEMENT")
+    if not addtostatement:
+        logger.warning("ADD statement missing ADDTOSTATEMENT node")
+        return StatementNode(
+            statement_type=StatementType.ADD,
+            attributes={
+                "value": _create_literal(0),
+                "target": VariableNode(variable_name=""),
+            },
+        )
+
+    # Extract value (from ADDFROM)
+    addfrom = _find_child_node(addtostatement, "ADDFROM")
+    if addfrom:
+        # Check if it's a literal or identifier
+        literal_node = _find_child_node(addfrom, "LITERAL")
+        if literal_node:
+            value = _extract_literal_value(literal_node)
+            literal = _create_literal(value)
+        else:
+            # Could be a variable (IDENTIFIER)
+            identifier_node = _find_child_node(addfrom, "IDENTIFIER")
+            if identifier_node:
+                var_name = _extract_variable_name(identifier_node)
+                # For now, treat as literal (may need to revisit)
+                literal = _create_literal(var_name or "0")
+            else:
+                literal = _create_literal(0)
+    else:
+        logger.warning("ADD statement missing ADDFROM node")
+        literal = _create_literal(0)
+
+    # Extract target (from ADDTO)
+    addto = _find_child_node(addtostatement, "ADDTO")
+    if addto:
+        target_identifier = _find_child_node(addto, "IDENTIFIER")
+        target_name = _extract_variable_name(target_identifier)
+        target = VariableNode(variable_name=target_name or "")
+    else:
+        logger.warning("ADD statement missing ADDTO node")
+        target = VariableNode(variable_name="")
+
     return StatementNode(
         statement_type=StatementType.ADD,
         attributes={
             "value": literal,
-            "target": VariableNode(variable_name=target_name or ""),
+            "target": target,
         },
     )
 
 
-def _build_evaluate_statement(node: ParseNode) -> StatementNode:
-    expression_value = _find_child_value(node, "EXPRESSION")
-    when_clauses_node = _find_child_node(node, "WHEN_CLAUSES")
-    other_statements_node = _find_child_node(node, "STATEMENTS")
+def _extract_evaluate_condition_value(when_condition: ParseNode | None) -> Any:
+    """Extract condition value from EVALUATEWHEN node.
 
+    Args:
+        when_condition: EVALUATEWHEN node or None
+
+    Returns:
+        Condition value (literal or variable name) or None
+    """
+    if not when_condition:
+        return None
+
+    evaluate_condition = _find_child_node(when_condition, "EVALUATECONDITION")
+    if not evaluate_condition:
+        return None
+
+    evaluate_value = _find_child_node(evaluate_condition, "EVALUATEVALUE")
+    if not evaluate_value:
+        return None
+
+    # Could be literal or identifier - try both
+    literal_node = _find_child_node(evaluate_value, "LITERAL")
+    if literal_node:
+        return _extract_literal_value(literal_node)
+
+    identifier_node = _find_child_node(evaluate_value, "IDENTIFIER")
+    if identifier_node:
+        return _extract_variable_name(identifier_node)
+
+    return None
+
+
+def _extract_statements_from_node(node: ParseNode | None) -> list[StatementNode]:
+    """Extract statements from a node containing STATEMENT children.
+
+    Args:
+        node: Node containing STATEMENT nodes, or None
+
+    Returns:
+        List of StatementNode objects
+    """
+    if not node:
+        return []
+
+    statements: list[StatementNode] = []
+    for stmt_node in _walk_nodes(node, {"STATEMENT"}):
+        for child in stmt_node.children:
+            if isinstance(child, ParseNode):
+                stmt = _build_statement(child)
+                if stmt:
+                    statements.append(stmt)
+    return statements
+
+
+def _build_evaluate_statement(node: ParseNode) -> StatementNode:
+    """Build EVALUATE statement from ANTLR parse tree.
+
+    ANTLR structure:
+    EVALUATESTATEMENT
+        ├─ EVALUATESELECT (expression being evaluated)
+        │  └─ IDENTIFIER
+        ├─ EVALUATEWHENPHRASE (one or more WHEN clauses)
+        │  ├─ EVALUATEWHEN
+        │  │  └─ EVALUATECONDITION
+        │  │     └─ EVALUATEVALUE
+        │  └─ STATEMENT (action for this WHEN)
+        └─ EVALUATEWHENOTHER (optional default clause)
+           └─ STATEMENT (default action)
+    """
+    # Extract the expression being evaluated
+    evaluate_select = _find_child_node(node, "EVALUATESELECT")
+    expression_value = ""
+    if evaluate_select:
+        select_identifier = _find_child_node(evaluate_select, "IDENTIFIER")
+        if select_identifier:
+            expression_value = _extract_variable_name(select_identifier) or ""
+
+    # Extract WHEN clauses
     when_clauses: list[dict[str, Any]] = []
-    if when_clauses_node:
-        for clause in when_clauses_node.children:
-            if isinstance(clause, ParseNode) and clause.node_type == "WHEN_CLAUSE":
-                when_value = _find_child_value(clause, "VALUE")
-                clause_statements = _build_statements(_find_child_node(clause, "STATEMENTS"))
-                when_clauses.append(
-                    {"value": _create_literal(when_value), "statements": clause_statements}
-                )
+    for when_phrase in _walk_nodes(node, {"EVALUATEWHENPHRASE"}):
+        when_condition = _find_child_node(when_phrase, "EVALUATEWHEN")
+        condition_value = _extract_evaluate_condition_value(when_condition)
+        statements = _extract_statements_from_node(when_phrase)
+
+        when_clauses.append(
+            {"value": _create_literal(condition_value), "statements": statements}
+        )
+
+    # Extract WHEN OTHER (default) clause
+    when_other = _find_child_node(node, "EVALUATEWHENOTHER")
+    default_statements = _extract_statements_from_node(when_other)
 
     return StatementNode(
         statement_type=StatementType.EVALUATE,
         attributes={
             "expression": VariableNode(variable_name=expression_value or ""),
             "when_clauses": when_clauses,
-            "default_statements": _build_statements(other_statements_node),
+            "default_statements": default_statements,
         },
     )
 
@@ -582,3 +867,140 @@ def _walk_nodes(node: ParseNode, target_types: set[str]) -> Iterable[ParseNode]:
         if child.node_type in target_types:
             yield child
         yield from _walk_nodes(child, target_types)
+
+
+def _extract_variable_name(identifier_node: ParseNode | None) -> str | None:
+    """Extract variable name from an IDENTIFIER node.
+
+    ANTLR grammar path for variable names:
+    IDENTIFIER → QUALIFIEDDATANAME → QUALIFIEDDATANAMEFORMAT1
+                → DATANAME → COBOLWORD → IDENTIFIER (terminal with value)
+
+    Args:
+        identifier_node: IDENTIFIER node from parse tree
+
+    Returns:
+        Variable name string, or None if not found
+    """
+    if identifier_node is None:
+        return None
+
+    # Try to find DATANAME node (most reliable path)
+    dataname_node = _find_child_node(identifier_node, "DATANAME")
+    if dataname_node:
+        # Navigate: DATANAME → COBOLWORD → IDENTIFIER (terminal)
+        cobol_word = _find_child_node(dataname_node, "COBOLWORD")
+        if cobol_word:
+            terminal_identifier = _find_child_node(cobol_word, "IDENTIFIER")
+            if terminal_identifier and terminal_identifier.value:
+                return str(terminal_identifier.value)
+
+    # Fallback: try COBOLWORD directly
+    cobol_word = _find_child_node(identifier_node, "COBOLWORD")
+    if cobol_word:
+        terminal_identifier = _find_child_node(cobol_word, "IDENTIFIER")
+        if terminal_identifier and terminal_identifier.value:
+            return str(terminal_identifier.value)
+
+    # Last resort: check if this node itself has a value
+    if identifier_node.value and isinstance(identifier_node.value, str):
+        return str(identifier_node.value)
+
+    return None
+
+
+def _parse_numeric_literal(numeric_literal: ParseNode) -> float | int | str:
+    """Parse numeric literal value.
+
+    Args:
+        numeric_literal: NUMERICLITERAL node
+
+    Returns:
+        Parsed number (float/int) or string if parsing fails
+    """
+    value_str = str(numeric_literal.value)
+    try:
+        return float(value_str) if '.' in value_str else int(value_str)
+    except ValueError:
+        return value_str
+
+
+def _parse_nonnumeric_literal(nonnumeric_literal: ParseNode) -> str:
+    """Parse non-numeric literal value, removing quotes if present.
+
+    Args:
+        nonnumeric_literal: NONNUMERICLITERAL node
+
+    Returns:
+        String value with quotes removed
+    """
+    value = str(nonnumeric_literal.value)
+    if (value.startswith("'") and value.endswith("'")) or (
+        value.startswith('"') and value.endswith('"')
+    ):
+        return value[1:-1]
+    return value
+
+
+def _extract_literal_value(literal_node: ParseNode | None) -> Any:
+    """Extract value from a LITERAL node.
+
+    ANTLR grammar structure:
+    LITERAL → NONNUMERICLITERAL (for strings)
+    LITERAL → NUMERICLITERAL (for numbers)
+
+    Args:
+        literal_node: LITERAL node from parse tree
+
+    Returns:
+        The literal value (string or number), or None if not found
+    """
+    if literal_node is None:
+        return None
+
+    # Check for numeric literal
+    numeric_literal = _find_child_node(literal_node, "NUMERICLITERAL")
+    if numeric_literal and numeric_literal.value:
+        return _parse_numeric_literal(numeric_literal)
+
+    # Check for non-numeric (string) literal
+    nonnumeric_literal = _find_child_node(literal_node, "NONNUMERICLITERAL")
+    if nonnumeric_literal and nonnumeric_literal.value:
+        return _parse_nonnumeric_literal(nonnumeric_literal)
+
+    # Fallback: check if literal node itself has a value
+    return literal_node.value if literal_node.value else None
+
+
+def _extract_identifier_from_sending_area(movetostatement_node: ParseNode) -> ParseNode | None:
+    """Extract IDENTIFIER node from MOVETOSENDINGAREA.
+
+    Helper for MOVE statement source extraction.
+
+    Args:
+        movetostatement_node: MOVETOSTATEMENT node
+
+    Returns:
+        IDENTIFIER node or None if not found (might be a LITERAL instead)
+    """
+    sending_area = _find_child_node(movetostatement_node, "MOVETOSENDINGAREA")
+    if sending_area:
+        return _find_child_node(sending_area, "IDENTIFIER")
+    return None
+
+
+def _extract_literal_from_sending_area(movetostatement_node: ParseNode) -> ParseNode | None:
+    """Extract LITERAL node from MOVETOSENDINGAREA.
+
+    Helper for MOVE statement source extraction when source is a literal.
+
+    Args:
+        movetostatement_node: MOVETOSTATEMENT node
+
+    Returns:
+        LITERAL node or None if not found (might be an IDENTIFIER instead)
+    """
+    sending_area = _find_child_node(movetostatement_node, "MOVETOSENDINGAREA")
+    if sending_area:
+        return _find_child_node(sending_area, "LITERAL")
+    return None

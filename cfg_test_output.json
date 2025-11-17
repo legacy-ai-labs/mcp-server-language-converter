@@ -1,0 +1,179 @@
+{
+  "parse_result": {
+    "success": true,
+    "ast": {
+      "type": "ProgramNode",
+      "program_name": "PROGRAM-ID",
+      "divisions": [
+        {
+          "type": "DivisionNode",
+          "division_type": "IDENTIFICATION",
+          "sections": [
+            {
+              "type": "SectionNode",
+              "section_name": "PROGRAM-ID",
+              "paragraphs": [
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "PROGRAM-ID",
+                  "statements": [
+                    {
+                      "type": "StatementNode",
+                      "statement_type": "DISPLAY",
+                      "attributes": {
+                        "program_id": "PROGRAM-ID"
+                      },
+                      "location": null
+                    }
+                  ],
+                  "location": null
+                }
+              ],
+              "location": null
+            }
+          ],
+          "location": null
+        },
+        {
+          "type": "DivisionNode",
+          "division_type": "DATA",
+          "sections": [],
+          "location": null
+        },
+        {
+          "type": "DivisionNode",
+          "division_type": "PROCEDURE",
+          "sections": [
+            {
+              "type": "SectionNode",
+              "section_name": "PROCEDURE",
+              "paragraphs": [
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "VALIDATE-ACCOUNT-MAIN",
+                  "statements": [],
+                  "location": null
+                },
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "CHECK-CUSTOMER-ID",
+                  "statements": [],
+                  "location": null
+                },
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "CHECK-ACCOUNT-BALANCE",
+                  "statements": [],
+                  "location": null
+                },
+                {
+                  "type": "ParagraphNode",
+                  "paragraph_name": "CHECK-ACCOUNT-STATUS",
+                  "statements": [],
+                  "location": null
+                }
+              ],
+              "location": null
+            }
+          ],
+          "location": null
+        }
+      ],
+      "location": null
+    },
+    "program_name": "PROGRAM-ID"
+  },
+  "cfg_result": {
+    "success": true,
+    "cfg": {
+      "entry_node": {
+        "node_id": "entry",
+        "label": "Entry",
+        "location": null,
+        "node_type": "EntryNode"
+      },
+      "exit_node": {
+        "node_id": "exit",
+        "label": "Exit",
+        "location": null,
+        "node_type": "ExitNode"
+      },
+      "nodes": [
+        {
+          "node_id": "entry",
+          "label": "Entry",
+          "location": null,
+          "node_type": "EntryNode"
+        },
+        {
+          "node_id": "exit",
+          "label": "Exit",
+          "location": null,
+          "node_type": "ExitNode"
+        },
+        {
+          "node_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "label": "VALIDATE-ACCOUNT-MAIN",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "paragraph_CHECK-CUSTOMER-ID",
+          "label": "CHECK-CUSTOMER-ID",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "label": "CHECK-ACCOUNT-BALANCE",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        },
+        {
+          "node_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "label": "CHECK-ACCOUNT-STATUS",
+          "location": null,
+          "statements": [],
+          "node_type": "BasicBlock"
+        }
+      ],
+      "edges": [
+        {
+          "source_id": "entry",
+          "target_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_VALIDATE-ACCOUNT-MAIN",
+          "target_id": "paragraph_CHECK-CUSTOMER-ID",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-CUSTOMER-ID",
+          "target_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-ACCOUNT-BALANCE",
+          "target_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        },
+        {
+          "source_id": "paragraph_CHECK-ACCOUNT-STATUS",
+          "target_id": "exit",
+          "edge_type": "SEQUENTIAL",
+          "label": ""
+        }
+      ]
+    },
+    "node_count": 6,
+    "edge_count": 5
+  }
+}

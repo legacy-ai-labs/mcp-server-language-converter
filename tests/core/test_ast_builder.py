@@ -2,7 +2,7 @@
 
 from src.core.models.cobol_analysis_model import DivisionType, StatementType
 from src.core.services.ast_builder_service import build_ast
-from src.core.services.cobol_parser_service import ParseNode
+from src.core.services.cobol_parser_antlr_service import ParseNode
 
 
 def _create_sample_program_parse_tree() -> ParseNode:

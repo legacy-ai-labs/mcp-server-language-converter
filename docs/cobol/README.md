@@ -21,6 +21,21 @@ This directory contains all documentation related to the COBOL reverse engineeri
 - **[COBOL_PHASE1_STEP9.md](phase1/COBOL_PHASE1_STEP9.md)** - Step 9 (Pydantic Schemas) implementation summary
 - **[COBOL_PHASE1_STEP10.md](phase1/COBOL_PHASE1_STEP10.md)** - Step 10 (Testing) implementation summary
 
+## Recent Updates
+
+### ANTLR Integration (2025-11-16)
+- **[ANTLR_NODE_MAPPING.md](../../ANTLR_NODE_MAPPING.md)** - ANTLR grammar node structure mapping
+- **[STEP2_COMPLETE.md](../../STEP2_COMPLETE.md)** - Helper functions for variable extraction
+- **[STEP3_COMPLETE.md](../../STEP3_COMPLETE.md)** - Statement builders updated for ANTLR
+- **[dfg_summary.md](../../dfg_summary.md)** - DFG variable extraction verification
+
+**Key Achievement**: DFG now extracts variables successfully (20 nodes, 16 edges) - was empty before!
+
+## User Guides
+
+- **[Tool Workflows](TOOL_WORKFLOWS.md)** - Complete guide to using COBOL analysis tools, including workflow options, inputs/outputs, and examples
+- **[Parser Comparison](PARSER_COMPARISON.md)** - Comparison of PLY vs ANTLR parser implementations
+
 ## Quick Links
 
 - **Start Here**: [COBOL Reverse Engineering Plan](COBOL_REVERSE_ENGINEERING_PLAN.md)
