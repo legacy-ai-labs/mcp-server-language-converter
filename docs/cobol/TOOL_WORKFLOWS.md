@@ -104,16 +104,33 @@ The minor inconvenience of removing optional paragraphs is far outweighed by hav
 
 The tools have the following dependency chain:
 
-```
-COBOL Source Code
-    │
-    ├─→ parse_cobol ──────────────→ AST ──→ build_cfg ──→ CFG ──┐
-    │                                                          │
-    └─→ parse_cobol_raw ─→ ParseNode ─→ build_ast ──→ AST ──┘
-                                                                    │
-                                                                    └─→ build_dfg ──→ DFG ──┐
-                                                                                           │
-                                                                                           └─→ build_pdg ──→ PDG
+```mermaid
+graph TD
+    A[COBOL Source Code] --> B[parse_cobol]
+    A --> C[parse_cobol_raw]
+
+    B --> D[AST]
+    C --> E[ParseNode]
+    E --> F[build_ast]
+    F --> D
+
+    D --> G[build_cfg]
+    G --> H[CFG]
+
+    D --> I[build_dfg]
+    H --> I
+    I --> J[DFG]
+
+    D --> K[build_pdg]
+    H --> K
+    J --> K
+    K --> L[PDG]
+
+    style A fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style D fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style H fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style J fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style L fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ## Two Workflow Options
@@ -125,8 +142,26 @@ There are two main workflows depending on your needs:
 **Use this workflow when:** You want to analyze COBOL code and don't need to inspect the parse tree.
 
 **Tool Chain:**
-```
-parse_cobol → build_cfg → build_dfg → build_pdg
+
+```mermaid
+graph LR
+    A[COBOL Code] --> B[parse_cobol]
+    B --> C[AST]
+    C --> D[build_cfg]
+    D --> E[CFG]
+    C --> F[build_dfg]
+    E --> F
+    F --> G[DFG]
+    C -.optional.-> H[build_pdg]
+    E -.optional.-> H
+    G -.optional.-> H
+    H -.optional.-> I[PDG]
+
+    style A fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style G fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style I fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 **Steps:**
@@ -146,8 +181,29 @@ parse_cobol → build_cfg → build_dfg → build_pdg
 **Use this workflow when:** You need to inspect the parse tree or debug parsing issues.
 
 **Tool Chain:**
-```
-parse_cobol_raw → build_ast → build_cfg → build_dfg → build_pdg
+
+```mermaid
+graph LR
+    A[COBOL Code] --> B[parse_cobol_raw]
+    B --> C[ParseNode]
+    C --> D[build_ast]
+    D --> E[AST]
+    E --> F[build_cfg]
+    F --> G[CFG]
+    E --> H[build_dfg]
+    G --> H
+    H --> I[DFG]
+    E -.optional.-> J[build_pdg]
+    G -.optional.-> J
+    I -.optional.-> J
+    J -.optional.-> K[PDG]
+
+    style A fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style C fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style E fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style G fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style I fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style K fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 **Steps:**
@@ -522,11 +578,36 @@ The Program Dependency Graph combines two types of dependencies:
 2. **Data Dependencies** (from DFG): Node B is data-dependent on node A if A defines a variable that B uses.
    - Example: A MOVE statement defining a variable has a data dependency to a later statement using that variable
 
-The PDG is useful for:
-- Program slicing (finding all code that affects a specific variable)
-- Impact analysis (what code is affected by a change)
-- Understanding program dependencies for refactoring
-- Security analysis (tracking data flow)
+**PDG Example:**
+
+```mermaid
+graph TB
+    subgraph "Control Dependencies"
+        IF1[IF ACCOUNT-STATUS = 'A']
+        IF1 -.control TRUE.-> THEN1[MOVE 'VALID' TO RESULT]
+        IF1 -.control FALSE.-> ELSE1[MOVE 'INVALID' TO RESULT]
+    end
+
+    subgraph "Data Dependencies"
+        MOVE1[MOVE 0 TO COUNTER]
+        MOVE1 ==data COUNTER==> ADD1[ADD 1 TO COUNTER]
+        ADD1 ==data COUNTER==> DISPLAY1[DISPLAY COUNTER]
+    end
+
+    style IF1 fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style THEN1 fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style ELSE1 fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style MOVE1 fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style ADD1 fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style DISPLAY1 fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+**The PDG is useful for:**
+- **Program slicing** - Finding all code that affects a specific variable
+- **Impact analysis** - Understanding what code is affected by a change
+- **Refactoring** - Identifying dependencies before restructuring code
+- **Security analysis** - Tracking how sensitive data flows through the program
+- **Debugging** - Understanding why a variable has an unexpected value
 
 ## Complete Workflow Examples
 
@@ -708,53 +789,61 @@ Always implement proper error handling and check the `success` field.
 
 ## Data Flow Summary
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    COBOL Source Code                        │
-│  (file_path or source_code string)                         │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-         ┌───────────┴───────────┐
-         │                       │
-         ▼                       ▼
-┌─────────────────┐    ┌──────────────────┐
-│  parse_cobol    │    │ parse_cobol_raw  │
-│                 │    │                  │
-│ Output: AST     │    │ Output:          │
-│                 │    │   ParseNode      │
-└────────┬────────┘    └────────┬─────────┘
-         │                      │
-         │                      ▼
-         │              ┌──────────────────┐
-         │              │    build_ast     │
-         │              │                  │
-         │              │ Output: AST      │
-         │              └────────┬──────────┘
-         │                      │
-         └──────────┬───────────┘
-                    │
-                    ▼
-         ┌──────────────────┐
-         │    build_cfg     │
-         │                  │
-         │ Output: CFG      │
-         └────────┬─────────┘
-                  │
-                  │ (AST + CFG)
-                  ▼
-         ┌──────────────────┐
-         │    build_dfg     │
-         │                  │
-         │ Output: DFG      │
-         └────────┬─────────┘
-                  │
-                  │ (AST + CFG + DFG)
-                  ▼
-         ┌──────────────────┐
-         │    build_pdg     │
-         │                  │
-         │ Output: PDG      │
-         └──────────────────┘
+This diagram shows the complete data flow through all COBOL analysis tools:
+
+```mermaid
+graph TB
+    subgraph Input
+        A[COBOL Source Code<br/>file_path or source_code string]
+    end
+
+    subgraph "Parsing Options"
+        B[parse_cobol<br/>Direct to AST]
+        C[parse_cobol_raw<br/>Get Parse Tree]
+    end
+
+    subgraph "AST Building"
+        D[ParseNode<br/>Raw parse tree]
+        E[build_ast<br/>Convert to AST]
+        F[AST<br/>Abstract Syntax Tree]
+    end
+
+    subgraph "Control Flow Analysis"
+        G[build_cfg<br/>Build CFG from AST]
+        H[CFG<br/>Control Flow Graph]
+    end
+
+    subgraph "Data Flow Analysis"
+        I[build_dfg<br/>Build DFG from AST + CFG]
+        J[DFG<br/>Data Flow Graph]
+    end
+
+    subgraph "Dependency Analysis"
+        K[build_pdg<br/>Build PDG from AST + CFG + DFG]
+        L[PDG<br/>Program Dependency Graph]
+    end
+
+    A --> B
+    A --> C
+    B --> F
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    F --> I
+    H --> I
+    I --> J
+    F --> K
+    H --> K
+    J --> K
+    K --> L
+
+    style A fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style F fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style H fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style J fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style L fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ## When to Use Which Workflow
