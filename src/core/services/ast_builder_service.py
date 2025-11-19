@@ -374,10 +374,14 @@ def _build_perform_statement(node: ParseNode) -> StatementNode:
 
     ANTLR structure:
     PERFORMSTATEMENT → PERFORMPROCEDURESTATEMENT
-        └─ PROCEDURENAME
-           └─ PARAGRAPHNAME
+        └─ PROCEDURENAME (value already extracted by ANTLR parser)
+           └─ PARAGRAPH_NAME
               └─ COBOLWORD
                  └─ IDENTIFIER (terminal with paragraph name)
+
+    Note: The ANTLR parser's _extract_value_from_children() function already
+    extracts the paragraph name and stores it in PROCEDURENAME.value, so we
+    can use that directly instead of drilling down through children.
     """
     # Find PERFORMPROCEDURESTATEMENT
     perform_proc = _find_child_node(node, "PERFORMPROCEDURESTATEMENT")
@@ -388,7 +392,7 @@ def _build_perform_statement(node: ParseNode) -> StatementNode:
             attributes={"target_paragraph": ""},
         )
 
-    # Find PROCEDURENAME
+    # Find PROCEDURENAME - the value is already extracted by ANTLR parser
     procedure_name = _find_child_node(perform_proc, "PROCEDURENAME")
     if not procedure_name:
         logger.warning("PERFORM statement missing PROCEDURENAME node")
@@ -397,23 +401,11 @@ def _build_perform_statement(node: ParseNode) -> StatementNode:
             attributes={"target_paragraph": ""},
         )
 
-    # Find PARAGRAPHNAME
-    paragraph_name_node = _find_child_node(procedure_name, "PARAGRAPHNAME")
-    if not paragraph_name_node:
-        logger.warning("PERFORM statement missing PARAGRAPHNAME node")
-        return StatementNode(
-            statement_type=StatementType.PERFORM,
-            attributes={"target_paragraph": ""},
-        )
+    # Use the value directly from PROCEDURENAME (already extracted by ANTLR)
+    target_paragraph = str(procedure_name.value) if procedure_name.value else ""
 
-    # Extract value: PARAGRAPHNAME → COBOLWORD → IDENTIFIER
-    cobol_word = _find_child_node(paragraph_name_node, "COBOLWORD")
-    if cobol_word:
-        identifier = _find_child_node(cobol_word, "IDENTIFIER")
-        target_paragraph = str(identifier.value) if identifier and identifier.value else ""
-    else:
-        logger.warning("PERFORM statement missing COBOLWORD node")
-        target_paragraph = ""
+    if not target_paragraph:
+        logger.warning("PERFORM statement has empty target paragraph name")
 
     return StatementNode(
         statement_type=StatementType.PERFORM,

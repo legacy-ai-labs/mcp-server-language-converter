@@ -171,6 +171,30 @@ def _process_nested_statements(
     use_counters: defaultdict[str, int],
     last_definitions: dict[str, VariableDefNode],
 ) -> None:
+    """Process nested statements, handling control flow correctly.
+
+    For IF statements with both THEN and ELSE branches, we need special handling:
+    - Both branches should see the same incoming definitions
+    - Definitions from different branches should not flow into each other
+    - Both branches' definitions should flow to code after the IF
+    """
+    # Special handling for IF statements with both branches
+    if (
+        statement.statement_type == StatementType.IF
+        and "then_statements" in statement.attributes
+        and "else_statements" in statement.attributes
+    ):
+        _process_if_statement(
+            graph=graph,
+            statement=statement,
+            paragraph_name=paragraph_name,
+            definition_counters=definition_counters,
+            use_counters=use_counters,
+            last_definitions=last_definitions,
+        )
+        return
+
+    # Standard processing for other nested statements
     nested_keys = ("then_statements", "else_statements", "statements")
     for key in nested_keys:
         nested_value = statement.attributes.get(key)
@@ -186,6 +210,75 @@ def _process_nested_statements(
                     use_counters=use_counters,
                     last_definitions=last_definitions,
                 )
+
+
+def _process_if_statement(
+    graph: DataFlowGraph,
+    statement: StatementNode,
+    paragraph_name: str,
+    definition_counters: defaultdict[str, int],
+    use_counters: defaultdict[str, int],
+    last_definitions: dict[str, VariableDefNode],
+) -> None:
+    """Process IF statement with both THEN and ELSE branches.
+
+    Both branches see the same incoming definitions, and their definitions
+    are merged for subsequent code.
+    """
+    # Save current state before processing branches
+    incoming_definitions = dict(last_definitions)
+
+    # Track definitions from each branch
+    then_definitions: dict[str, list[VariableDefNode]] = {}
+    else_definitions: dict[str, list[VariableDefNode]] = {}
+
+    # Process THEN branch
+    then_last_defs = dict(incoming_definitions)
+    for nested_statement in statement.attributes["then_statements"]:
+        if isinstance(nested_statement, StatementNode):
+            _process_statement(
+                graph=graph,
+                statement=nested_statement,
+                paragraph_name=paragraph_name,
+                definition_counters=definition_counters,
+                use_counters=use_counters,
+                last_definitions=then_last_defs,
+            )
+    # Collect THEN branch definitions
+    for var_name, def_node in then_last_defs.items():
+        if var_name not in incoming_definitions or def_node != incoming_definitions[var_name]:
+            if var_name not in then_definitions:
+                then_definitions[var_name] = []
+            then_definitions[var_name].append(def_node)
+
+    # Process ELSE branch (start from incoming state, not THEN state)
+    else_last_defs = dict(incoming_definitions)
+    for nested_statement in statement.attributes["else_statements"]:
+        if isinstance(nested_statement, StatementNode):
+            _process_statement(
+                graph=graph,
+                statement=nested_statement,
+                paragraph_name=paragraph_name,
+                definition_counters=definition_counters,
+                use_counters=use_counters,
+                last_definitions=else_last_defs,
+            )
+    # Collect ELSE branch definitions
+    for var_name, def_node in else_last_defs.items():
+        if var_name not in incoming_definitions or def_node != incoming_definitions[var_name]:
+            if var_name not in else_definitions:
+                else_definitions[var_name] = []
+            else_definitions[var_name].append(def_node)
+
+    # Merge branch definitions for subsequent code
+    # For each variable, use the definition from whichever branch(es) defined it
+    for var_name in set(then_definitions.keys()) | set(else_definitions.keys()):
+        # If both branches define it, use the ELSE branch definition
+        # (arbitrary choice; in a full implementation we'd track all reaching definitions)
+        if var_name in else_definitions:
+            last_definitions[var_name] = else_definitions[var_name][-1]
+        elif var_name in then_definitions:
+            last_definitions[var_name] = then_definitions[var_name][-1]
 
 
 def _extract_definitions(statement: StatementNode) -> list[str]:
@@ -267,4 +360,3 @@ def _variable_name(node: object | None) -> str | None:
     if isinstance(node, VariableNode) and node.variable_name:
         return node.variable_name
     return None
-

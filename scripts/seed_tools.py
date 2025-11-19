@@ -155,6 +155,32 @@ INITIAL_TOOLS = [
         domain="cobol_analysis",
         is_active=True,
     ),
+    ToolCreate(
+        name="build_pdg",
+        description="Build Program Dependency Graph (PDG) from AST + CFG + DFG. Combines control dependencies (from CFG) and data dependencies (from DFG) into a unified graph.",
+        handler_name="build_pdg_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "ast": {
+                    "type": "object",
+                    "description": "AST representation (ProgramNode)",
+                },
+                "cfg": {
+                    "type": "object",
+                    "description": "Control Flow Graph representation",
+                },
+                "dfg": {
+                    "type": "object",
+                    "description": "Data Flow Graph representation",
+                },
+            },
+            "required": ["ast", "cfg", "dfg"],
+        },
+        category="parsing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
 ]
 
 

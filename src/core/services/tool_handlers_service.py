@@ -12,7 +12,10 @@ from src.core.models.cobol_analysis_model import (
     CFGNode,
     ControlFlowGraph,
     ControlFlowNode,
+    DataFlowGraph,
+    DataFlowNode,
     DFGEdge,
+    DFGEdgeType,
     DFGNode,
     DivisionNode,
     DivisionType,
@@ -21,17 +24,23 @@ from src.core.models.cobol_analysis_model import (
     ExpressionNode,
     LiteralNode,
     ParagraphNode,
+    PDGEdge,
+    PDGEdgeType,
+    PDGNode,
     ProgramNode,
     SectionNode,
     SourceLocation,
     StatementNode,
     StatementType,
+    VariableDefNode,
     VariableNode,
+    VariableUseNode,
 )
 from src.core.services.ast_builder_service import build_ast
 from src.core.services.cfg_builder_service import build_cfg
 from src.core.services.cobol_parser_antlr_service import ParseNode, parse_cobol, parse_cobol_file
 from src.core.services.dfg_builder_service import build_dfg
+from src.core.services.pdg_builder_service import build_pdg
 
 
 logger = logging.getLogger(__name__)
@@ -242,11 +251,12 @@ def _deserialize_cfg_node(node_dict: dict[str, Any]) -> CFGNode:
         return block
     if node_type == "ControlFlowNode":
         condition_dict = node_dict.get("condition")
-        condition = (
+        condition_node = (
             _deserialize_ast_node(condition_dict)
             if condition_dict and isinstance(condition_dict, dict)
             else None
         )
+        condition = condition_node if isinstance(condition_node, ExpressionNode) else None
         control_node = ControlFlowNode(
             node_id=node_id,
             label=label,
@@ -288,8 +298,17 @@ def _deserialize_cfg(cfg_dict: dict[str, Any]) -> ControlFlowGraph:
     nodes_dict = cfg_dict.get("nodes", [])
     edges_dict = cfg_dict.get("edges", [])
 
-    entry_node = _deserialize_cfg_node(entry_node_dict)
-    exit_node = _deserialize_cfg_node(exit_node_dict)
+    entry_node_raw = _deserialize_cfg_node(entry_node_dict)
+    exit_node_raw = _deserialize_cfg_node(exit_node_dict)
+
+    # Cast to specific types expected by ControlFlowGraph
+    if not isinstance(entry_node_raw, EntryNode):
+        raise ValueError(f"Expected EntryNode, got {type(entry_node_raw).__name__}")
+    if not isinstance(exit_node_raw, ExitNode):
+        raise ValueError(f"Expected ExitNode, got {type(exit_node_raw).__name__}")
+
+    entry_node = entry_node_raw
+    exit_node = exit_node_raw
 
     # Build node lookup dictionary
     node_lookup: dict[str, CFGNode] = {entry_node.node_id: entry_node, exit_node.node_id: exit_node}
@@ -313,6 +332,87 @@ def _deserialize_cfg(cfg_dict: dict[str, Any]) -> ControlFlowGraph:
         cfg.add_edge(edge)
 
     return cfg
+
+
+def _deserialize_dfg(dfg_dict: dict[str, Any]) -> DataFlowGraph:
+    """Deserialize DataFlowGraph from dict.
+
+    Note: This is a simplified deserialization that doesn't reconstruct
+    full statement references. Use for PDG building where we only need
+    the graph structure, not the full statement objects.
+    """
+    nodes_dict = dfg_dict.get("nodes", [])
+    edges_dict = dfg_dict.get("edges", [])
+
+    dfg = DataFlowGraph()
+
+    # Build node lookup dictionary
+    node_lookup: dict[str, DFGNode] = {}
+
+    # Create all nodes
+    for node_dict in nodes_dict:
+        node_type = node_dict.get("node_type", "")
+        node_id = node_dict.get("node_id", "")
+        variable_name = node_dict.get("variable_name", "")
+        location = _deserialize_source_location(node_dict.get("location"))
+
+        node: DFGNode
+        if node_type == "VariableDefNode":
+            node = VariableDefNode(
+                node_id=node_id,
+                variable_name=variable_name,
+                location=location,
+            )
+        elif node_type == "VariableUseNode":
+            node = VariableUseNode(
+                node_id=node_id,
+                variable_name=variable_name,
+                location=location,
+                context=node_dict.get("context", ""),
+            )
+        elif node_type == "DataFlowNode":
+            node = DataFlowNode(
+                node_id=node_id,
+                variable_name=variable_name,
+                location=location,
+                transformation_type=node_dict.get("transformation_type", ""),
+            )
+        else:
+            # Generic DFGNode
+            node = DFGNode(
+                node_id=node_id,
+                variable_name=variable_name,
+                location=location,
+            )
+
+        dfg.add_node(node)
+        node_lookup[node_id] = node
+
+    # Create all edges
+    for edge_dict in edges_dict:
+        source_id = edge_dict.get("source_id", "")
+        target_id = edge_dict.get("target_id", "")
+        edge_type_str = edge_dict.get("edge_type", "DEF_USE")
+        label = edge_dict.get("label", "")
+
+        source = node_lookup.get(source_id)
+        target = node_lookup.get(target_id)
+
+        if source is None or target is None:
+            logger.warning(f"Skipping DFG edge with missing nodes: {source_id} -> {target_id}")
+            continue
+
+        edge_type = DFGEdgeType(edge_type_str) if edge_type_str else DFGEdgeType.DEF_USE
+
+        edge = DFGEdge(
+            source=source,
+            target=target,
+            edge_type=edge_type,
+            label=label,
+        )
+        dfg.add_edge(edge)
+
+    return dfg
 
 
 def _deserialize_parse_node(node_dict: dict[str, Any]) -> ParseNode:
@@ -392,7 +492,7 @@ def _serialize_ast_node(node: Any) -> dict[str, Any]:
             "location": _serialize_source_location(node.location),
         }
     elif isinstance(node, StatementNode):
-        attrs = {}
+        attrs: dict[str, Any] = {}
         for key, value in node.attributes.items():
             if isinstance(value, (ExpressionNode, VariableNode, LiteralNode)):
                 attrs[key] = _serialize_ast_node(value)
@@ -425,13 +525,13 @@ def _serialize_ast_node(node: Any) -> dict[str, Any]:
             "type": "VariableNode",
             "variable_name": node.variable_name,
             "pic_clause": node.pic_clause,
-            "level_number": node.level_number,
+            "level_number": cast(Any, node.level_number),
             "location": _serialize_source_location(node.location),
         }
     elif isinstance(node, LiteralNode):
         result = {
             "type": "LiteralNode",
-            "value": node.value,
+            "value": cast(Any, node.value),
             "literal_type": node.literal_type,
             "location": _serialize_source_location(node.location),
         }
@@ -442,7 +542,7 @@ def _serialize_ast_node(node: Any) -> dict[str, Any]:
 
 def _serialize_cfg_node(node: CFGNode) -> dict[str, Any]:
     """Serialize CFG node to dict."""
-    base = {
+    base: dict[str, Any] = {
         "node_id": node.node_id,
         "label": node.label,
         "location": _serialize_source_location(node.location),
@@ -505,6 +605,30 @@ def _serialize_dfg_edge(edge: DFGEdge) -> dict[str, Any]:
     }
 
 
+def _serialize_pdg_node(node: PDGNode) -> dict[str, Any]:
+    """Serialize PDG node to dict."""
+    base = {
+        "node_id": node.node_id,
+        "label": node.label,
+        "location": _serialize_source_location(node.location),
+        "cfg_node_id": node.cfg_node_id,
+    }
+    if node.statement:
+        base["statement"] = _serialize_ast_node(node.statement)
+    return base
+
+
+def _serialize_pdg_edge(edge: PDGEdge) -> dict[str, Any]:
+    """Serialize PDG edge to dict."""
+    return {
+        "source_id": edge.source.node_id,
+        "target_id": edge.target.node_id,
+        "edge_type": edge.edge_type.value,
+        "label": edge.label,
+        "variable_name": edge.variable_name,
+    }
+
+
 def _serialize_parse_node(node: ParseNode) -> dict[str, Any]:
     """Serialize ParseNode to dict.
 
@@ -549,7 +673,15 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
-        parsed_tree = parse_cobol_file(file_path) if file_path else parse_cobol(source_code)
+        if file_path:
+            parsed_tree = parse_cobol_file(file_path)
+        else:
+            if not isinstance(source_code, str):
+                return {
+                    "success": False,
+                    "error": "'source_code' must be a string",
+                }
+            parsed_tree = parse_cobol(source_code)
 
         ast = build_ast(parsed_tree)
         ast_dict = _serialize_ast_node(ast)
@@ -589,7 +721,15 @@ def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
-        parsed_tree = parse_cobol_file(file_path) if file_path else parse_cobol(source_code)
+        if file_path:
+            parsed_tree = parse_cobol_file(file_path)
+        else:
+            if not isinstance(source_code, str):
+                return {
+                    "success": False,
+                    "error": "'source_code' must be a string",
+                }
+            parsed_tree = parse_cobol(source_code)
         parse_tree_dict = _serialize_parse_node(parsed_tree)
 
         return {
@@ -676,12 +816,13 @@ def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         if isinstance(ast_dict, ProgramNode):
             ast = ast_dict
         elif isinstance(ast_dict, dict):
-            ast = _deserialize_ast_node(ast_dict)
-            if not isinstance(ast, ProgramNode):
+            ast_raw = _deserialize_ast_node(ast_dict)
+            if not isinstance(ast_raw, ProgramNode):
                 return {
                     "success": False,
                     "error": "AST must be a ProgramNode instance",
                 }
+            ast = ast_raw
         else:
             return {
                 "success": False,
@@ -738,12 +879,13 @@ def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         if isinstance(ast_dict, ProgramNode):
             ast = ast_dict
         elif isinstance(ast_dict, dict):
-            ast = _deserialize_ast_node(ast_dict)
-            if not isinstance(ast, ProgramNode):
+            ast_raw = _deserialize_ast_node(ast_dict)
+            if not isinstance(ast_raw, ProgramNode):
                 return {
                     "success": False,
                     "error": "AST must be a ProgramNode instance",
                 }
+            ast = ast_raw
         else:
             return {
                 "success": False,
@@ -781,6 +923,110 @@ def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+def _deserialize_ast_for_pdg(ast_dict: Any) -> tuple[bool, ProgramNode | None, str]:
+    """Deserialize AST for PDG building.
+
+    Returns:
+        Tuple of (success, ast_or_none, error_message)
+    """
+    if not ast_dict:
+        return False, None, "AST representation is required"
+    if isinstance(ast_dict, ProgramNode):
+        return True, ast_dict, ""
+    if isinstance(ast_dict, dict):
+        ast_raw = _deserialize_ast_node(ast_dict)
+        if not isinstance(ast_raw, ProgramNode):
+            return False, None, "AST must be a ProgramNode instance"
+        return True, ast_raw, ""
+    return False, None, "AST must be a ProgramNode instance or a serialized dictionary"
+
+
+def _deserialize_cfg_for_pdg(cfg_dict: Any) -> tuple[bool, ControlFlowGraph | None, str]:
+    """Deserialize CFG for PDG building.
+
+    Returns:
+        Tuple of (success, cfg_or_none, error_message)
+    """
+    if not cfg_dict:
+        return False, None, "CFG representation is required"
+    if isinstance(cfg_dict, ControlFlowGraph):
+        return True, cfg_dict, ""
+    if isinstance(cfg_dict, dict):
+        return True, _deserialize_cfg(cfg_dict), ""
+    return False, None, "CFG must be a ControlFlowGraph instance or a serialized dictionary"
+
+
+def _deserialize_dfg_for_pdg(dfg_dict: Any) -> tuple[bool, DataFlowGraph | None, str]:
+    """Deserialize DFG for PDG building.
+
+    Returns:
+        Tuple of (success, dfg_or_none, error_message)
+    """
+    if not dfg_dict:
+        return False, None, "DFG representation is required"
+    if isinstance(dfg_dict, DataFlowGraph):
+        return True, dfg_dict, ""
+    if isinstance(dfg_dict, dict):
+        return True, _deserialize_dfg(dfg_dict), ""
+    return False, None, "DFG must be a DataFlowGraph instance or a serialized dictionary"
+
+
+def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Build Program Dependency Graph (PDG) from AST, CFG, and DFG.
+
+    The PDG combines control dependencies (from CFG) and data dependencies
+    (from DFG) into a unified graph showing all dependencies in the program.
+
+    Args:
+        parameters: Handler parameters containing 'ast', 'cfg', and 'dfg'
+                   (as dicts or objects)
+
+    Returns:
+        Dictionary with PDG representation
+    """
+    ast_dict = parameters.get("ast")
+    cfg_dict = parameters.get("cfg")
+    dfg_dict = parameters.get("dfg")
+
+    success, ast, error = _deserialize_ast_for_pdg(ast_dict)
+    if not success:
+        return {"success": False, "error": error}
+    assert ast is not None  # Type narrowing for mypy
+
+    success, cfg, error = _deserialize_cfg_for_pdg(cfg_dict)
+    if not success:
+        return {"success": False, "error": error}
+    assert cfg is not None  # Type narrowing for mypy
+
+    success, dfg, error = _deserialize_dfg_for_pdg(dfg_dict)
+    if not success:
+        return {"success": False, "error": error}
+    assert dfg is not None  # Type narrowing for mypy
+
+    try:
+        pdg = build_pdg(ast, cfg, dfg)
+        pdg_dict = {
+            "nodes": [_serialize_pdg_node(node) for node in pdg.nodes],
+            "edges": [_serialize_pdg_edge(edge) for edge in pdg.edges],
+        }
+
+        # Count edge types
+        control_edges = len([e for e in pdg.edges if e.edge_type == PDGEdgeType.CONTROL])
+        data_edges = len([e for e in pdg.edges if e.edge_type == PDGEdgeType.DATA])
+
+        return {
+            "success": True,
+            "pdg": pdg_dict,
+            "node_count": len(pdg.nodes),
+            "edge_count": len(pdg.edges),
+            "control_edge_count": control_edges,
+            "data_edge_count": data_edges,
+        }
+    except Exception as e:
+        logger.exception("Failed to build PDG")
+        return {"success": False, "error": str(e)}
+
+
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "echo_handler": echo_handler,
@@ -790,6 +1036,7 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "build_ast_handler": build_ast_handler,
     "build_cfg_handler": build_cfg_handler,
     "build_dfg_handler": build_dfg_handler,
+    "build_pdg_handler": build_pdg_handler,
 }
 
 

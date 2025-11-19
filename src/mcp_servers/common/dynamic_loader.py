@@ -64,6 +64,14 @@ def _create_traced_tool(
                 trace_ctx["error_message"] = str(e)
                 return {"success": False, "error": str(e)}
             trace_ctx["output_data"] = result
+            if not isinstance(result, dict):
+                logger.warning(
+                    f"Tool {tool_name} returned non-dict result: {type(result).__name__}"
+                )
+                return {
+                    "success": False,
+                    "error": f"Tool returned invalid type: {type(result).__name__}",
+                }
             return result
 
     return traced_tool
@@ -73,13 +81,28 @@ def _create_echo_tool(handler_func: Any, tool_name: str, domain: str, transport:
     """Create echo tool wrapper."""
 
     async def tool_impl(text: str) -> dict[str, Any]:
-        return handler_func({"text": text})
+        result = handler_func({"text": text})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
     async def echo_tool(text: str) -> dict[str, Any]:
         """Echo back the provided text."""
-        return await traced(text)
+        result = await traced(text)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return echo_tool
 
@@ -90,13 +113,28 @@ def _create_calculator_add_tool(
     """Create calculator_add tool wrapper."""
 
     async def tool_impl(a: float, b: float) -> dict[str, Any]:
-        return handler_func({"a": a, "b": b})
+        result = handler_func({"a": a, "b": b})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
     async def calculator_add_tool(a: float, b: float) -> dict[str, Any]:
         """Add two numbers together."""
-        return await traced(a, b)
+        result = await traced(a, b)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return calculator_add_tool
 
@@ -107,7 +145,16 @@ def _create_parse_cobol_tool(handler_func: Any, tool_name: str, domain: str, tra
     async def tool_impl(
         source_code: str | None = None, file_path: str | None = None
     ) -> dict[str, Any]:
-        return handler_func({"source_code": source_code, "file_path": file_path})
+        result = handler_func({"source_code": source_code, "file_path": file_path})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
@@ -115,7 +162,13 @@ def _create_parse_cobol_tool(handler_func: Any, tool_name: str, domain: str, tra
         source_code: str | None = None, file_path: str | None = None
     ) -> dict[str, Any]:
         """Parse COBOL source code into AST."""
-        return await traced(source_code, file_path)
+        result = await traced(source_code, file_path)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return parse_cobol_tool
 
@@ -128,7 +181,16 @@ def _create_parse_cobol_raw_tool(
     async def tool_impl(
         source_code: str | None = None, file_path: str | None = None
     ) -> dict[str, Any]:
-        return handler_func({"source_code": source_code, "file_path": file_path})
+        result = handler_func({"source_code": source_code, "file_path": file_path})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
@@ -136,7 +198,13 @@ def _create_parse_cobol_raw_tool(
         source_code: str | None = None, file_path: str | None = None
     ) -> dict[str, Any]:
         """Parse COBOL source code into raw ParseNode (parse tree)."""
-        return await traced(source_code, file_path)
+        result = await traced(source_code, file_path)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return parse_cobol_raw_tool
 
@@ -145,13 +213,28 @@ def _create_build_ast_tool(handler_func: Any, tool_name: str, domain: str, trans
     """Create build_ast tool wrapper."""
 
     async def tool_impl(parse_tree: dict[str, Any]) -> dict[str, Any]:
-        return handler_func({"parse_tree": parse_tree})
+        result = handler_func({"parse_tree": parse_tree})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
     async def build_ast_tool(parse_tree: dict[str, Any]) -> dict[str, Any]:
         """Build Abstract Syntax Tree (AST) from ParseNode."""
-        return await traced(parse_tree)
+        result = await traced(parse_tree)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return build_ast_tool
 
@@ -160,13 +243,28 @@ def _create_build_cfg_tool(handler_func: Any, tool_name: str, domain: str, trans
     """Create build_cfg tool wrapper."""
 
     async def tool_impl(ast: dict[str, Any]) -> dict[str, Any]:
-        return handler_func({"ast": ast})
+        result = handler_func({"ast": ast})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
     async def build_cfg_tool(ast: dict[str, Any]) -> dict[str, Any]:
         """Build Control Flow Graph (CFG) from AST."""
-        return await traced(ast)
+        result = await traced(ast)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return build_cfg_tool
 
@@ -175,28 +273,96 @@ def _create_build_dfg_tool(handler_func: Any, tool_name: str, domain: str, trans
     """Create build_dfg tool wrapper."""
 
     async def tool_impl(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-        return handler_func({"ast": ast, "cfg": cfg})
+        result = handler_func({"ast": ast, "cfg": cfg})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
     async def build_dfg_tool(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
         """Build Data Flow Graph (DFG) from AST + CFG."""
-        return await traced(ast, cfg)
+        result = await traced(ast, cfg)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return build_dfg_tool
+
+
+def _create_build_pdg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
+    """Create build_pdg tool wrapper."""
+
+    async def tool_impl(
+        ast: dict[str, Any], cfg: dict[str, Any], dfg: dict[str, Any]
+    ) -> dict[str, Any]:
+        result = handler_func({"ast": ast, "cfg": cfg, "dfg": dfg})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
+
+    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
+
+    async def build_pdg_tool(
+        ast: dict[str, Any], cfg: dict[str, Any], dfg: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build Program Dependency Graph (PDG) from AST + CFG + DFG.
+
+        The PDG combines control dependencies (from CFG) and data dependencies
+        (from DFG) into a unified graph showing all program dependencies.
+        """
+        result = await traced(ast, cfg, dfg)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
+
+    return build_pdg_tool
 
 
 def _create_generic_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
     """Create generic tool wrapper."""
 
     async def tool_impl(text: str = "") -> dict[str, Any]:
-        return handler_func({"text": text})
+        result = handler_func({"text": text})
+        if not isinstance(result, dict):
+            logger.warning(
+                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
+            )
+            return {
+                "success": False,
+                "error": f"Handler returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
 
     async def generic_tool_wrapper(text: str = "") -> dict[str, Any]:
         """Generic wrapper for unknown tools."""
-        return await traced(text)
+        result = await traced(text)
+        if not isinstance(result, dict):
+            return {
+                "success": False,
+                "error": f"Tool returned invalid type: {type(result).__name__}",
+            }
+        return result
 
     return generic_tool_wrapper
 
@@ -267,6 +433,8 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any, domain: str, transport:
         tool_func = _create_build_cfg_tool(handler_func, tool.name, domain, transport)
     elif tool.name == "build_dfg":
         tool_func = _create_build_dfg_tool(handler_func, tool.name, domain, transport)
+    elif tool.name == "build_pdg":
+        tool_func = _create_build_pdg_tool(handler_func, tool.name, domain, transport)
     else:
         tool_func = _create_generic_tool(handler_func, tool.name, domain, transport)
 

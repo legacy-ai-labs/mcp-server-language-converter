@@ -1,9 +1,10 @@
-"""Data models for COBOL analysis (AST, CFG, DFG).
+"""Data models for COBOL analysis (AST, CFG, DFG, PDG).
 
 This module defines data structures for representing:
 - AST (Abstract Syntax Tree): Syntactic structure of COBOL programs
 - CFG (Control Flow Graph): Execution paths and control flow
 - DFG (Data Flow Graph): Data dependencies and flow
+- PDG (Program Dependency Graph): Combined control and data dependencies
 """
 
 from dataclasses import dataclass, field
@@ -388,5 +389,122 @@ class DataFlowGraph:
         return [edge.target for edge in self.edges if edge.source == node]
 
     def get_predecessors(self, node: DFGNode) -> list[DFGNode]:
+        """Get all predecessor nodes of a given node."""
+        return [edge.source for edge in self.edges if edge.target == node]
+
+
+# ============================================================================
+# PDG (Program Dependency Graph) Models
+# ============================================================================
+
+
+class PDGEdgeType(str, Enum):
+    """Types of PDG edges."""
+
+    CONTROL = "CONTROL"  # Control dependency
+    DATA = "DATA"  # Data dependency
+
+
+@dataclass
+class PDGNode:
+    """Represents a node in the Program Dependency Graph.
+
+    PDG nodes represent statements or program points that can have
+    control or data dependencies on other nodes.
+    """
+
+    node_id: str = ""
+    statement: StatementNode | None = None
+    cfg_node_id: str | None = None  # Link to CFG node
+    location: SourceLocation | None = None
+    label: str = ""
+
+    def __hash__(self) -> int:
+        """Make node hashable."""
+        return hash(self.node_id)
+
+    def __eq__(self, other: object) -> bool:
+        """Compare nodes."""
+        if not isinstance(other, PDGNode):
+            return False
+        return self.node_id == other.node_id
+
+
+@dataclass
+class PDGEdge:
+    """Represents an edge in the Program Dependency Graph.
+
+    PDG edges represent either:
+    - Control dependency: source controls whether target executes
+    - Data dependency: source defines a variable used by target
+    """
+
+    source: PDGNode
+    target: PDGNode
+    edge_type: PDGEdgeType
+    label: str = ""
+    variable_name: str | None = None  # For data dependencies
+
+    def __hash__(self) -> int:
+        """Make edge hashable."""
+        return hash((self.source.node_id, self.target.node_id, self.edge_type, self.variable_name))
+
+    def __eq__(self, other: object) -> bool:
+        """Compare edges."""
+        if not isinstance(other, PDGEdge):
+            return False
+        return (
+            self.source == other.source
+            and self.target == other.target
+            and self.edge_type == other.edge_type
+            and self.variable_name == other.variable_name
+        )
+
+
+@dataclass
+class ProgramDependencyGraph:
+    """Represents a complete Program Dependency Graph.
+
+    The PDG combines control dependencies (from CFG) and data dependencies
+    (from DFG) into a single unified graph showing all dependencies in the program.
+    """
+
+    nodes: list[PDGNode] = field(default_factory=list)
+    edges: list[PDGEdge] = field(default_factory=list)
+
+    def add_node(self, node: PDGNode) -> None:
+        """Add a node to the graph."""
+        if node not in self.nodes:
+            self.nodes.append(node)
+
+    def add_edge(self, edge: PDGEdge) -> None:
+        """Add an edge to the graph."""
+        if edge not in self.edges:
+            self.edges.append(edge)
+            # Ensure source and target nodes are in the graph
+            self.add_node(edge.source)
+            self.add_node(edge.target)
+
+    def get_control_dependencies(self, node: PDGNode) -> list[PDGNode]:
+        """Get all nodes that this node is control-dependent on."""
+        return [
+            edge.source
+            for edge in self.edges
+            if edge.target == node and edge.edge_type == PDGEdgeType.CONTROL
+        ]
+
+    def get_data_dependencies(self, node: PDGNode) -> list[PDGNode]:
+        """Get all nodes that this node is data-dependent on."""
+        return [
+            edge.source
+            for edge in self.edges
+            if edge.target == node and edge.edge_type == PDGEdgeType.DATA
+        ]
+
+    def get_successors(self, node: PDGNode) -> list[PDGNode]:
+        """Get all successor nodes of a given node."""
+        return [edge.target for edge in self.edges if edge.source == node]
+
+    def get_predecessors(self, node: PDGNode) -> list[PDGNode]:
         """Get all predecessor nodes of a given node."""
         return [edge.source for edge in self.edges if edge.target == node]

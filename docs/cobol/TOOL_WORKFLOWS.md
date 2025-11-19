@@ -4,13 +4,14 @@ This document explains how to use the COBOL analysis tools, including the correc
 
 ## Overview
 
-The COBOL analysis system provides five tools that work together to analyze COBOL source code:
+The COBOL analysis system provides six tools that work together to analyze COBOL source code:
 
 1. **`parse_cobol`** - Parse COBOL source code directly into an Abstract Syntax Tree (AST)
 2. **`parse_cobol_raw`** - Parse COBOL source code into a raw ParseNode (parse tree) without building AST
 3. **`build_ast`** - Build Abstract Syntax Tree (AST) from a ParseNode
 4. **`build_cfg`** - Build Control Flow Graph (CFG) from an AST
 5. **`build_dfg`** - Build Data Flow Graph (DFG) from an AST + CFG
+6. **`build_pdg`** - Build Program Dependency Graph (PDG) from an AST + CFG + DFG
 
 ## ⚠️ IMPORTANT: COBOL File Preparation
 
@@ -110,7 +111,9 @@ COBOL Source Code
     │                                                          │
     └─→ parse_cobol_raw ─→ ParseNode ─→ build_ast ──→ AST ──┘
                                                                     │
-                                                                    └─→ build_dfg ──→ DFG
+                                                                    └─→ build_dfg ──→ DFG ──┐
+                                                                                           │
+                                                                                           └─→ build_pdg ──→ PDG
 ```
 
 ## Two Workflow Options
@@ -123,16 +126,17 @@ There are two main workflows depending on your needs:
 
 **Tool Chain:**
 ```
-parse_cobol → build_cfg → build_dfg
+parse_cobol → build_cfg → build_dfg → build_pdg
 ```
 
 **Steps:**
 1. Call `parse_cobol` with COBOL source code → Get AST
 2. Call `build_cfg` with AST → Get CFG
 3. Call `build_dfg` with AST + CFG → Get DFG
+4. Call `build_pdg` with AST + CFG + DFG → Get PDG (optional)
 
 **Advantages:**
-- Fewer tool calls (3 steps vs 4)
+- Fewer tool calls (3-4 steps vs 4-5)
 - Less data to pass between tools
 - Faster execution
 - Same end result as Workflow 2
@@ -143,7 +147,7 @@ parse_cobol → build_cfg → build_dfg
 
 **Tool Chain:**
 ```
-parse_cobol_raw → build_ast → build_cfg → build_dfg
+parse_cobol_raw → build_ast → build_cfg → build_dfg → build_pdg
 ```
 
 **Steps:**
@@ -151,6 +155,7 @@ parse_cobol_raw → build_ast → build_cfg → build_dfg
 2. Call `build_ast` with ParseNode → Get AST
 3. Call `build_cfg` with AST → Get CFG
 4. Call `build_dfg` with AST + CFG → Get DFG
+5. Call `build_pdg` with AST + CFG + DFG → Get PDG (optional)
 
 **Advantages:**
 - Allows inspection of intermediate parse tree
@@ -425,6 +430,104 @@ dfg_result = await call_tool("build_dfg", {
 })
 ```
 
+---
+
+### Tool: `build_pdg`
+
+**Description:** Build a Program Dependency Graph (PDG) from an AST, CFG, and DFG. The PDG combines control dependencies (from CFG) and data dependencies (from DFG) into a unified graph showing all program dependencies.
+
+**Input Parameters:**
+- `ast` (object, required): The AST representation from `parse_cobol` or `build_ast`
+- `cfg` (object, required): The CFG representation from `build_cfg`
+- `dfg` (object, required): The DFG representation from `build_dfg`
+
+**Output:**
+```json
+{
+  "success": true,
+  "pdg": {
+    "nodes": [
+      // Array of serialized PDG nodes (statements, control points)
+      {
+        "node_id": "...",
+        "label": "IF VALIDATE-ACCOUNT#1",
+        "cfg_node_id": "...",
+        // ... other PDG node fields
+      }
+    ],
+    "edges": [
+      // Array of serialized PDG edges (control + data dependencies)
+      {
+        "source_id": "node-id-1",
+        "target_id": "node-id-2",
+        "edge_type": "CONTROL",
+        "label": "TRUE",
+        "variable_name": null
+      },
+      {
+        "source_id": "node-id-3",
+        "target_id": "node-id-4",
+        "edge_type": "DATA",
+        "label": "ACCOUNT-NUMBER",
+        "variable_name": "ACCOUNT-NUMBER"
+      }
+    ]
+  },
+  "node_count": 34,
+  "edge_count": 21,
+  "control_edge_count": 14,
+  "data_edge_count": 7
+}
+```
+
+**Error Output:**
+```json
+{
+  "success": false,
+  "error": "Error message describing what went wrong"
+}
+```
+
+**Example Usage:**
+```python
+# Get AST, CFG, and DFG first
+ast_result = await call_tool("parse_cobol", {
+    "file_path": "/path/to/program.cbl"
+})
+
+cfg_result = await call_tool("build_cfg", {
+    "ast": ast_result["ast"]
+})
+
+dfg_result = await call_tool("build_dfg", {
+    "ast": ast_result["ast"],
+    "cfg": cfg_result["cfg"]
+})
+
+# Build PDG from AST + CFG + DFG
+pdg_result = await call_tool("build_pdg", {
+    "ast": ast_result["ast"],  # Reuse AST from parse_cobol
+    "cfg": cfg_result["cfg"],  # Use CFG from build_cfg
+    "dfg": dfg_result["dfg"]   # Use DFG from build_dfg
+})
+```
+
+**What is a PDG?**
+
+The Program Dependency Graph combines two types of dependencies:
+
+1. **Control Dependencies** (from CFG): Node B is control-dependent on node A if A is a branching point (like an IF statement) that determines whether B executes.
+   - Example: Statements in a THEN branch are control-dependent on the IF condition
+
+2. **Data Dependencies** (from DFG): Node B is data-dependent on node A if A defines a variable that B uses.
+   - Example: A MOVE statement defining a variable has a data dependency to a later statement using that variable
+
+The PDG is useful for:
+- Program slicing (finding all code that affects a specific variable)
+- Impact analysis (what code is affected by a change)
+- Understanding program dependencies for refactoring
+- Security analysis (tracking data flow)
+
 ## Complete Workflow Examples
 
 ### Example 1: Workflow 1 (Direct AST)
@@ -470,7 +573,23 @@ if not dfg_result.get("success"):
 dfg = dfg_result["dfg"]
 print(f"DFG: {dfg_result['node_count']} nodes, {dfg_result['edge_count']} edges")
 
-# Now you have AST, CFG, and DFG ready for analysis
+# Step 4: Build PDG from AST + CFG + DFG (optional)
+pdg_result = await call_tool("build_pdg", {
+    "ast": ast,      # Reuse AST from step 1
+    "cfg": cfg,      # Reuse CFG from step 2
+    "dfg": dfg       # Use DFG from step 3
+})
+
+if not pdg_result.get("success"):
+    print(f"Error: {pdg_result.get('error')}")
+    return
+
+pdg = pdg_result["pdg"]
+print(f"PDG: {pdg_result['node_count']} nodes, {pdg_result['edge_count']} edges")
+print(f"  - Control dependencies: {pdg_result['control_edge_count']}")
+print(f"  - Data dependencies: {pdg_result['data_edge_count']}")
+
+# Now you have AST, CFG, DFG, and PDG ready for analysis
 ```
 
 ### Example 2: Workflow 2 (Step-by-Step)
@@ -528,7 +647,23 @@ if not dfg_result.get("success"):
 dfg = dfg_result["dfg"]
 print(f"DFG: {dfg_result['node_count']} nodes, {dfg_result['edge_count']} edges")
 
-# Now you have parse tree, AST, CFG, and DFG ready for analysis
+# Step 5: Build PDG from AST + CFG + DFG (optional)
+pdg_result = await call_tool("build_pdg", {
+    "ast": ast,      # Reuse AST from step 2
+    "cfg": cfg,      # Reuse CFG from step 3
+    "dfg": dfg       # Use DFG from step 4
+})
+
+if not pdg_result.get("success"):
+    print(f"Error: {pdg_result.get('error')}")
+    return
+
+pdg = pdg_result["pdg"]
+print(f"PDG: {pdg_result['node_count']} nodes, {pdg_result['edge_count']} edges")
+print(f"  - Control dependencies: {pdg_result['control_edge_count']}")
+print(f"  - Data dependencies: {pdg_result['data_edge_count']}")
+
+# Now you have parse tree, AST, CFG, DFG, and PDG ready for analysis
 ```
 
 ## Important Notes
@@ -549,7 +684,9 @@ if not result.get("success"):
 
 All tool outputs are serialized dictionaries. The actual data structures (AST, CFG, DFG) are represented as nested dictionaries that can be passed directly to the next tool in the chain.
 
-### 3. Reuse AST for DFG
+### 3. Reuse AST/CFG/DFG for PDG
+
+When building the PDG, you must pass the **same AST, CFG, and DFG** that were built in previous steps. Don't parse or rebuild them - reuse the objects from the previous steps.
 
 When building the DFG, you must pass the **same AST** that was used to build the CFG. Don't parse the COBOL again - reuse the AST from the previous step.
 
@@ -609,6 +746,14 @@ Always implement proper error handling and check the `success` field.
          │    build_dfg     │
          │                  │
          │ Output: DFG      │
+         └────────┬─────────┘
+                  │
+                  │ (AST + CFG + DFG)
+                  ▼
+         ┌──────────────────┐
+         │    build_pdg     │
+         │                  │
+         │ Output: PDG      │
          └──────────────────┘
 ```
 
