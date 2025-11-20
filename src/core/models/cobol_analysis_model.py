@@ -13,7 +13,7 @@ from typing import Any
 
 
 # ============================================================================
-# Source Location
+# Source Location and Comments
 # ============================================================================
 
 
@@ -30,6 +30,35 @@ class SourceLocation:
         if self.file_path:
             return f"{self.file_path}:{self.line}"
         return f"line {self.line}"
+
+
+class CommentType(str, Enum):
+    """Types of comments in COBOL code."""
+
+    LINE = "LINE"  # Single-line comment (*)
+    HEADER = "HEADER"  # Header block comment
+    SECTION = "SECTION"  # Section separator comment
+    INLINE = "INLINE"  # Comment on same line as code
+    TODO = "TODO"  # TODO/FIXME/XXX comments
+    DOCUMENTATION = "DOCUMENTATION"  # Documentation comments
+
+
+@dataclass
+class Comment:
+    """Represents a comment in COBOL source code.
+
+    Comments preserve business context, intent, and documentation that would
+    otherwise be lost in a basic AST. This enables higher quality code
+    conversion and user story generation.
+    """
+
+    text: str  # Comment text (without leading * or other markers)
+    location: SourceLocation  # Where the comment appears
+    comment_type: CommentType = CommentType.LINE  # Type of comment
+
+    def __str__(self) -> str:
+        """String representation of comment."""
+        return f"* {self.text}"
 
 
 # ============================================================================
@@ -68,22 +97,59 @@ class StatementType(str, Enum):
 
 @dataclass
 class ASTNode:
-    """Base class for AST nodes."""
+    """Base class for AST nodes with full-fidelity support.
+
+    Full-fidelity AST preserves:
+    - Source location (line and column)
+    - Comments (header, preceding, inline, trailing)
+    - Original formatting hints
+
+    This enables:
+    - High-quality code conversion (preserving business context)
+    - User story generation (leveraging comment information)
+    - Source reconstruction
+    """
 
     location: SourceLocation | None = None
     children: list["ASTNode"] = field(default_factory=list)
+
+    # Full-fidelity fields for comment preservation
+    header_comments: list[Comment] = field(default_factory=list)  # Comments before this node
+    preceding_comments: list[Comment] = field(default_factory=list)  # Comments immediately before
+    inline_comment: Comment | None = None  # Comment on same line
+    trailing_comments: list[Comment] = field(default_factory=list)  # Comments after this node
 
     def add_child(self, child: "ASTNode") -> None:
         """Add a child node."""
         self.children.append(child)
 
+    def add_comment(self, comment: Comment, position: str = "preceding") -> None:
+        """Add a comment to this node.
+
+        Args:
+            comment: Comment to add
+            position: Where to add ("header", "preceding", "inline", "trailing")
+        """
+        if position == "header":
+            self.header_comments.append(comment)
+        elif position == "preceding":
+            self.preceding_comments.append(comment)
+        elif position == "inline":
+            self.inline_comment = comment
+        elif position == "trailing":
+            self.trailing_comments.append(comment)
+
 
 @dataclass
 class ProgramNode(ASTNode):
-    """Root node representing a COBOL program."""
+    """Root node representing a COBOL program with full-fidelity metadata."""
 
     program_name: str = ""
     divisions: list["DivisionNode"] = field(default_factory=list)
+
+    # Full-fidelity metadata
+    source_file: str | None = None  # Original source file path
+    all_comments: list[Comment] = field(default_factory=list)  # All comments in order
 
 
 @dataclass

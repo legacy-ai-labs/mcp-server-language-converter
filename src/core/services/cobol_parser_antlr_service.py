@@ -12,6 +12,7 @@ from typing import Any
 from antlr4 import CommonTokenStream, FileStream, InputStream
 from antlr4.tree.Tree import TerminalNode
 
+from src.core.models.cobol_analysis_model import Comment, CommentType, SourceLocation
 from src.core.services.antlr_cobol.grammars.Cobol85Lexer import Cobol85Lexer
 from src.core.services.antlr_cobol.grammars.Cobol85Parser import Cobol85Parser
 
@@ -20,13 +21,18 @@ logger = logging.getLogger(__name__)
 
 
 class ParseNode:
-    """Parse tree node compatible with PLY parser output."""
+    """Parse tree node compatible with PLY parser output.
+
+    Enhanced with full-fidelity support: preserves source positions
+    (line and column) for accurate source code reconstruction.
+    """
 
     def __init__(self, node_type: str, children: list[Any] | None = None, value: Any = None):
         self.node_type = node_type
         self.children = children or []
         self.value = value
         self.line_number: int | None = None
+        self.column_number: int | None = None  # Column position for full-fidelity
 
     def __repr__(self) -> str:
         if self.value is not None:
@@ -66,7 +72,9 @@ def _extract_value_from_children(children: list[ParseNode]) -> str | None:
 
 
 def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
-    """Convert ANTLR parse tree to ParseNode format.
+    """Convert ANTLR parse tree to ParseNode format with full-fidelity support.
+
+    Preserves both line and column numbers for accurate source reconstruction.
 
     Args:
         tree: ANTLR parse tree node (RuleContext or TerminalNode)
@@ -85,6 +93,7 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
         )
         node = ParseNode(node_type=token_type, value=symbol.text)
         node.line_number = symbol.line
+        node.column_number = symbol.column  # Capture column for full-fidelity
         return node
 
     # Rule node (internal) - has children
@@ -104,9 +113,10 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
 
     node = ParseNode(node_type=node_type, children=children, value=value)
 
-    # Try to get line number from first token
+    # Try to get line and column numbers from first token
     if hasattr(tree, "start") and tree.start:
         node.line_number = tree.start.line
+        node.column_number = tree.start.column  # Capture column for full-fidelity
 
     return node
 
@@ -163,6 +173,97 @@ def _normalize_node_names(node: ParseNode) -> None:
         _normalize_node_names(child)
 
 
+def _classify_comment_type(text: str) -> CommentType:
+    """Classify a comment based on its content and format.
+
+    Args:
+        text: Comment text (without leading * or other markers)
+
+    Returns:
+        CommentType enum value
+    """
+    text_upper = text.upper().strip()
+
+    # Check for TODO/FIXME/XXX markers
+    if any(marker in text_upper for marker in ["TODO", "FIXME", "XXX", "HACK", "BUG"]):
+        return CommentType.TODO
+
+    # Check for header block patterns (stars, equals, dashes)
+    if any(char * 5 in text for char in ["*", "=", "-", "#"]):
+        return CommentType.HEADER
+
+    # Check for section separators
+    if text_upper.startswith("===") or text_upper.startswith("---"):
+        return CommentType.SECTION
+
+    # Check for documentation keywords
+    doc_keywords = [
+        "PURPOSE:",
+        "DESCRIPTION:",
+        "AUTHOR:",
+        "INPUT:",
+        "OUTPUT:",
+        "RETURNS:",
+        "PARAMS:",
+        "NOTE:",
+        "WARNING:",
+        "IMPORTANT:",
+        "CRITICAL:",
+    ]
+    if any(keyword in text_upper for keyword in doc_keywords):
+        return CommentType.DOCUMENTATION
+
+    # Default to line comment
+    return CommentType.LINE
+
+
+def _extract_comments_from_token_stream(token_stream: CommonTokenStream) -> list[Comment]:
+    """Extract all comments from ANTLR token stream.
+
+    COBOL comments in ANTLR are typically sent to a hidden channel.
+    This function retrieves them and converts to Comment objects.
+
+    Args:
+        token_stream: CommonTokenStream from ANTLR lexer
+
+    Returns:
+        List of Comment objects with full source location info
+    """
+    comments: list[Comment] = []
+
+    # Get all tokens (including hidden channel tokens)
+    token_stream.fill()
+    all_tokens = token_stream.tokens
+
+    for token in all_tokens:
+        # COBOL comments are typically on channel 1 (hidden)
+        # Token type varies - check for COMMENTLINE or similar
+        if token.channel == 1:  # Hidden channel (comments)
+            # Extract comment text
+            text = token.text.strip()
+
+            # Remove leading comment markers (* or other variations)
+            if text.startswith("*"):
+                text = text[1:].strip()
+            elif text.startswith("//"):
+                text = text[2:].strip()
+
+            # Create source location
+            location = SourceLocation(
+                line=token.line, column=token.column if hasattr(token, "column") else None
+            )
+
+            # Classify comment type
+            comment_type = _classify_comment_type(text)
+
+            # Create Comment object
+            comment = Comment(text=text, location=location, comment_type=comment_type)
+            comments.append(comment)
+
+    logger.debug(f"Extracted {len(comments)} comments from token stream")
+    return comments
+
+
 def _extract_program_node(parse_tree: ParseNode) -> ParseNode:
     """Extract PROGRAMUNIT node and rename to PROGRAM for compatibility.
 
@@ -211,14 +312,14 @@ def _extract_program_node(parse_tree: ParseNode) -> ParseNode:
     return program_unit
 
 
-def parse_cobol(source: str) -> ParseNode:
-    """Parse COBOL source code and return parse tree.
+def parse_cobol(source: str) -> tuple[ParseNode, list[Comment]]:
+    """Parse COBOL source code and return parse tree with comments (full-fidelity).
 
     Args:
         source: COBOL source code as string
 
     Returns:
-        ParseNode representing the program structure
+        Tuple of (ParseNode representing program structure, List of Comment objects)
 
     Raises:
         SyntaxError: If parsing fails
@@ -243,6 +344,9 @@ def parse_cobol(source: str) -> ParseNode:
             logger.error(error_msg)
             raise SyntaxError(error_msg)
 
+        # Extract comments from token stream (full-fidelity)
+        comments = _extract_comments_from_token_stream(token_stream)
+
         # Convert ANTLR tree to ParseNode
         parse_node = _antlr_to_parse_node(tree, parser)
 
@@ -251,22 +355,22 @@ def parse_cobol(source: str) -> ParseNode:
         # Expected: PROGRAM (root)
         program_node = _extract_program_node(parse_node)
 
-        logger.info("COBOL parsing successful (ANTLR)")
-        return program_node
+        logger.info(f"COBOL parsing successful (ANTLR) - {len(comments)} comments extracted")
+        return program_node, comments
 
     except Exception as e:
         logger.error(f"Parsing failed: {e}")
         raise SyntaxError(f"Failed to parse COBOL: {e}") from e
 
 
-def parse_cobol_file(file_path: str) -> ParseNode:
-    """Parse a COBOL file and return parse tree.
+def parse_cobol_file(file_path: str) -> tuple[ParseNode, list[Comment]]:
+    """Parse a COBOL file and return parse tree with comments (full-fidelity).
 
     Args:
         file_path: Path to COBOL source file
 
     Returns:
-        ParseNode representing the program structure
+        Tuple of (ParseNode representing program structure, List of Comment objects)
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -303,14 +407,17 @@ def parse_cobol_file(file_path: str) -> ParseNode:
             logger.error(error_msg)
             raise SyntaxError(error_msg)
 
+        # Extract comments from token stream (full-fidelity)
+        comments = _extract_comments_from_token_stream(token_stream)
+
         # Convert ANTLR tree to ParseNode
         parse_node = _antlr_to_parse_node(tree, parser)
 
         # Transform to compatible format for AST builder
         program_node = _extract_program_node(parse_node)
 
-        logger.info(f"Successfully parsed COBOL file: {file_path}")
-        return program_node
+        logger.info(f"Successfully parsed COBOL file: {file_path} - {len(comments)} comments extracted")
+        return program_node, comments
 
     except Exception as e:
         logger.error(f"Failed to parse file {file_path}: {e}")

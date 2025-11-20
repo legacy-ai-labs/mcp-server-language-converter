@@ -18,6 +18,7 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from src.core.models.cobol_analysis_model import (
+    Comment,
     DivisionNode,
     DivisionType,
     ExpressionNode,
@@ -25,6 +26,7 @@ from src.core.models.cobol_analysis_model import (
     ParagraphNode,
     ProgramNode,
     SectionNode,
+    SourceLocation,
     StatementNode,
     StatementType,
     VariableNode,
@@ -39,14 +41,79 @@ class ASTBuilderError(ValueError):
     """Raised when the AST cannot be constructed from the provided parse tree."""
 
 
-def build_ast(parsed_cobol: Any) -> ProgramNode:
-    """Build an AST program node from the COBOL parse tree.
+# ============================================================================
+# Comment attachment helpers (full-fidelity support)
+# ============================================================================
+
+
+def _attach_comments_to_node(
+    node: Any, comments: list[Comment], node_line: int | None
+) -> None:
+    """Attach comments to an AST node based on source location.
+
+    Comments are categorized as:
+    - header_comments: Comments appearing 5+ lines before the node
+    - preceding_comments: Comments appearing 1-4 lines before the node
+    - inline_comment: Comment on the same line as the node
+
+    Args:
+        node: AST node to attach comments to
+        comments: List of all comments in the program
+        node_line: Line number of the node
+    """
+    if not hasattr(node, "add_comment") or node_line is None:
+        return
+
+    for comment in comments:
+        comment_line = comment.location.line
+
+        # Inline comment (same line)
+        if comment_line == node_line:
+            node.add_comment(comment, "inline")
+
+        # Preceding comments (1-4 lines before)
+        elif node_line - 4 <= comment_line < node_line:
+            node.add_comment(comment, "preceding")
+
+        # Header comments (5+ lines before, only for major nodes)
+        elif comment_line < node_line - 4:
+            # Only attach header comments to program/division/section nodes
+            if isinstance(node, ProgramNode | DivisionNode | SectionNode):
+                node.add_comment(comment, "header")
+
+
+def _create_source_location(parse_node: ParseNode) -> SourceLocation | None:
+    """Create SourceLocation from ParseNode.
+
+    Args:
+        parse_node: ParseNode with line/column information
+
+    Returns:
+        SourceLocation object or None if no location info available
+    """
+    if parse_node.line_number is not None:
+        return SourceLocation(
+            line=parse_node.line_number, column=parse_node.column_number
+        )
+    return None
+
+
+def build_ast(parsed_cobol: Any, comments: list[Comment] | None = None) -> ProgramNode:
+    """Build an AST program node from the COBOL parse tree (full-fidelity).
+
+    This function builds a complete AST with full-fidelity support, including:
+    - Source locations (line and column numbers)
+    - Comments attached to appropriate nodes
+    - Complete metadata for code reconstruction
 
     Args:
         parsed_cobol: Root node returned by ``parse_cobol``.
+        comments: Optional list of Comment objects extracted from source.
+                  If provided, comments will be attached to AST nodes based on
+                  their source positions.
 
     Returns:
-        ProgramNode representing the COBOL program.
+        ProgramNode representing the COBOL program with full metadata.
 
     Raises:
         ASTBuilderError: If the parse tree is invalid or does not represent a program.
@@ -60,14 +127,27 @@ def build_ast(parsed_cobol: Any) -> ProgramNode:
     program_name = _extract_program_name(parsed_cobol) or "UNKNOWN"
     program_node = ProgramNode(program_name=program_name)
 
+    # Set source location
+    program_node.location = _create_source_location(parsed_cobol)
+
+    # Store all comments in program node for easy access
+    if comments:
+        program_node.all_comments = comments
+        logger.info(f"Attaching {len(comments)} comments to AST nodes")
+
     divisions: list[DivisionNode] = []
     for child in parsed_cobol.children:
-        division = _build_division(child)
+        division = _build_division(child, comments)
         if division:
             divisions.append(division)
 
     program_node.divisions = divisions
     program_node.children = list(divisions)
+
+    # Attach comments to program node
+    if comments and program_node.location:
+        _attach_comments_to_node(program_node, comments, program_node.location.line)
+
     return program_node
 
 
@@ -76,17 +156,26 @@ def build_ast(parsed_cobol: Any) -> ProgramNode:
 # ============================================================================
 
 
-def _build_division(node: ParseNode) -> DivisionNode | None:
+def _build_division(node: ParseNode, comments: list[Comment] | None = None) -> DivisionNode | None:
     division_type = _parse_division_type(node.node_type)
     if division_type is None:
         logger.debug("Ignoring unsupported division node '%s'.", node.node_type)
         return None
 
     division = DivisionNode(division_type=division_type)
-    sections = _build_sections_for_division(division_type, node)
+
+    # Set source location
+    division.location = _create_source_location(node)
+
+    sections = _build_sections_for_division(division_type, node, comments)
 
     division.sections = sections
     division.children = list(sections)
+
+    # Attach comments
+    if comments and division.location:
+        _attach_comments_to_node(division, comments, division.location.line)
+
     return division
 
 
@@ -100,23 +189,28 @@ def _parse_division_type(node_type: str) -> DivisionType | None:
     return mapping.get(node_type)
 
 
-def _build_sections_for_division(division_type: DivisionType, node: ParseNode) -> list[SectionNode]:
+def _build_sections_for_division(
+    division_type: DivisionType, node: ParseNode, comments: list[Comment] | None = None
+) -> list[SectionNode]:
     if division_type == DivisionType.IDENTIFICATION:
-        return [_build_identification_section(node)]
+        return [_build_identification_section(node, comments)]
     if division_type == DivisionType.ENVIRONMENT:
-        return _build_environment_sections(node)
+        return _build_environment_sections(node, comments)
     if division_type == DivisionType.DATA:
-        return _build_data_sections(node)
+        return _build_data_sections(node, comments)
     if division_type == DivisionType.PROCEDURE:
-        return _build_procedure_sections(node)
+        return _build_procedure_sections(node, comments)
     return []
 
 
-def _build_identification_section(node: ParseNode) -> SectionNode:
+def _build_identification_section(node: ParseNode, comments: list[Comment] | None = None) -> SectionNode:
     program_id = _find_child_value(node, "PROGRAM_ID")
     section = SectionNode(section_name="PROGRAM-ID")
+    section.location = _create_source_location(node)
+
     if program_id:
         paragraph = ParagraphNode(paragraph_name="PROGRAM-ID")
+        paragraph.location = _create_source_location(node)
         paragraph_statements = [
             StatementNode(
                 statement_type=StatementType.DISPLAY,
@@ -127,10 +221,15 @@ def _build_identification_section(node: ParseNode) -> SectionNode:
         paragraph.children = list(paragraph_statements)
         section.paragraphs = [paragraph]
         section.children = [paragraph]
+
+    # Attach comments
+    if comments and section.location:
+        _attach_comments_to_node(section, comments, section.location.line)
+
     return section
 
 
-def _build_environment_sections(node: ParseNode) -> list[SectionNode]:
+def _build_environment_sections(node: ParseNode, comments: list[Comment] | None = None) -> list[SectionNode]:
     sections: list[SectionNode] = []
     for entry in _walk_nodes(node, {"INPUT_OUTPUT_SECTION"}):
         section = SectionNode(section_name="INPUT-OUTPUT")
@@ -156,7 +255,7 @@ def _build_environment_sections(node: ParseNode) -> list[SectionNode]:
     return sections
 
 
-def _build_data_sections(node: ParseNode) -> list[SectionNode]:
+def _build_data_sections(node: ParseNode, comments: list[Comment] | None = None) -> list[SectionNode]:
     sections: list[SectionNode] = []
     for section_node in _walk_nodes(
         node,
@@ -218,11 +317,17 @@ def _build_data_sections(node: ParseNode) -> list[SectionNode]:
     return sections
 
 
-def _build_procedure_sections(node: ParseNode) -> list[SectionNode]:
+def _build_procedure_sections(node: ParseNode, comments: list[Comment] | None = None) -> list[SectionNode]:
     section = SectionNode(section_name="PROCEDURE")
-    paragraphs = _extract_paragraphs(node)
+    section.location = _create_source_location(node)
+    paragraphs = _extract_paragraphs(node, comments)
     section.paragraphs = paragraphs
     section.children = list(paragraphs)
+
+    # Attach comments
+    if comments and section.location:
+        _attach_comments_to_node(section, comments, section.location.line)
+
     return [section]
 
 
@@ -231,7 +336,7 @@ def _build_procedure_sections(node: ParseNode) -> list[SectionNode]:
 # ============================================================================
 
 
-def _extract_paragraphs(node: ParseNode) -> list[ParagraphNode]:
+def _extract_paragraphs(node: ParseNode, comments: list[Comment] | None = None) -> list[ParagraphNode]:
     paragraphs: list[ParagraphNode] = []
     for candidate in _walk_nodes(node, {"PARAGRAPH"}):
         paragraph_name = _find_child_value(candidate, "PARAGRAPH_NAME") or "PARAGRAPH"
@@ -248,7 +353,13 @@ def _extract_paragraphs(node: ParseNode) -> list[ParagraphNode]:
             statements.extend(sentence_statements)
 
         paragraph = ParagraphNode(paragraph_name=paragraph_name, statements=statements)
+        paragraph.location = _create_source_location(candidate)
         paragraph.children = list(statements)
+
+        # Attach comments to paragraph
+        if comments and paragraph.location:
+            _attach_comments_to_node(paragraph, comments, paragraph.location.line)
+
         paragraphs.append(paragraph)
     return paragraphs
 
