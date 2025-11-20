@@ -160,16 +160,16 @@ Action buttons for generating outputs:
 
 ### **Graph Visualization Colors**
 - **AST**: Hierarchical color gradient (blue → purple → green → yellow)
-- **CFG**: 
+- **CFG**:
   - Entry: Green (#4caf50)
   - Exit: Red (#f44336)
   - Basic blocks: Blue (#2196f3)
   - Control nodes: Orange (#ff9800)
-- **DFG**: 
+- **DFG**:
   - Definitions: Blue (#2196f3)
   - Uses: Green (#4caf50)
   - Variables: Cyan (#00bcd4)
-- **PDG**: 
+- **PDG**:
   - Control edges: Gray dotted
   - Data edges: Variable-colored solid lines
 
@@ -343,4 +343,3 @@ The UI should enable users to:
 ---
 
 **Note**: This prompt is designed for AI design tools. Feel free to adapt visualizations based on the specific graph rendering capabilities and user testing feedback.
-

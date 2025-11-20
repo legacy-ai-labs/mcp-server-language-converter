@@ -123,4 +123,3 @@ Users should be able to:
 ---
 
 **Design Focus**: Clean, professional, enterprise-grade UI that makes complex COBOL analysis accessible and actionable.
-
