@@ -46,9 +46,7 @@ class ASTBuilderError(ValueError):
 # ============================================================================
 
 
-def _attach_comments_to_node(
-    node: Any, comments: list[Comment], node_line: int | None
-) -> None:
+def _attach_comments_to_node(node: Any, comments: list[Comment], node_line: int | None) -> None:
     """Attach comments to an AST node based on source location.
 
     Comments are categorized as:
@@ -92,9 +90,7 @@ def _create_source_location(parse_node: ParseNode) -> SourceLocation | None:
         SourceLocation object or None if no location info available
     """
     if parse_node.line_number is not None:
-        return SourceLocation(
-            line=parse_node.line_number, column=parse_node.column_number
-        )
+        return SourceLocation(line=parse_node.line_number, column=parse_node.column_number)
     return None
 
 
@@ -203,7 +199,9 @@ def _build_sections_for_division(
     return []
 
 
-def _build_identification_section(node: ParseNode, comments: list[Comment] | None = None) -> SectionNode:
+def _build_identification_section(
+    node: ParseNode, comments: list[Comment] | None = None
+) -> SectionNode:
     program_id = _find_child_value(node, "PROGRAM_ID")
     section = SectionNode(section_name="PROGRAM-ID")
     section.location = _create_source_location(node)
@@ -229,10 +227,18 @@ def _build_identification_section(node: ParseNode, comments: list[Comment] | Non
     return section
 
 
-def _build_environment_sections(node: ParseNode, comments: list[Comment] | None = None) -> list[SectionNode]:
+def _build_environment_sections(
+    node: ParseNode, comments: list[Comment] | None = None
+) -> list[SectionNode]:
     sections: list[SectionNode] = []
     for entry in _walk_nodes(node, {"INPUT_OUTPUT_SECTION"}):
         section = SectionNode(section_name="INPUT-OUTPUT")
+        section.location = _create_source_location(entry)
+
+        # Attach comments to section if available
+        if comments and section.location:
+            _attach_comments_to_node(section, comments, section.location.line)
+
         file_entries = []
         for child in _walk_nodes(entry, {"FILE_CONTROL_ENTRY"}):
             file_entries.append(
@@ -255,7 +261,9 @@ def _build_environment_sections(node: ParseNode, comments: list[Comment] | None 
     return sections
 
 
-def _build_data_sections(node: ParseNode, comments: list[Comment] | None = None) -> list[SectionNode]:
+def _build_data_sections(
+    node: ParseNode, comments: list[Comment] | None = None
+) -> list[SectionNode]:
     sections: list[SectionNode] = []
     for section_node in _walk_nodes(
         node,
@@ -268,6 +276,12 @@ def _build_data_sections(node: ParseNode, comments: list[Comment] | None = None)
         section = SectionNode(
             section_name=section_node.node_type.replace("_SECTION", "").replace("_", "-")
         )
+        section.location = _create_source_location(section_node)
+
+        # Attach comments to section if available
+        if comments and section.location:
+            _attach_comments_to_node(section, comments, section.location.line)
+
         paragraphs: list[ParagraphNode] = []
 
         for definition_list in section_node.children:
@@ -317,7 +331,9 @@ def _build_data_sections(node: ParseNode, comments: list[Comment] | None = None)
     return sections
 
 
-def _build_procedure_sections(node: ParseNode, comments: list[Comment] | None = None) -> list[SectionNode]:
+def _build_procedure_sections(
+    node: ParseNode, comments: list[Comment] | None = None
+) -> list[SectionNode]:
     section = SectionNode(section_name="PROCEDURE")
     section.location = _create_source_location(node)
     paragraphs = _extract_paragraphs(node, comments)
@@ -336,7 +352,9 @@ def _build_procedure_sections(node: ParseNode, comments: list[Comment] | None = 
 # ============================================================================
 
 
-def _extract_paragraphs(node: ParseNode, comments: list[Comment] | None = None) -> list[ParagraphNode]:
+def _extract_paragraphs(
+    node: ParseNode, comments: list[Comment] | None = None
+) -> list[ParagraphNode]:
     paragraphs: list[ParagraphNode] = []
     for candidate in _walk_nodes(node, {"PARAGRAPH"}):
         paragraph_name = _find_child_value(candidate, "PARAGRAPH_NAME") or "PARAGRAPH"

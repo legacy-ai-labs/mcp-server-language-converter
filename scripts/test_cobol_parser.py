@@ -8,7 +8,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.core.services.cobol_parser_service import parse_cobol_file
+from src.core.services.cobol_parser_antlr_service import parse_cobol_file
 
 
 def test_parser() -> None:

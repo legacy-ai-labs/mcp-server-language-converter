@@ -34,7 +34,6 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "mcp>=1.0.0",
     "prometheus-client>=0.23.1",
-    "ply>=3.11",
     "antlr4-python3-runtime>=4.13.2",
 ]
 

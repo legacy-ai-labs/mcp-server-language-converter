@@ -416,7 +416,9 @@ def parse_cobol_file(file_path: str) -> tuple[ParseNode, list[Comment]]:
         # Transform to compatible format for AST builder
         program_node = _extract_program_node(parse_node)
 
-        logger.info(f"Successfully parsed COBOL file: {file_path} - {len(comments)} comments extracted")
+        logger.info(
+            f"Successfully parsed COBOL file: {file_path} - {len(comments)} comments extracted"
+        )
         return program_node, comments
 
     except Exception as e:
