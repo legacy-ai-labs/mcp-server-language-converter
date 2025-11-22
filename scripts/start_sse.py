@@ -17,4 +17,3 @@ if __name__ == "__main__":
     from src.mcp_servers.common.http_runner import run_http_server
 
     run_http_server(domain="general")
-

@@ -509,4 +509,3 @@ For more advanced testing scenarios, see:
 - `docs/TESTING_GUIDE.md` - Claude Desktop integration
 - `docs/HTTP_STREAMING.md` - Detailed HTTP streaming documentation
 - `docs/TESTING_QUICKSTART.md` - Quick reference for all transports
-

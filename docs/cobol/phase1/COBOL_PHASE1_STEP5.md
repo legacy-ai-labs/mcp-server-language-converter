@@ -68,4 +68,3 @@ Step 5 finalises Phase 1 by generating Data Flow Graphs (DFGs) from the COBOL AS
 ## Conclusion
 
 All three analysis layers (AST, CFG, DFG) are now in place, completing Phase 1 of the COBOL reverse engineering initiative. With structural and data flow information available, the project is ready to transition into Phase 2, where these analysis outputs will be exposed to external consumers and enriched with higher-level tooling.
-

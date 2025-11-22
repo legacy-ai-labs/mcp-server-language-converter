@@ -111,8 +111,8 @@ async def load_tools_from_registry(
 
                 # Store reference to prevent garbage collection
                 if not hasattr(mcp, "_dynamic_tools"):
-                    mcp._dynamic_tools = []  # type: ignore[attr-defined]
-                mcp._dynamic_tools.append(decorated_tool)  # type: ignore[attr-defined]
+                    mcp._dynamic_tools = []
+                mcp._dynamic_tools.append(decorated_tool)
 
                 registered_count += 1
                 logger.info(f"Registered tool: {tool_name}")

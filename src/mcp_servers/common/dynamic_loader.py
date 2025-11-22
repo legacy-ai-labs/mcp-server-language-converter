@@ -192,5 +192,5 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any, domain: str, transport:
     decorated_tool = mcp.tool(name=tool.name, description=tool.description)(tool_func)
 
     if not hasattr(mcp, "_dynamic_tools"):
-        mcp._dynamic_tools = []  # type: ignore[attr-defined]
-    mcp._dynamic_tools.append(decorated_tool)  # type: ignore[attr-defined]
+        mcp._dynamic_tools = []
+    mcp._dynamic_tools.append(decorated_tool)

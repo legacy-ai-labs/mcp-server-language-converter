@@ -135,10 +135,20 @@ module = "tests.*"
 disallow_untyped_defs = false
 disallow_untyped_calls = false
 
+[[tool.mypy.overrides]]
+module = [
+    "src.core.services.cobol_analysis.antlr_cobol.grammars.*",
+]
+ignore_errors = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+exclude = [
+    "**/antlr_cobol/grammars/*.py",
+    "**/antlr_cobol/grammars/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [

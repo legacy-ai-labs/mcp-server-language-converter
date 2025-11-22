@@ -283,11 +283,13 @@ class TestObservabilityWrapping:
     @pytest.fixture
     def mock_tool_repo(self):
         """Create a mock tool repository."""
-        with patch("src.mcp_servers.common.tool_registry.async_session_factory"):
-            with patch("src.mcp_servers.common.tool_registry.ToolRepository") as mock_repo_class:
-                mock_repo = MagicMock()
-                mock_repo_class.return_value = mock_repo
-                yield mock_repo
+        with (
+            patch("src.mcp_servers.common.tool_registry.async_session_factory"),
+            patch("src.mcp_servers.common.tool_registry.ToolRepository") as mock_repo_class,
+        ):
+            mock_repo = MagicMock()
+            mock_repo_class.return_value = mock_repo
+            yield mock_repo
 
     @pytest.mark.asyncio
     async def test_observability_wrapper_success(self, mock_mcp, mock_tool_repo):
@@ -420,11 +422,13 @@ class TestMultipleDomains:
     @pytest.fixture
     def mock_tool_repo(self):
         """Create a mock tool repository."""
-        with patch("src.mcp_servers.common.tool_registry.async_session_factory"):
-            with patch("src.mcp_servers.common.tool_registry.ToolRepository") as mock_repo_class:
-                mock_repo = MagicMock()
-                mock_repo_class.return_value = mock_repo
-                yield mock_repo
+        with (
+            patch("src.mcp_servers.common.tool_registry.async_session_factory"),
+            patch("src.mcp_servers.common.tool_registry.ToolRepository") as mock_repo_class,
+        ):
+            mock_repo = MagicMock()
+            mock_repo_class.return_value = mock_repo
+            yield mock_repo
 
     @pytest.mark.asyncio
     async def test_load_tools_filters_by_domain(self, mock_mcp, mock_tool_repo):

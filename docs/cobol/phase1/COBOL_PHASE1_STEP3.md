@@ -75,4 +75,3 @@ Step 3 of Phase 1 delivers the AST builder layer that converts the parser’s ge
 ## Conclusion
 
 Step 3 establishes the transport-agnostic AST layer required for advanced COBOL analysis. With the builder in place and covered by automated tests, the project is ready to proceed to CFG construction (Step 4) and, subsequently, DFG generation (Step 5), completing the core static-analysis pipeline envisioned for Phase 1.
-

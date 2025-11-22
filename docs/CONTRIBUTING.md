@@ -712,4 +712,3 @@ mcp-server-blueprint/
 ---
 
 Thank you for contributing to MCP Server Blueprint! 🎉
-

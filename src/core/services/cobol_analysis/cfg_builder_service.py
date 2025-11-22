@@ -72,7 +72,7 @@ def build_cfg(ast: ProgramNode) -> ControlFlowGraph:
 
     for index, paragraph in enumerate(paragraphs):
         block = paragraph_blocks[paragraph.paragraph_name]
-        fallback_target = (
+        fallback_target: BasicBlock | ExitNode = (
             paragraph_blocks[paragraphs[index + 1].paragraph_name]
             if index + 1 < len(paragraphs)
             else exit_node

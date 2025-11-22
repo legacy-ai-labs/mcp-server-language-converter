@@ -109,7 +109,7 @@ def prepare_file(input_path: Path, output_path: Path | None = None) -> bool:
         return False
 
 
-def main():
+def main() -> int:
     """Command-line interface."""
     if len(sys.argv) < 2:
         print("Usage: python scripts/prepare_cobol_for_antlr.py <input_file> [output_file]")

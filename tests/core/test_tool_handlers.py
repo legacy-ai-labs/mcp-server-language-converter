@@ -32,6 +32,7 @@ from src.core.services.general.tool_handlers_service import (
     calculator_add_handler,
     echo_handler,
 )
+from tests.core.test_ast_builder import _create_sample_program_parse_tree
 
 
 ALL_HANDLERS = {**GENERAL_HANDLERS, **COBOL_HANDLERS}
@@ -40,9 +41,6 @@ ALL_HANDLERS = {**GENERAL_HANDLERS, **COBOL_HANDLERS}
 def list_handlers() -> list[str]:
     """List all available handler names from all domains."""
     return list(ALL_HANDLERS.keys())
-
-
-from tests.core.test_ast_builder import _create_sample_program_parse_tree
 
 
 def test_echo_handler() -> None:

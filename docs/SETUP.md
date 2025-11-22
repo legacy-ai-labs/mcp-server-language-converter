@@ -787,4 +787,3 @@ For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 - [Pre-commit Documentation](https://pre-commit.com/)
 - [Docker Documentation](https://docs.docker.com/)
 - [MCP Specification](https://modelcontextprotocol.io/)
-

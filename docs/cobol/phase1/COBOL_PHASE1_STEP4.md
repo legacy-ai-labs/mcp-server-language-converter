@@ -71,4 +71,3 @@ Step 4 connects the COBOL AST to a Control Flow Graph (CFG), enabling downstream
 ## Conclusion
 
 The CFG builder completes the control-flow portion of Phase 1, translating structured COBOL paragraphs into a graph representation suitable for advanced analysis. With both AST (Step 3) and CFG (Step 4) layers in place, the project is positioned to implement the Data Flow Graph builder (Step 5) and unlock comprehensive static analysis of COBOL programs.
-

@@ -17,4 +17,3 @@ if __name__ == "__main__":
     from src.mcp_servers.common.stdio_runner import run_stdio_server
 
     run_stdio_server(domain="general")
-

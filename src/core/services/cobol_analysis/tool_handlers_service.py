@@ -453,12 +453,12 @@ def _serialize_ast_node(node: Any) -> dict[str, Any]:
     elif isinstance(node, StatementNode):
         attrs: dict[str, Any] = {}
         for key, value in node.attributes.items():
-            if isinstance(value, (ExpressionNode, VariableNode, LiteralNode)):
+            if isinstance(value, ExpressionNode | VariableNode | LiteralNode):
                 attrs[key] = _serialize_ast_node(value)
             elif isinstance(value, list):
                 attrs[key] = [
                     _serialize_ast_node(item)
-                    if isinstance(item, (StatementNode, ExpressionNode, VariableNode, LiteralNode))
+                    if isinstance(item, StatementNode | ExpressionNode | VariableNode | LiteralNode)
                     else item
                     for item in value
                 ]
