@@ -24,7 +24,7 @@ def setup_logging() -> None:
 def print_banner() -> None:
     """Print demo banner."""
     print("=" * 60)
-    print("🚀 MCP Server Blueprint - HTTP Streaming Demo")
+    print("🚀 MCP Server Language Converter - HTTP Streaming Demo")
     print("=" * 60)
     print()
 

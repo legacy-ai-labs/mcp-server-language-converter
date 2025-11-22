@@ -35,7 +35,7 @@ Add the following to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "mcp-server-blueprint": {
+    "mcp-server-language-converter": {
       "command": "uv",
       "args": [
         "run",
@@ -43,7 +43,7 @@ Add the following to your `claude_desktop_config.json`:
         "-m",
         "src.mcp_server"
       ],
-      "cwd": "/Users/hyalen/workspace/mcp-server-blueprint",
+      "cwd": "/Users/hyalen/workspace/mcp-server-language-converter",
       "env": {
         "DATABASE_URL": "postgresql+asyncpg://hyalen@localhost:5432/mcp_server",
         "LOG_LEVEL": "INFO"
@@ -113,7 +113,7 @@ Create `.cursor/mcp.json` in your project:
 {
   "mcp": {
     "servers": {
-      "mcp-server-blueprint": {
+      "mcp-server-language-converter": {
         "command": "uv",
         "args": [
           "run",
@@ -121,7 +121,7 @@ Create `.cursor/mcp.json` in your project:
           "-m",
           "src.mcp_server"
         ],
-        "cwd": "/Users/hyalen/workspace/mcp-server-blueprint"
+        "cwd": "/Users/hyalen/workspace/mcp-server-language-converter"
       }
     }
   }
@@ -149,7 +149,7 @@ Create `.cursor/mcp.json` in your project:
 
 3. **Test Server Manually:**
    ```bash
-   cd /Users/hyalen/workspace/mcp-server-blueprint
+   cd /Users/hyalen/workspace/mcp-server-language-converter
    uv run python -m src.mcp_server
    ```
    Should see: "MCP tools registered: echo, calculator_add"
@@ -198,7 +198,7 @@ To see detailed logs when running from Claude/Cursor:
 
 ```bash
 # Run manually with debug logging
-cd /Users/hyalen/workspace/mcp-server-blueprint
+cd /Users/hyalen/workspace/mcp-server-language-converter
 LOG_LEVEL=DEBUG uv run python -m src.mcp_server
 ```
 

@@ -1,4 +1,4 @@
-# MCP Server Blueprint
+# MCP Server Language Converter
 
 A **hybrid MCP (Model Context Protocol) server** implementation that supports multiple domain-specific MCP servers, each exposing business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API.
 
@@ -193,7 +193,7 @@ Both servers share the same core business logic and tools, but provide different
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd mcp-server-blueprint
+cd mcp-server-language-converter
 
 # Install UV (if not already installed)
 # macOS (Homebrew)

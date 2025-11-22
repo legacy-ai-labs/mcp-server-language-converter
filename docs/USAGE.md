@@ -155,10 +155,10 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
-    "mcp-server-blueprint": {
+    "mcp-server-language-converter": {
       "command": "uv",
       "args": ["run", "python", "-m", "src.mcp_servers.mcp_general"],
-      "cwd": "/path/to/mcp-server-blueprint",
+      "cwd": "/path/to/mcp-server-language-converter",
       "env": {
         "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost:5432/mcp_server"
       }
@@ -174,10 +174,10 @@ Add to Cursor settings:
 ```json
 {
   "mcp.servers": {
-    "mcp-server-blueprint": {
+    "mcp-server-language-converter": {
       "command": "uv",
       "args": ["run", "python", "-m", "src.mcp_servers.mcp_general"],
-      "cwd": "/path/to/mcp-server-blueprint"
+      "cwd": "/path/to/mcp-server-language-converter"
     }
   }
 }

@@ -102,7 +102,7 @@ Open a **new terminal window** and run:
 
 ```bash
 # Navigate to project root
-cd /Users/hyalen/workspace/mcp-server-blueprint
+cd /Users/hyalen/workspace/mcp-server-language-converter
 
 # Start HTTP streaming server
 uv run python -m src.mcp_servers.mcp_general.http_main

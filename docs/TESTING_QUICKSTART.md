@@ -15,7 +15,7 @@ uv run python scripts/start_stdio.py
 ```
 2) MCP Inspector → Transport: STDIO
    - Command: `uv run python scripts/start_stdio.py`
-   - Working dir: `/Users/hyalen/workspace/mcp-server-blueprint`
+   - Working dir: `/Users/hyalen/workspace/mcp-server-language-converter`
 3) Test:
    - Initialize → List tools → Call `echo` with `{ "text": "hello" }`
 
@@ -30,16 +30,16 @@ npx @modelcontextprotocol/inspector \
   -e DATABASE_URL="postgresql+asyncpg://user@localhost:5432/mcp_server" \
   -e LOG_LEVEL="INFO" \
   -- \
-  uv --directory /path/to/mcp-server-blueprint \
+  uv --directory /path/to/mcp-server-language-converter \
      run python -m src.mcp_servers.mcp_general
 ```
 > **Note:** This is an example command. Update the `DATABASE_URL`, directory path, and module path according to your MCP server configuration.
 
 **MCP Inspector Configuration (if using UI):**
 - Command: `uv`
-- Arguments: `--directory /path/to/mcp-server-blueprint run python -m src.mcp_servers.mcp_general`
-- Working Directory: `/path/to/mcp-server-blueprint`
-> **Note:** Replace `/path/to/mcp-server-blueprint` with your actual project directory path.
+- Arguments: `--directory /path/to/mcp-server-language-converter run python -m src.mcp_servers.mcp_general`
+- Working Directory: `/path/to/mcp-server-language-converter`
+> **Note:** Replace `/path/to/mcp-server-language-converter` with your actual project directory path.
 
 ### SSE (Server‑Sent Events)
 1) Start server:

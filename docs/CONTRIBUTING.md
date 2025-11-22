@@ -48,11 +48,11 @@ Before contributing, ensure you have completed the setup process outlined in [SE
 ```bash
 # Fork the repository on GitHub
 # Then clone your fork
-git clone https://github.com/YOUR_USERNAME/mcp-server-blueprint.git
-cd mcp-server-blueprint
+git clone https://github.com/YOUR_USERNAME/mcp-server-language-converter.git
+cd mcp-server-language-converter
 
 # Add upstream remote
-git remote add upstream https://github.com/ORIGINAL_OWNER/mcp-server-blueprint.git
+git remote add upstream https://github.com/ORIGINAL_OWNER/mcp-server-language-converter.git
 
 # Verify remotes
 git remote -v
@@ -610,7 +610,7 @@ git push origin --delete feature/your-feature-name
 Understanding the project structure is crucial for contributions:
 
 ```
-mcp-server-blueprint/
+mcp-server-language-converter/
 ├── .github/                         # GitHub configuration
 │   └── workflows/                   # CI/CD workflows
 │       └── ci.yml                   # Continuous integration

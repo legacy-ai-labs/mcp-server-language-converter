@@ -51,9 +51,12 @@ class Base(DeclarativeBase):  # type: ignore[misc]
     metadata = metadata
 
     @declared_attr.directive  # type: ignore[misc]
-    def __tablename__(cls) -> str:  # type: ignore[no-any-return]
+    def __tablename__(cls) -> str:
         """Generate table name from class name."""
-        return cls.__name__.lower() + "s"
+        from typing import cast
+
+        class_name = cast(str, cls.__name__)
+        return class_name.lower() + "s"
 
     def dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""

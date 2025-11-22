@@ -14,7 +14,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     database_echo: bool = False
 
     # Application
-    app_name: str = "MCP Server Blueprint"
+    app_name: str = "MCP Server Language Converter"
     app_version: str = "0.1.0"
     environment: str = "development"
 

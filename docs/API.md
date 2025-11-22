@@ -28,7 +28,7 @@ Used primarily by desktop AI applications like Claude Desktop and Cursor.
 ```json
 {
   "mcpServers": {
-    "mcp-server-blueprint": {
+    "mcp-server-language-converter": {
       "command": "uv",
       "args": ["run", "python", "-m", "src.mcp_server"],
       "env": {}

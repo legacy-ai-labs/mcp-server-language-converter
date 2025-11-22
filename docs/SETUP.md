@@ -272,7 +272,7 @@ uv --version
 
 ```bash
 # Navigate to project directory
-cd mcp-server-blueprint
+cd mcp-server-language-converter
 
 # Initialize UV project (if not already done)
 uv init
@@ -316,7 +316,7 @@ The project uses the following key dependencies:
 ```toml
 # pyproject.toml (example)
 [project]
-name = "mcp-server-blueprint"
+name = "mcp-server-language-converter"
 version = "0.1.0"
 description = "Hybrid MCP Server with REST API"
 requires-python = ">=3.12"
@@ -581,7 +581,7 @@ uv add fastmcp
 from fastmcp import FastMCP
 
 # Initialize MCP server
-mcp = FastMCP("mcp-server-blueprint")
+mcp = FastMCP("mcp-server-language-converter")
 
 # Configure server settings
 mcp.settings(

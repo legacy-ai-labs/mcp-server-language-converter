@@ -1,5 +1,5 @@
 [project]
-name = "mcp-server-blueprint"
+name = "mcp-server-language-converter"
 version = "0.1.0"
 description = "Hybrid MCP Server with REST API - A blueprint for building servers that expose business logic through both MCP protocol and REST API"
 authors = [
@@ -49,10 +49,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/mcp-server-blueprint"
-Documentation = "https://github.com/yourusername/mcp-server-blueprint/blob/main/docs/README.md"
-Repository = "https://github.com/yourusername/mcp-server-blueprint"
-Issues = "https://github.com/yourusername/mcp-server-blueprint/issues"
+Homepage = "https://github.com/yourusername/mcp-server-language-converter"
+Documentation = "https://github.com/yourusername/mcp-server-language-converter/blob/main/docs/README.md"
+Repository = "https://github.com/yourusername/mcp-server-language-converter"
+Issues = "https://github.com/yourusername/mcp-server-language-converter/issues"
 
 [build-system]
 requires = ["hatchling"]

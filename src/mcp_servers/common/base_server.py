@@ -15,7 +15,7 @@ def create_mcp_server(domain: str, server_name: str | None = None) -> FastMCP:
     Args:
         domain: The domain this server handles (e.g., "general", "kubernetes")
         server_name: Optional custom server name. If not provided, uses format:
-                    "MCP Server Blueprint - {Domain} Tools"
+                    "MCP Server Language Converter - {Domain} Tools"
 
     Returns:
         Configured FastMCP server instance
