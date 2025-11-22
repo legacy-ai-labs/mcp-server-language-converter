@@ -1,6 +1,6 @@
-# Contributing to MCP Server Blueprint
+# Contributing to MCP Server Language Converter
 
-Thank you for your interest in contributing to the MCP Server Blueprint project! This guide will help you get started.
+Thank you for your interest in contributing to the MCP Server Language Converter project! This guide will help you get started.
 
 ## Table of Contents
 
@@ -711,4 +711,4 @@ mcp-server-language-converter/
 
 ---
 
-Thank you for contributing to MCP Server Blueprint! 🎉
+Thank you for contributing to MCP Server Language Converter! 🎉

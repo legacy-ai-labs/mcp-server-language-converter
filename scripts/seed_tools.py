@@ -5,7 +5,7 @@ import logging
 
 from src.core.database import async_session_factory
 from src.core.schemas.tool_schema import ToolCreate
-from src.core.services.tool_service_service import ToolService
+from src.core.services.common.tool_service_service import ToolService
 
 
 logging.basicConfig(level=logging.INFO)

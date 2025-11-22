@@ -1,6 +1,6 @@
 # Streamable HTTP Transport Guide
 
-This guide explains how to use the Streamable HTTP transport with our MCP Server Blueprint.
+This guide explains how to use the Streamable HTTP transport with the MCP Server Language Converter.
 
 ## Overview
 

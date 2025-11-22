@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A hybrid MCP server blueprint demonstrating **Hexagonal Architecture** - implementing business logic once and exposing it through multiple transport layers:
+A hybrid MCP server demonstrating **Hexagonal Architecture** - implementing business logic once and exposing it through multiple transport layers:
 - **MCP STDIO** (Claude Desktop, Cursor IDE)
 - **MCP HTTP Streaming** (web-based AI clients)
 - **REST API** (traditional web apps) - planned

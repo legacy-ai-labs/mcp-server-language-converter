@@ -1,7 +1,10 @@
 """Registry of COBOL analysis tool handlers."""
 
+import json
 import logging
 from collections.abc import Callable
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, cast
 
 from src.core.models.cobol_analysis_model import (
@@ -51,6 +54,51 @@ logger = logging.getLogger(__name__)
 
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+# ============================================================================
+# Result persistence helper
+# ============================================================================
+
+
+def _save_tool_result(
+    tool_name: str,
+    result: dict[str, Any],
+    source_identifier: str | None = None,
+) -> Path | None:
+    """Save tool execution result to tests/cobol_samples/result directory.
+
+    Args:
+        tool_name: Name of the tool (e.g., "parse_cobol", "build_cfg")
+        result: Tool execution result dictionary
+        source_identifier: Optional identifier for the source (e.g., program name, file path)
+
+    Returns:
+        Path to the saved file, or None if save failed
+    """
+    try:
+        # Create result directory if it doesn't exist
+        result_dir = Path("tests/cobol_samples/result")
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename with timestamp
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+        identifier = source_identifier or "unknown"
+        # Sanitize identifier for filename
+        identifier = "".join(c if c.isalnum() or c in "-_" else "_" for c in identifier)
+        filename = f"{tool_name}_{identifier}_{timestamp}.json"
+        filepath = result_dir / filename
+
+        # Save result as JSON
+        with filepath.open("w") as f:
+            json.dump(result, f, indent=2, default=str)
+
+        logger.info(f"Saved {tool_name} result to {filepath}")
+        return filepath
+
+    except Exception as e:
+        logger.error(f"Failed to save {tool_name} result: {e}")
+        return None
 
 
 # ============================================================================
@@ -633,23 +681,30 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
     try:
         if file_path:
-            parsed_tree = parse_cobol_file(file_path)
+            parsed_tree, comments = parse_cobol_file(file_path)
         else:
             if not isinstance(source_code, str):
                 return {
                     "success": False,
                     "error": "'source_code' must be a string",
                 }
-            parsed_tree = parse_cobol(source_code)
+            parsed_tree, comments = parse_cobol(source_code)
 
-        ast = build_ast(parsed_tree)
+        ast = build_ast(parsed_tree, comments)
         ast_dict = _serialize_ast_node(ast)
 
-        return {
+        result = {
             "success": True,
             "ast": ast_dict,
             "program_name": ast.program_name,
         }
+
+        # Save result to file
+        saved_path = _save_tool_result("parse_cobol", result, ast.program_name)
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
     except Exception as e:
         logger.exception("Failed to parse COBOL")
         return {
@@ -691,11 +746,19 @@ def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
             parse_node, _ = parse_cobol(source_code)
         parse_tree_dict = _serialize_parse_node(parse_node)
 
-        return {
+        result = {
             "success": True,
             "parse_tree": parse_tree_dict,
             "node_type": parse_node.node_type,
         }
+
+        # Save result to file
+        identifier = Path(file_path).stem if file_path else "source_code"
+        saved_path = _save_tool_result("parse_cobol_raw", result, identifier)
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
     except Exception as e:
         logger.exception("Failed to parse COBOL")
         return {
@@ -735,11 +798,18 @@ def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         ast = build_ast(parse_tree)
         ast_dict = _serialize_ast_node(ast)
 
-        return {
+        result = {
             "success": True,
             "ast": ast_dict,
             "program_name": ast.program_name,
         }
+
+        # Save result to file
+        saved_path = _save_tool_result("build_ast", result, ast.program_name)
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
     except Exception as e:
         logger.exception("Failed to build AST")
         return {
@@ -796,12 +866,19 @@ def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
             "edges": [_serialize_cfg_edge(edge) for edge in cfg.edges],
         }
 
-        return {
+        result = {
             "success": True,
             "cfg": cfg_dict,
             "node_count": len(cfg.nodes),
             "edge_count": len(cfg.edges),
         }
+
+        # Save result to file
+        saved_path = _save_tool_result("build_cfg", result, ast.program_name)
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
     except Exception as e:
         logger.exception("Failed to build CFG")
         return {
@@ -868,12 +945,19 @@ def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
             "edges": [_serialize_dfg_edge(edge) for edge in dfg.edges],
         }
 
-        return {
+        result = {
             "success": True,
             "dfg": dfg_dict,
             "node_count": len(dfg.nodes),
             "edge_count": len(dfg.edges),
         }
+
+        # Save result to file
+        saved_path = _save_tool_result("build_dfg", result, ast.program_name)
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
     except Exception as e:
         logger.exception("Failed to build DFG")
         return {
@@ -950,17 +1034,17 @@ def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     success, ast, error = _deserialize_ast_for_pdg(ast_dict)
     if not success:
         return {"success": False, "error": error}
-    assert ast is not None  # Type narrowing for mypy
+    assert ast is not None  # Type narrowing for mypy  # nosec B101
 
     success, cfg, error = _deserialize_cfg_for_pdg(cfg_dict)
     if not success:
         return {"success": False, "error": error}
-    assert cfg is not None  # Type narrowing for mypy
+    assert cfg is not None  # Type narrowing for mypy  # nosec B101
 
     success, dfg, error = _deserialize_dfg_for_pdg(dfg_dict)
     if not success:
         return {"success": False, "error": error}
-    assert dfg is not None  # Type narrowing for mypy
+    assert dfg is not None  # Type narrowing for mypy  # nosec B101
 
     try:
         pdg = build_pdg(ast, cfg, dfg)
@@ -973,7 +1057,7 @@ def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         control_edges = len([e for e in pdg.edges if e.edge_type == PDGEdgeType.CONTROL])
         data_edges = len([e for e in pdg.edges if e.edge_type == PDGEdgeType.DATA])
 
-        return {
+        result = {
             "success": True,
             "pdg": pdg_dict,
             "node_count": len(pdg.nodes),
@@ -981,6 +1065,13 @@ def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
             "control_edge_count": control_edges,
             "data_edge_count": data_edges,
         }
+
+        # Save result to file
+        saved_path = _save_tool_result("build_pdg", result, ast.program_name)
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
     except Exception as e:
         logger.exception("Failed to build PDG")
         return {"success": False, "error": str(e)}

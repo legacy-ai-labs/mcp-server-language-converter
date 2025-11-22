@@ -1,6 +1,6 @@
 # Usage Guide
 
-This guide shows you how to use the MCP Server Blueprint for common tasks.
+This guide shows you how to use the MCP Server Language Converter for common tasks.
 
 ## Quick Start
 

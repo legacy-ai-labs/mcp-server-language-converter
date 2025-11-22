@@ -78,8 +78,8 @@ async def startup(domain: str, server_name: str | None = None, use_decorators: b
             )
             logger.info("Prometheus metrics initialized")
 
-        # Create MCP server instance
-        mcp = create_mcp_server(domain=domain, server_name=server_name)
+        # Create MCP server instance with HTTP/SSE transport
+        mcp = create_mcp_server(domain=domain, server_name=server_name, transport="sse")
 
         if use_decorators:
             # NEW: Decorator-based registration

@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides a comprehensive reference for both the MCP (Model Context Protocol) interface and REST API interface of the MCP Server Blueprint.
+This document provides a comprehensive reference for both the MCP (Model Context Protocol) interface and REST API interface of the MCP Server Language Converter.
 
 ## Table of Contents
 

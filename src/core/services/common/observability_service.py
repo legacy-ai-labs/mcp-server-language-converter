@@ -4,8 +4,11 @@ This module provides comprehensive E2E tracing with:
 - Correlation IDs for distributed tracing
 - Session IDs for user tracking
 - Automatic Prometheus metrics recording
-- Database persistence for audit trail
+- Database persistence for audit trail (via thread pool)
 - Structured logging (TRACE_START/TRACE_END)
+
+Note: Database writes are performed in a background thread pool to avoid
+event loop mismatch issues with FastMCP's anyio-based transports.
 """
 
 import asyncio
@@ -13,18 +16,23 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
 from src.core.config import get_settings
-from src.core.database import async_session_factory
-from src.core.repositories.tool_execution_repository import ToolExecutionRepository
+from src.core.database import sync_session_factory
+from src.core.models.tool_execution_model import ToolExecution
 from src.core.services.common.prometheus_metrics_service import PROMETHEUS_METRICS
 
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+# Thread pool for database writes (avoids event loop issues)
+# Using max_workers=3 to limit concurrent database writes
+_db_write_executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="observability_db_")
 
 
 def generate_correlation_id() -> str:
@@ -61,20 +69,18 @@ def get_session_id_from_context() -> str | None:
     return None
 
 
-async def _persist_execution(
+def _persist_execution_sync(
     tool_name: str,
     parameters: dict[str, Any],
     context: dict[str, Any],
     domain: str,
     transport: str,
 ) -> None:
-    """Persist execution record to database.
+    """Persist execution record to database synchronously (runs in thread pool).
 
-    Errors are logged but do not propagate back to the caller so tool
-    execution is never interrupted by observability persistence failures.
-
-    Note: This function handles event loop mismatches gracefully, as FastMCP
-    may use different event loops than where the database engine was created.
+    This function runs in a background thread pool to avoid event loop mismatch
+    issues with FastMCP's anyio-based transports. Errors are logged but do not
+    propagate back to the caller.
 
     Args:
         tool_name: Name of the tool
@@ -87,45 +93,78 @@ async def _persist_execution(
         return
 
     try:
-        async with async_session_factory() as session:
-            repo = ToolExecutionRepository(session)
+        # Use synchronous session factory (safe in thread pool)
+        with sync_session_factory() as session:
+            # Create ToolExecution model instance directly
+            execution = ToolExecution(
+                tool_name=tool_name,
+                correlation_id=context["correlation_id"],
+                session_id=context.get("session_id"),
+                started_at=context["started_at"],
+                completed_at=context.get("completed_at"),
+                duration_ms=context.get("duration_ms"),
+                status=context["status"],
+                error_type=context.get("error_type"),
+                error_message=context.get("error_message"),
+                input_params=parameters if settings.log_tool_inputs else None,
+                output_data=context.get("output_data") if settings.log_tool_outputs else None,
+                transport=transport,
+                domain=domain,
+            )
 
-            execution_data = {
-                "tool_name": tool_name,
-                "correlation_id": context["correlation_id"],
-                "session_id": context.get("session_id"),
-                "started_at": context["started_at"],
-                "completed_at": context.get("completed_at"),
-                "duration_ms": context.get("duration_ms"),
-                "status": context["status"],
-                "error_type": context.get("error_type"),
-                "error_message": context.get("error_message"),
-                "input_params": parameters if settings.log_tool_inputs else None,
-                "output_data": context.get("output_data") if settings.log_tool_outputs else None,
-                "transport": transport,
-                "domain": domain,
-            }
+            session.add(execution)
+            session.commit()
 
-            await repo.create(execution_data)
             logger.debug(
                 f"Persisted execution: tool={tool_name} correlation_id={context['correlation_id']}"
             )
 
-    except RuntimeError as e:
-        # Handle event loop mismatch errors gracefully
-        # This happens when FastMCP uses different event loops than where
-        # the database engine was initialized (common with anyio-based transports)
-        if "different loop" in str(e) or "attached to a different loop" in str(e):
-            logger.debug(
-                f"Cannot persist execution for {tool_name}: event loop mismatch "
-                "(this is expected with FastMCP's anyio-based transports). "
-                "Metrics are still recorded successfully."
-            )
-        else:
-            logger.error(f"Failed to persist execution for {tool_name}: {e}", exc_info=True)
     except Exception as e:
-        # Log other errors but don't propagate (persistence is best-effort)
+        # Log errors but don't propagate (persistence is best-effort)
         logger.error(f"Failed to persist execution for {tool_name}: {e}", exc_info=True)
+
+
+async def _persist_execution(
+    tool_name: str,
+    parameters: dict[str, Any],
+    context: dict[str, Any],
+    domain: str,
+    transport: str,
+) -> None:
+    """Persist execution record to database asynchronously via thread pool.
+
+    This function submits the database write to a background thread pool to
+    avoid blocking the event loop and to work around event loop mismatch issues
+    with FastMCP's anyio-based transports.
+
+    Args:
+        tool_name: Name of the tool
+        parameters: Input parameters passed to the tool
+        context: Execution context with timing and status
+        domain: Domain the tool belongs to
+        transport: Transport protocol used
+    """
+    if not settings.enable_execution_logging:
+        return
+
+    try:
+        # Get current event loop
+        loop = asyncio.get_running_loop()
+
+        # Submit to thread pool - this works across all event loop implementations
+        await loop.run_in_executor(
+            _db_write_executor,
+            _persist_execution_sync,
+            tool_name,
+            parameters,
+            context,
+            domain,
+            transport,
+        )
+
+    except Exception as e:
+        # Log errors but don't propagate (persistence is best-effort)
+        logger.error(f"Failed to schedule database persistence for {tool_name}: {e}", exc_info=True)
 
 
 @asynccontextmanager
@@ -238,21 +277,13 @@ async def trace_tool_execution(
             )
             PROMETHEUS_METRICS.end_tool_execution(tool_name, domain, transport)
 
-        # Database: Persist execution record (non-blocking background task)
-        # We schedule this as a task to avoid blocking tool execution
-        # and handle potential event loop mismatches gracefully
-        try:
-            loop = asyncio.get_running_loop()
-            # Create task on current loop, but don't await it (fire and forget)
-            task = loop.create_task(
-                _persist_execution(tool_name, parameters, context, domain, transport)
-            )
-            # Store reference to prevent garbage collection
-            # If task fails, error is logged but doesn't affect tool execution
-            _ = task
-        except RuntimeError:
-            # No running loop (shouldn't happen in async context, but be safe)
-            logger.warning(f"Cannot persist execution for {tool_name}: no event loop available")
-        except Exception as e:
-            # Catch any other scheduling errors
-            logger.error(f"Failed to schedule persistence task for {tool_name}: {e}")
+        # Database: Persist execution record (via thread pool, non-blocking)
+        # Database writes run in a background thread pool to avoid:
+        # 1. Blocking the event loop
+        # 2. Event loop mismatch issues with FastMCP's anyio transports
+        # The task is fire-and-forget; errors are logged but don't affect tool execution
+        _task = asyncio.create_task(
+            _persist_execution(tool_name, parameters, context, domain, transport)
+        )
+        # Suppress "task not awaited" warning - this is intentionally fire-and-forget
+        _ = _task

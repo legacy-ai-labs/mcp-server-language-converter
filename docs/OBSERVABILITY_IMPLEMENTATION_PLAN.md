@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the detailed implementation plan for adding comprehensive observability and metrics to the MCP server blueprint. The implementation uses **Prometheus for operational metrics** and **PostgreSQL for detailed audit trails**.
+This document outlines the detailed implementation plan for adding comprehensive observability and metrics to the MCP Server Language Converter. The implementation uses **Prometheus for operational metrics** and **PostgreSQL for detailed audit trails**.
 
 **Last Updated:** Phase 2 completed with Prometheus integration
 

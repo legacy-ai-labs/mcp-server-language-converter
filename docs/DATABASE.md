@@ -1,6 +1,6 @@
 ## Database Guide
 
-This document describes the database architecture, setup, and management for the MCP Server Blueprint.
+This document describes the database architecture, setup, and management for the MCP Server Language Converter.
 
 ## Database Architecture
 

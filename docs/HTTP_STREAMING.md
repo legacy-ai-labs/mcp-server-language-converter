@@ -1,6 +1,6 @@
 # HTTP Streaming Guide
 
-This guide covers HTTP streaming implementation for the MCP Server Blueprint, enabling web-based AI clients to interact with MCP tools via HTTP.
+This guide covers HTTP streaming implementation for the MCP Server Language Converter, enabling web-based AI clients to interact with MCP tools via HTTP.
 
 ## Overview
 

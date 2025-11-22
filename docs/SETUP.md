@@ -1,6 +1,6 @@
 # Development Setup Guide
 
-This guide covers everything you need to set up your development environment for the MCP Server Blueprint project.
+This guide covers everything you need to set up your development environment for the MCP Server Language Converter project.
 
 ## Table of Contents
 
@@ -93,7 +93,7 @@ touch .cursorrules
 **Recommended `.cursorrules` content:**
 
 ```
-# MCP Server Blueprint - Cursor Rules
+# MCP Server Language Converter - Cursor Rules
 
 ## Project Context
 This is a hybrid MCP (Model Context Protocol) server that exposes business logic through:
@@ -585,7 +585,7 @@ mcp = FastMCP("mcp-server-language-converter")
 
 # Configure server settings
 mcp.settings(
-    name="MCP Server Blueprint",
+    name="MCP Server Language Converter",
     version="0.1.0",
     description="Hybrid MCP server with REST API support"
 )
@@ -642,9 +642,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize FastAPI
 app = FastAPI(
-    title="MCP Server Blueprint REST API",
+    title="MCP Server Language Converter REST API",
     version="0.1.0",
-    description="REST API interface for MCP Server Blueprint",
+    description="REST API interface for MCP Server Language Converter",
     docs_url="/docs",
     redoc_url="/redoc"
 )

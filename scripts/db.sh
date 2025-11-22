@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Database Helper Script for MCP Server Blueprint
+# Database Helper Script for MCP Server Language Converter
 # Usage: ./scripts/db.sh [command]
 #
 

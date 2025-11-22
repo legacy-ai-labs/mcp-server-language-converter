@@ -1,7 +1,7 @@
-"""MCP Server Blueprint - Hybrid MCP and REST API Server.
+"""MCP Server Language Converter - Hybrid MCP and REST API Server.
 
-This package provides a blueprint for building servers that expose business logic
-through both the Model Context Protocol (MCP) and REST API interfaces.
+This package provides a server that exposes business logic through both the
+Model Context Protocol (MCP) and REST API interfaces.
 """
 
 __version__ = "0.1.0"

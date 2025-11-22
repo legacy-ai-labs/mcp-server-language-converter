@@ -1,0 +1,87 @@
+{
+  "success": true,
+  "ast": {
+    "type": "ProgramNode",
+    "program_name": "PROGRAM-ID",
+    "divisions": [
+      {
+        "type": "DivisionNode",
+        "division_type": "IDENTIFICATION",
+        "sections": [
+          {
+            "type": "SectionNode",
+            "section_name": "PROGRAM-ID",
+            "paragraphs": [
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "PROGRAM-ID",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "program_id": "PROGRAM-ID"
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 2,
+                  "column": 7,
+                  "file_path": null
+                }
+              }
+            ],
+            "location": {
+              "line": 2,
+              "column": 7,
+              "file_path": null
+            }
+          }
+        ],
+        "location": {
+          "line": 2,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "DATA",
+        "sections": [],
+        "location": {
+          "line": 4,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "PROCEDURE",
+        "sections": [
+          {
+            "type": "SectionNode",
+            "section_name": "PROCEDURE",
+            "paragraphs": [],
+            "location": {
+              "line": 7,
+              "column": 7,
+              "file_path": null
+            }
+          }
+        ],
+        "location": {
+          "line": 7,
+          "column": 7,
+          "file_path": null
+        }
+      }
+    ],
+    "location": {
+      "line": 2,
+      "column": 7,
+      "file_path": null
+    }
+  },
+  "program_name": "PROGRAM-ID"
+}

@@ -104,7 +104,7 @@ Tools are now **dynamically loaded from the database** at server startup:
 
 ### Transport Options
 
-The MCP Server Blueprint supports **multiple transport mechanisms** for different client types:
+The MCP Server Language Converter supports **multiple transport mechanisms** for different client types:
 
 #### STDIO Server (Claude Desktop, Cursor IDE)
 - **Transport**: STDIO (standard input/output)

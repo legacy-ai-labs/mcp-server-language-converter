@@ -1,15 +1,15 @@
 """Database configuration and session management."""
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase, declared_attr
+from sqlalchemy.orm import DeclarativeBase, Session, declared_attr, sessionmaker
 
 from src.core.config import get_settings
 
@@ -27,6 +27,25 @@ engine = create_async_engine(
 async_session_factory = async_sessionmaker(
     engine,
     class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+# Create synchronous engine for thread pool operations
+# Convert asyncpg URL to psycopg2 URL for sync operations
+sync_database_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+sync_engine = create_engine(
+    sync_database_url,
+    echo=settings.database_echo,
+    pool_pre_ping=True,  # Verify connections before using
+    pool_recycle=3600,  # Recycle connections after 1 hour
+)
+
+# Create synchronous session factory for thread pool
+sync_session_factory = sessionmaker(
+    sync_engine,
+    class_=Session,
     expire_on_commit=False,
     autocommit=False,
     autoflush=False,
@@ -53,8 +72,6 @@ class Base(DeclarativeBase):  # type: ignore[misc]
     @declared_attr.directive  # type: ignore[misc]
     def __tablename__(cls) -> str:
         """Generate table name from class name."""
-        from typing import cast
-
         class_name = cast(str, cls.__name__)
         return class_name.lower() + "s"
 
