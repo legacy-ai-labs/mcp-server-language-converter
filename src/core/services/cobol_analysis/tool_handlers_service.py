@@ -1,4 +1,4 @@
-"""Registry of predefined tool handlers."""
+"""Registry of COBOL analysis tool handlers."""
 
 import logging
 from collections.abc import Callable
@@ -36,62 +36,21 @@ from src.core.models.cobol_analysis_model import (
     VariableNode,
     VariableUseNode,
 )
-from src.core.services.ast_builder_service import build_ast
-from src.core.services.cfg_builder_service import build_cfg
-from src.core.services.cobol_parser_antlr_service import ParseNode, parse_cobol, parse_cobol_file
-from src.core.services.dfg_builder_service import build_dfg
-from src.core.services.pdg_builder_service import build_pdg
+from src.core.services.cobol_analysis.ast_builder_service import build_ast
+from src.core.services.cobol_analysis.cfg_builder_service import build_cfg
+from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
+    ParseNode,
+    parse_cobol,
+    parse_cobol_file,
+)
+from src.core.services.cobol_analysis.dfg_builder_service import build_dfg
+from src.core.services.cobol_analysis.pdg_builder_service import build_pdg
 
 
 logger = logging.getLogger(__name__)
 
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
-
-
-def echo_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Echo handler that returns the input text.
-
-    Args:
-        parameters: Handler parameters containing 'text' key
-
-    Returns:
-        Dictionary with echoed text
-    """
-    text = parameters.get("text", "")
-    return {
-        "success": True,
-        "message": f"Echo: {text}",
-        "original_text": text,
-    }
-
-
-def calculator_add_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Add two numbers.
-
-    Args:
-        parameters: Handler parameters containing 'a' and 'b' keys
-
-    Returns:
-        Dictionary with the sum
-    """
-    a = parameters.get("a", 0)
-    b = parameters.get("b", 0)
-
-    try:
-        result = float(a) + float(b)
-        return {
-            "success": True,
-            "operation": "addition",
-            "a": a,
-            "b": b,
-            "result": result,
-        }
-    except (ValueError, TypeError) as e:
-        return {
-            "success": False,
-            "error": f"Invalid numbers provided: {e}",
-        }
 
 
 # ============================================================================
@@ -722,20 +681,20 @@ def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
     try:
         if file_path:
-            parsed_tree = parse_cobol_file(file_path)
+            parse_node, _ = parse_cobol_file(file_path)
         else:
             if not isinstance(source_code, str):
                 return {
                     "success": False,
                     "error": "'source_code' must be a string",
                 }
-            parsed_tree = parse_cobol(source_code)
-        parse_tree_dict = _serialize_parse_node(parsed_tree)
+            parse_node, _ = parse_cobol(source_code)
+        parse_tree_dict = _serialize_parse_node(parse_node)
 
         return {
             "success": True,
             "parse_tree": parse_tree_dict,
-            "node_type": parsed_tree.node_type,
+            "node_type": parse_node.node_type,
         }
     except Exception as e:
         logger.exception("Failed to parse COBOL")
@@ -1029,8 +988,6 @@ def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
-    "echo_handler": echo_handler,
-    "calculator_add_handler": calculator_add_handler,
     "parse_cobol_handler": parse_cobol_handler,
     "parse_cobol_raw_handler": parse_cobol_raw_handler,
     "build_ast_handler": build_ast_handler,

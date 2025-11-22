@@ -21,7 +21,8 @@ All domain-specific servers share common infrastructure in `mcp_servers/common/`
 mcp_servers/
 ├── common/                      # Shared infrastructure (NO duplication!)
 │   ├── base_server.py          # FastMCP initialization
-│   ├── dynamic_loader.py       # DB tool loading with wrapper registration
+│   ├── tool_registry.py        # Decorator-based tool registration
+│   ├── dynamic_loader.py       # Legacy DB tool loading (deprecated)
 │   ├── stdio_runner.py         # Generic STDIO transport
 │   └── http_runner.py          # Generic HTTP streaming transport
 │
@@ -36,75 +37,62 @@ mcp_servers/
 
 **Key benefit**: Adding a new domain server requires only **14 lines of code** (2 files × 7 lines each).
 
-### Dynamic Tool Loading System
+### Decorator-Based Tool Registration
 
-Tools are **database-driven** with a 4-part registration flow:
+Tools use **decorator-based registration** with optional database control:
 
-1. **Handler Function** (`src/core/services/tool_handlers_service.py`): Pure business logic
+1. **Handler Function** (domain-specific `tool_handlers_service.py`): Pure business logic organized by domain
+   - General tools: `src/core/services/general/tool_handlers_service.py`
+   - COBOL tools: `src/core/services/cobol_analysis/tool_handlers_service.py`
    ```python
    def my_tool_handler(parameters: dict[str, Any]) -> dict[str, Any]:
        """Business logic for my_tool."""
        return {"success": True, "result": parameters.get("input")}
-   ```
 
-2. **Handler Registry** (`TOOL_HANDLERS` dict in same file): Maps names to functions
-   ```python
    TOOL_HANDLERS = {
-       # ... existing handlers
        "my_tool_handler": my_tool_handler,
    }
    ```
 
-3. **Database Record** (`scripts/seed_tools.py`): Metadata with parameters schema
+2. **Decorator Registration** (domain-specific `tools.py`): Type-safe FastMCP tool with observability
+   - General tools: `src/mcp_servers/mcp_general/tools.py`
+   - COBOL tools: `src/mcp_servers/mcp_cobol_analysis/tools.py`
+   ```python
+   from src.mcp_servers.common.tool_registry import register_tool
+
+   @register_tool(domain="general", tool_name="my_tool", description="Does X")
+   @mcp.tool()
+   async def my_tool(input: str) -> dict[str, Any]:
+       """Does X with input text."""
+       return my_tool_handler({"input": input})
+   ```
+
+3. **Database Record (Optional)** (`scripts/seed_tools.py`): Runtime enable/disable control
    ```python
    ToolCreate(
        name="my_tool",
        description="Does X",
        handler_name="my_tool_handler",
-       parameters_schema={
-           "type": "object",
-           "properties": {
-               "input": {"type": "string", "description": "Input text"}
-           },
-           "required": ["input"]
-       },
        category="utility",
        domain="general",
-       is_active=True
+       is_active=True,  # Controls whether tool is loaded
    )
    ```
 
-4. **Wrapper Function** (`src/mcp_servers/common/dynamic_loader.py`): FastMCP tool registration with observability
-   ```python
-   # In register_tool_from_db function, add:
-   elif tool.name == "my_tool":
-       async def my_tool_wrapper(input: str) -> dict[str, Any]:
-           """Does X."""
-           with trace_tool_execution(
-               tool_name=tool.name,
-               parameters={"input": input},
-               domain=domain,
-               transport=transport,
-           ):
-               try:
-                   result = handler_func({"input": input})
-                   return result
-               except Exception as e:
-                   logger.error(f"Tool {tool.name} failed: {e}")
-                   return {"success": False, "error": str(e)}
+**Key benefits**:
+- ✅ Type-safe signatures with IDE autocomplete
+- ✅ No manual wrapper functions needed
+- ✅ Automatic observability tracing via `_wrap_with_observability()`
+- ✅ 2 steps instead of 4 (database record optional)
+- ✅ Database provides runtime control when needed
 
-       decorated_tool = mcp.tool(name=tool.name, description=tool.description)(my_tool_wrapper)
-   ```
-
-**Current limitation**: Each tool requires a specific wrapper function because FastMCP needs explicit parameter signatures. A future enhancement could use dynamic signature generation.
-
-**Observability**: All tool wrappers are automatically traced with `trace_tool_execution()` context manager, which:
+**Observability**: All decorator-based tools are automatically wrapped with observability, which:
 - Records metrics to Prometheus (request counts, latency, errors)
 - Logs execution to database for audit trail and debugging
 - Generates correlation IDs for E2E tracing
 - Provides structured logging (TRACE_START/TRACE_END)
 
-**Startup sequence**: Tools loaded from DB **before** `mcp.run()` - handled automatically by runners in `common/`. Prometheus metrics are initialized at startup.
+**Startup sequence**: Tools loaded from registry **before** `mcp.run()` - handled automatically by runners in `common/`. Prometheus metrics are initialized at startup.
 
 ### Multi-Server Architecture
 
@@ -267,9 +255,16 @@ curl http://localhost:8000/metrics
 ./scripts/db.sh query "SELECT tool_name, COUNT(*) as calls, AVG(duration_ms) as avg_duration FROM tool_executions GROUP BY tool_name;"
 ```
 
-## Adding a New Tool (4-Step Process)
+## Adding a New Tool (2-Step Process)
 
-**1. Handler function** (`src/core/services/tool_handlers_service.py`):
+**Current Approach**: All domains now use decorator-based tool registration for type safety and simplicity.
+
+### Step 1: Create Handler Function
+
+Choose the appropriate domain file:
+- General tools: `src/core/services/general/tool_handlers_service.py`
+- COBOL tools: `src/core/services/cobol_analysis/tool_handlers_service.py`
+
 ```python
 def my_tool_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Business logic for my_tool."""
@@ -280,7 +275,7 @@ def my_tool_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     }
 ```
 
-**2. Registry entry** (same file):
+Then register it in the `TOOL_HANDLERS` dict (same file):
 ```python
 TOOL_HANDLERS = {
     # ... existing handlers
@@ -288,62 +283,65 @@ TOOL_HANDLERS = {
 }
 ```
 
-**3. Database record** (`scripts/seed_tools.py`):
+### Step 2: Add Decorator in Domain Tools File
+
+Choose the appropriate domain tools file:
+- General tools: `src/mcp_servers/mcp_general/tools.py`
+- COBOL tools: `src/mcp_servers/mcp_cobol_analysis/tools.py`
+
+```python
+from src.core.services.general.tool_handlers_service import my_tool_handler
+from src.mcp_servers.common.tool_registry import register_tool
+
+@register_tool(domain="general", tool_name="my_tool", description="Does X with input text")
+@mcp.tool()
+async def my_tool(input: str) -> dict[str, Any]:
+    """Does X with input text.
+
+    Detailed description of what the tool does.
+
+    Args:
+        input: Input text to process
+
+    Returns:
+        Dictionary with success status and processed result
+    """
+    return my_tool_handler({"input": input})
+```
+
+### Step 3 (Optional): Add Database Record
+
+For runtime enable/disable control, add a database record in `scripts/seed_tools.py`:
+
 ```python
 ToolCreate(
     name="my_tool",
     description="Does X with input text",
     handler_name="my_tool_handler",
-    parameters_schema={
-        "type": "object",
-        "properties": {
-            "input": {
-                "type": "string",
-                "description": "Input text to process"
-            }
-        },
-        "required": ["input"]
-    },
     category="utility",
     domain="general",
-    is_active=True
+    is_active=True,  # Controls whether tool is loaded
 )
 ```
 
-**4. Wrapper function** (`src/mcp_servers/common/dynamic_loader.py`):
+**Note**: If no database record exists, the tool will still be registered but cannot be disabled without code changes.
 
-In the `register_tool_from_db` function, add a new `elif` case with observability tracing:
-```python
-elif tool.name == "my_tool":
-    async def my_tool_wrapper(input: str) -> dict[str, Any]:
-        """Does X with input text."""
-        with trace_tool_execution(
-            tool_name=tool.name,
-            parameters={"input": input},
-            domain=domain,
-            transport=transport,
-        ):
-            try:
-                result = handler_func({"input": input})
-                return result
-            except Exception as e:
-                logger.error(f"Tool {tool.name} failed: {e}")
-                return {"success": False, "error": str(e)}
+### Deploy
 
-    decorated_tool = mcp.tool(name=tool.name, description=tool.description)(my_tool_wrapper)
-```
-
-**Deploy** (after completing all 4 steps):
 ```bash
-# Reset database with new tool
-uv run python scripts/init_db.py
+# If you added a database record (optional step 3):
 uv run python scripts/seed_tools.py
 
 # Restart server to load new tool
 uv run python -m src.mcp_servers.mcp_general
 ```
 
-**Important**: All 4 steps are required - the tool won't work if any step is missing. The handler (step 1) contains business logic, the registry (step 2) makes it discoverable, the database record (step 3) provides metadata, and the wrapper (step 4) bridges FastMCP's explicit signatures with your handler.
+**Benefits of New Approach**:
+- ✅ Type-safe signatures with IDE autocomplete
+- ✅ No manual wrapper functions needed
+- ✅ Automatic observability tracing
+- ✅ 2 steps instead of 4
+- ✅ Database still provides runtime control (enable/disable)
 
 ## Creating a New Domain Server (14 Lines of Code)
 
@@ -376,6 +374,51 @@ if __name__ == "__main__":
 **4. Add tools with `domain="kubernetes"`** in `scripts/seed_tools.py` and create corresponding handlers.
 
 **Done!** The server will automatically load tools with `domain="kubernetes"` from the database.
+
+## Services Folder Structure
+
+Business logic in `src/core/services/` is organized by domain for better separation of concerns:
+
+```
+src/core/services/
+├── general/                      # General-purpose domain
+│   ├── __init__.py
+│   └── tool_handlers_service.py # General tool handlers (echo, calculator_add)
+│
+├── cobol_analysis/               # COBOL reverse engineering domain
+│   ├── __init__.py
+│   ├── tool_handlers_service.py # COBOL tool handlers
+│   ├── ast_builder_service.py
+│   ├── cfg_builder_service.py
+│   ├── dfg_builder_service.py
+│   ├── pdg_builder_service.py
+│   ├── cobol_parser_antlr_service.py
+│   └── antlr_cobol/            # ANTLR grammar files
+│
+└── common/                       # Shared utilities across all domains
+    ├── __init__.py
+    ├── observability_service.py
+    ├── prometheus_metrics_service.py
+    └── tool_service_service.py
+```
+
+**Key benefits:**
+- **Domain isolation**: Each domain's logic is in its own folder
+- **Scalability**: Easy to add new domains without affecting existing ones
+- **Team ownership**: Different teams can own different domain folders
+- **No duplication**: Shared services live in `common/`
+
+**Import pattern**: Tools and services import from domain-specific paths:
+```python
+# General domain handlers
+from src.core.services.general.tool_handlers_service import echo_handler
+
+# COBOL domain handlers
+from src.core.services.cobol_analysis.tool_handlers_service import parse_cobol_handler
+
+# Common/shared services
+from src.core.services.common.observability_service import trace_tool_execution
+```
 
 ## Code Patterns
 
@@ -492,19 +535,19 @@ Based on `.cursor/rules/python.mdc`:
 2. **Never duplicate server code** - use `common/` infrastructure for all domain servers
 3. **UV only** - never pip, pip-tools, or poetry
 4. **Type hints mandatory** - strict mypy enforced
-5. **4 pieces per tool**: handler function, registry entry, DB record, wrapper function
+5. **2 steps per tool**: handler function + decorator registration (DB record optional)
 
 ## Debugging Tools
 
 Tool not working? Check in order:
-1. Handler in `tool_handlers_service.py` + registered in `TOOL_HANDLERS`
-2. Wrapper function added to `register_tool_from_db()` in `dynamic_loader.py`
-3. Tool record exists in DB with `is_active=True` and correct `domain`
-4. DB was initialized before startup (log: "Loading N tools for domain...")
+1. Handler in domain-specific `tool_handlers_service.py` + registered in `TOOL_HANDLERS`
+2. Decorator-based tool defined in domain-specific `tools.py` (e.g., `mcp_general/tools.py`)
+3. If using database control: tool record exists in DB with `is_active=True` and correct `domain`
+4. Check server startup logs for "Loading N tools for domain..."
 5. Check stderr logs (all logging goes there for Claude Desktop)
 6. Verify handler accepts `parameters: dict[str, Any]` and returns `dict[str, Any]`
 
-Use `./scripts/db.sh tools` to verify tool is in database.
+Use `./scripts/db.sh tools` to verify tool is in database (if using database control).
 
 ## Technology Stack
 
@@ -521,19 +564,19 @@ See "Creating a New Domain Server (14 Lines of Code)" section above.
 
 ### Debugging Tool Registration
 If a tool isn't appearing:
-1. Verify tool exists in database: `./scripts/db.sh tools | grep tool_name`
-2. Check `is_active=True` and correct `domain` value
-3. Ensure handler registered in `TOOL_HANDLERS` dict
-4. Verify wrapper function exists in `dynamic_loader.py`
+1. Verify decorator-based tool defined in domain `tools.py` (e.g., `mcp_general/tools.py`)
+2. Ensure handler registered in `TOOL_HANDLERS` dict in domain-specific `tool_handlers_service.py`
+3. If using database control: verify tool exists with `./scripts/db.sh tools | grep tool_name`
+4. If using database control: check `is_active=True` and correct `domain` value
 5. Check server startup logs for "Loading N tools for domain..."
-6. Restart server after database/code changes
+6. Restart server after code changes
 
 ### Working with Complex Tool Parameters
 For tools requiring complex parameter validation:
-1. Define comprehensive `parameters_schema` in database record
-2. Use Pydantic models in `src/core/schemas/` for validation
-3. Convert and validate parameters in wrapper function before passing to handler
-4. See COBOL analysis tools for examples of complex schemas
+1. Define type-safe parameters in decorator-based tool function signature
+2. Use Pydantic models in `src/core/schemas/` for validation if needed
+3. Convert and validate parameters in decorator function before passing to handler
+4. See COBOL analysis tools in `mcp_cobol_analysis/tools.py` for examples
 
 ### Testing Transport-Specific Behavior
 ```bash

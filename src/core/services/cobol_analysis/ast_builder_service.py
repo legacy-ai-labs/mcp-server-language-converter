@@ -31,7 +31,7 @@ from src.core.models.cobol_analysis_model import (
     StatementType,
     VariableNode,
 )
-from src.core.services.cobol_parser_antlr_service import ParseNode
+from src.core.services.cobol_analysis.cobol_parser_antlr_service import ParseNode
 
 
 logger = logging.getLogger(__name__)
@@ -74,10 +74,10 @@ def _attach_comments_to_node(node: Any, comments: list[Comment], node_line: int 
             node.add_comment(comment, "preceding")
 
         # Header comments (5+ lines before, only for major nodes)
-        elif comment_line < node_line - 4:
-            # Only attach header comments to program/division/section nodes
-            if isinstance(node, ProgramNode | DivisionNode | SectionNode):
-                node.add_comment(comment, "header")
+        elif comment_line < node_line - 4 and isinstance(
+            node, ProgramNode | DivisionNode | SectionNode
+        ):
+            node.add_comment(comment, "header")
 
 
 def _create_source_location(parse_node: ParseNode) -> SourceLocation | None:

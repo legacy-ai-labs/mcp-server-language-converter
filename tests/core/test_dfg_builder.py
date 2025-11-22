@@ -19,8 +19,8 @@ from src.core.models.cobol_analysis_model import (
     VariableNode,
     VariableUseNode,
 )
-from src.core.services.cfg_builder_service import build_cfg
-from src.core.services.dfg_builder_service import DFGBuilderError, build_dfg
+from src.core.services.cobol_analysis.cfg_builder_service import build_cfg
+from src.core.services.cobol_analysis.dfg_builder_service import DFGBuilderError, build_dfg
 
 
 def _create_program_with_data_flow() -> ProgramNode:

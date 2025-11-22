@@ -1,6 +1,6 @@
 """Tool service for business logic operations."""
 
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,28 @@ from src.core.exceptions import (
 from src.core.models.tool_model import Tool
 from src.core.repositories.tool_repository import ToolRepository
 from src.core.schemas.tool_schema import ToolCreate, ToolResponse, ToolUpdate
-from src.core.services.tool_handlers_service import get_handler
+from src.core.services.cobol_analysis.tool_handlers_service import (
+    TOOL_HANDLERS as COBOL_HANDLERS,
+)
+from src.core.services.general.tool_handlers_service import (
+    TOOL_HANDLERS as GENERAL_HANDLERS,
+)
+
+
+# Merge all tool handlers from different domains
+TOOL_HANDLERS = {**GENERAL_HANDLERS, **COBOL_HANDLERS}
+
+
+def get_handler(handler_name: str) -> Any | None:
+    """Get a tool handler by name from all domains.
+
+    Args:
+        handler_name: Name of the handler
+
+    Returns:
+        Handler function or None if not found
+    """
+    return TOOL_HANDLERS.get(handler_name)
 
 
 class ToolService:
@@ -182,6 +203,6 @@ class ToolService:
         # Execute handler
         try:
             result = handler(parameters)
-            return result
+            return cast(dict[str, Any], result)
         except Exception as e:
             raise ToolHandlerError(f"Handler execution failed: {e}") from e

@@ -9,20 +9,39 @@ from src.core.models.cobol_analysis_model import (
     EntryNode,
     ExitNode,
 )
-from src.core.services.ast_builder_service import build_ast
-from src.core.services.cfg_builder_service import build_cfg
-from src.core.services.tool_handlers_service import (
+from src.core.services.cobol_analysis.ast_builder_service import build_ast
+from src.core.services.cobol_analysis.cfg_builder_service import build_cfg
+
+# Merged handler lists for testing
+from src.core.services.cobol_analysis.tool_handlers_service import (
+    TOOL_HANDLERS as COBOL_HANDLERS,
+)
+from src.core.services.cobol_analysis.tool_handlers_service import (
     _serialize_ast_node,
     _serialize_cfg_edge,
     _serialize_cfg_node,
     build_cfg_handler,
     build_dfg_handler,
-    calculator_add_handler,
-    echo_handler,
-    get_handler,
-    list_handlers,
     parse_cobol_handler,
 )
+from src.core.services.common.tool_service_service import get_handler
+from src.core.services.general.tool_handlers_service import (
+    TOOL_HANDLERS as GENERAL_HANDLERS,
+)
+from src.core.services.general.tool_handlers_service import (
+    calculator_add_handler,
+    echo_handler,
+)
+
+
+ALL_HANDLERS = {**GENERAL_HANDLERS, **COBOL_HANDLERS}
+
+
+def list_handlers() -> list[str]:
+    """List all available handler names from all domains."""
+    return list(ALL_HANDLERS.keys())
+
+
 from tests.core.test_ast_builder import _create_sample_program_parse_tree
 
 

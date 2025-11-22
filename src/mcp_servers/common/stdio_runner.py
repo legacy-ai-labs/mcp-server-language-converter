@@ -6,15 +6,17 @@ and running the server with STDIO transport.
 """
 
 import asyncio
+import importlib
 import logging
 import sys
 import traceback
 from typing import Any
 
 from src.core.config import get_settings
-from src.core.services.prometheus_metrics_service import PROMETHEUS_METRICS
+from src.core.services.common.prometheus_metrics_service import PROMETHEUS_METRICS
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.dynamic_loader import load_tools_from_database
+from src.mcp_servers.common.tool_registry import load_tools_from_registry
 
 
 settings = get_settings()
@@ -30,12 +32,33 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def startup(domain: str, server_name: str | None = None) -> Any:
+def _import_domain_tools(domain: str) -> None:
+    """Import domain tools module to trigger decorator registration.
+
+    Args:
+        domain: Domain to import tools for
+
+    Raises:
+        ImportError: If domain tools module cannot be imported
+    """
+    try:
+        if domain == "general":
+            importlib.import_module("src.mcp_servers.mcp_general.tools")
+        elif domain == "cobol_analysis":
+            importlib.import_module("src.mcp_servers.mcp_cobol_analysis.tools")
+        # Add more domains as they migrate
+        logger.info(f"Imported tools module for domain: {domain}")
+    except ImportError as e:
+        logger.warning(f"Could not import tools for domain '{domain}': {e}")
+
+
+async def startup(domain: str, server_name: str | None = None, use_decorators: bool = False) -> Any:
     """Initialize MCP server and load tools for the specified domain.
 
     Args:
         domain: Domain to load tools for (e.g., "general", "kubernetes")
         server_name: Optional custom server name
+        use_decorators: If True, use decorator-based registration; else use DB-driven
 
     Returns:
         Initialized FastMCP server instance with tools loaded
@@ -56,8 +79,18 @@ async def startup(domain: str, server_name: str | None = None) -> Any:
         # Create MCP server instance
         mcp = create_mcp_server(domain=domain, server_name=server_name)
 
-        # Load tools from database for this domain with STDIO transport
-        await load_tools_from_database(mcp, domain, transport="stdio")
+        if use_decorators:
+            # NEW: Decorator-based registration
+            logger.info(f"Using decorator-based tool registration for domain: {domain}")
+            # Import domain tools module to trigger registration
+            _import_domain_tools(domain)
+            # Load from registry
+            await load_tools_from_registry(mcp, domain, transport="stdio")
+        else:
+            # LEGACY: Database-driven dynamic loading
+            logger.info(f"Using database-driven tool loading for domain: {domain}")
+            await load_tools_from_database(mcp, domain, transport="stdio")
+
         logger.info(f"Tools loaded successfully for domain: {domain}")
 
         return mcp
@@ -67,7 +100,9 @@ async def startup(domain: str, server_name: str | None = None) -> Any:
         raise
 
 
-def run_stdio_server(domain: str, server_name: str | None = None) -> None:
+def run_stdio_server(
+    domain: str, server_name: str | None = None, use_decorators: bool = False
+) -> None:
     """Run MCP server with STDIO transport for the specified domain.
 
     This is the main entry point for domain-specific STDIO servers.
@@ -75,10 +110,12 @@ def run_stdio_server(domain: str, server_name: str | None = None) -> None:
     Args:
         domain: Domain this server handles (e.g., "general", "kubernetes")
         server_name: Optional custom server name
+        use_decorators: If True, use decorator-based registration; else use DB-driven
 
     Example:
         >>> run_stdio_server(domain="general")
         >>> run_stdio_server(domain="kubernetes", server_name="K8s MCP Server")
+        >>> run_stdio_server(domain="general", use_decorators=True)
     """
     try:
         # Log startup to stderr for Claude Desktop
@@ -86,10 +123,12 @@ def run_stdio_server(domain: str, server_name: str | None = None) -> None:
         logger.info(f"Running MCP server with STDIO transport for domain: {domain}")
 
         # Initialize server and load tools
-        mcp = asyncio.run(startup(domain=domain, server_name=server_name))
+        mcp = asyncio.run(
+            startup(domain=domain, server_name=server_name, use_decorators=use_decorators)
+        )
 
         # Run MCP server with STDIO transport
-        # Tools are now loaded dynamically from database
+        # Tools are loaded either from decorators or database
         mcp.run(transport="stdio")
 
     except KeyboardInterrupt:

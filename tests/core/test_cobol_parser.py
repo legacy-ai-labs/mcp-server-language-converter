@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from src.core.services.cobol_parser_antlr_service import ParseNode, parse_cobol, parse_cobol_file
+from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
+    ParseNode,
+    parse_cobol,
+    parse_cobol_file,
+)
 
 
 def test_parse_cobol_basic_program() -> None:

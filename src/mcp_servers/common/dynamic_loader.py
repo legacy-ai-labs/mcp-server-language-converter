@@ -6,17 +6,27 @@ with FastMCP at server startup.
 """
 
 import logging
+import warnings
 from typing import Any
 
 from fastmcp import FastMCP
 
 from src.core.database import async_session_factory
 from src.core.repositories.tool_repository import ToolRepository
-from src.core.services.observability_service import trace_tool_execution
-from src.core.services.tool_handlers_service import TOOL_HANDLERS
+from src.core.services.cobol_analysis.tool_handlers_service import (
+    TOOL_HANDLERS as COBOL_HANDLERS,
+)
+from src.core.services.common.observability_service import trace_tool_execution
+from src.core.services.general.tool_handlers_service import (
+    TOOL_HANDLERS as GENERAL_HANDLERS,
+)
 
 
 logger = logging.getLogger(__name__)
+
+
+# Merge all tool handlers from different domains
+TOOL_HANDLERS = {**GENERAL_HANDLERS, **COBOL_HANDLERS}
 
 
 def _create_traced_tool(
@@ -77,266 +87,6 @@ def _create_traced_tool(
     return traced_tool
 
 
-def _create_echo_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
-    """Create echo tool wrapper."""
-
-    async def tool_impl(text: str) -> dict[str, Any]:
-        result = handler_func({"text": text})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def echo_tool(text: str) -> dict[str, Any]:
-        """Echo back the provided text."""
-        result = await traced(text)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return echo_tool
-
-
-def _create_calculator_add_tool(
-    handler_func: Any, tool_name: str, domain: str, transport: str
-) -> Any:
-    """Create calculator_add tool wrapper."""
-
-    async def tool_impl(a: float, b: float) -> dict[str, Any]:
-        result = handler_func({"a": a, "b": b})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def calculator_add_tool(a: float, b: float) -> dict[str, Any]:
-        """Add two numbers together."""
-        result = await traced(a, b)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return calculator_add_tool
-
-
-def _create_parse_cobol_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
-    """Create parse_cobol tool wrapper."""
-
-    async def tool_impl(
-        source_code: str | None = None, file_path: str | None = None
-    ) -> dict[str, Any]:
-        result = handler_func({"source_code": source_code, "file_path": file_path})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def parse_cobol_tool(
-        source_code: str | None = None, file_path: str | None = None
-    ) -> dict[str, Any]:
-        """Parse COBOL source code into AST."""
-        result = await traced(source_code, file_path)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return parse_cobol_tool
-
-
-def _create_parse_cobol_raw_tool(
-    handler_func: Any, tool_name: str, domain: str, transport: str
-) -> Any:
-    """Create parse_cobol_raw tool wrapper."""
-
-    async def tool_impl(
-        source_code: str | None = None, file_path: str | None = None
-    ) -> dict[str, Any]:
-        result = handler_func({"source_code": source_code, "file_path": file_path})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def parse_cobol_raw_tool(
-        source_code: str | None = None, file_path: str | None = None
-    ) -> dict[str, Any]:
-        """Parse COBOL source code into raw ParseNode (parse tree)."""
-        result = await traced(source_code, file_path)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return parse_cobol_raw_tool
-
-
-def _create_build_ast_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
-    """Create build_ast tool wrapper."""
-
-    async def tool_impl(parse_tree: dict[str, Any]) -> dict[str, Any]:
-        result = handler_func({"parse_tree": parse_tree})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def build_ast_tool(parse_tree: dict[str, Any]) -> dict[str, Any]:
-        """Build Abstract Syntax Tree (AST) from ParseNode."""
-        result = await traced(parse_tree)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return build_ast_tool
-
-
-def _create_build_cfg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
-    """Create build_cfg tool wrapper."""
-
-    async def tool_impl(ast: dict[str, Any]) -> dict[str, Any]:
-        result = handler_func({"ast": ast})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def build_cfg_tool(ast: dict[str, Any]) -> dict[str, Any]:
-        """Build Control Flow Graph (CFG) from AST."""
-        result = await traced(ast)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return build_cfg_tool
-
-
-def _create_build_dfg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
-    """Create build_dfg tool wrapper."""
-
-    async def tool_impl(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-        result = handler_func({"ast": ast, "cfg": cfg})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def build_dfg_tool(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-        """Build Data Flow Graph (DFG) from AST + CFG."""
-        result = await traced(ast, cfg)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return build_dfg_tool
-
-
-def _create_build_pdg_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
-    """Create build_pdg tool wrapper."""
-
-    async def tool_impl(
-        ast: dict[str, Any], cfg: dict[str, Any], dfg: dict[str, Any]
-    ) -> dict[str, Any]:
-        result = handler_func({"ast": ast, "cfg": cfg, "dfg": dfg})
-        if not isinstance(result, dict):
-            logger.warning(
-                f"Handler for {tool_name} returned non-dict result: {type(result).__name__}"
-            )
-            return {
-                "success": False,
-                "error": f"Handler returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    traced = _create_traced_tool(tool_name, domain, transport, tool_impl)
-
-    async def build_pdg_tool(
-        ast: dict[str, Any], cfg: dict[str, Any], dfg: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Build Program Dependency Graph (PDG) from AST + CFG + DFG.
-
-        The PDG combines control dependencies (from CFG) and data dependencies
-        (from DFG) into a unified graph showing all program dependencies.
-        """
-        result = await traced(ast, cfg, dfg)
-        if not isinstance(result, dict):
-            return {
-                "success": False,
-                "error": f"Tool returned invalid type: {type(result).__name__}",
-            }
-        return result
-
-    return build_pdg_tool
-
-
 def _create_generic_tool(handler_func: Any, tool_name: str, domain: str, transport: str) -> Any:
     """Create generic tool wrapper."""
 
@@ -370,6 +120,13 @@ def _create_generic_tool(handler_func: Any, tool_name: str, domain: str, transpo
 async def load_tools_from_database(mcp: FastMCP, domain: str, transport: str = "stdio") -> None:
     """Load active tools for a specific domain from database and register with FastMCP.
 
+    .. deprecated::
+        This function is deprecated as of the decorator-based migration (Phases 2-3).
+        Use decorator-based registration with `load_tools_from_registry()` instead.
+        This function will be removed in a future version.
+
+        See `src/mcp_servers/common/tool_registry.py` for the new approach.
+
     Args:
         mcp: FastMCP server instance to register tools with
         domain: Domain to filter tools by (e.g., "general", "kubernetes")
@@ -378,6 +135,14 @@ async def load_tools_from_database(mcp: FastMCP, domain: str, transport: str = "
     Raises:
         Exception: If tool loading fails
     """
+    warnings.warn(
+        "load_tools_from_database() is deprecated. "
+        "Use decorator-based registration with load_tools_from_registry() instead. "
+        "See src/mcp_servers/common/tool_registry.py for details.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     try:
         async with async_session_factory() as session:
             tool_repo = ToolRepository(session)
@@ -419,24 +184,10 @@ async def register_tool_from_db(mcp: FastMCP, tool: Any, domain: str, transport:
     if not handler_func:
         raise ValueError(f"Handler {tool.handler_name} not found for tool {tool.name}")
 
-    if tool.name == "echo":
-        tool_func = _create_echo_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "calculator_add":
-        tool_func = _create_calculator_add_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "parse_cobol":
-        tool_func = _create_parse_cobol_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "parse_cobol_raw":
-        tool_func = _create_parse_cobol_raw_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "build_ast":
-        tool_func = _create_build_ast_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "build_cfg":
-        tool_func = _create_build_cfg_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "build_dfg":
-        tool_func = _create_build_dfg_tool(handler_func, tool.name, domain, transport)
-    elif tool.name == "build_pdg":
-        tool_func = _create_build_pdg_tool(handler_func, tool.name, domain, transport)
-    else:
-        tool_func = _create_generic_tool(handler_func, tool.name, domain, transport)
+    # Note: General tools (echo, calculator_add) migrated to decorator-based registration (Phase 2)
+    # Note: COBOL tools (parse_cobol, build_ast, build_cfg, build_dfg, build_pdg) migrated (Phase 3)
+    # Remaining tools use generic wrapper
+    tool_func = _create_generic_tool(handler_func, tool.name, domain, transport)
 
     decorated_tool = mcp.tool(name=tool.name, description=tool.description)(tool_func)
 

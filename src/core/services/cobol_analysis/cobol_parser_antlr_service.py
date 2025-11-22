@@ -13,8 +13,8 @@ from antlr4 import CommonTokenStream, FileStream, InputStream
 from antlr4.tree.Tree import TerminalNode
 
 from src.core.models.cobol_analysis_model import Comment, CommentType, SourceLocation
-from src.core.services.antlr_cobol.grammars.Cobol85Lexer import Cobol85Lexer
-from src.core.services.antlr_cobol.grammars.Cobol85Parser import Cobol85Parser
+from src.core.services.cobol_analysis.antlr_cobol.grammars.Cobol85Lexer import Cobol85Lexer
+from src.core.services.cobol_analysis.antlr_cobol.grammars.Cobol85Parser import Cobol85Parser
 
 
 logger = logging.getLogger(__name__)

@@ -126,7 +126,9 @@ def _process_paragraph(
     fallback_target: BasicBlock | ExitNode,
 ) -> None:
     if not paragraph.statements:
-        graph.add_edge(CFGEdge(source=block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL))
+        graph.add_edge(
+            CFGEdge(source=block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL)
+        )
         return
 
     handlers: dict[StatementType, Callable[[int, StatementNode], None]] = {
@@ -167,7 +169,9 @@ def _process_paragraph(
         handler(index, statement)
 
     if not control_encountered:
-        graph.add_edge(CFGEdge(source=block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL))
+        graph.add_edge(
+            CFGEdge(source=block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL)
+        )
 
 
 def _handle_if_statement(
@@ -196,7 +200,9 @@ def _handle_if_statement(
     )
     graph.add_node(then_block)
     graph.add_edge(CFGEdge(source=control_node, target=then_block, edge_type=CFGEdgeType.TRUE))
-    graph.add_edge(CFGEdge(source=then_block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL))
+    graph.add_edge(
+        CFGEdge(source=then_block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL)
+    )
 
     else_statements = statement.attributes.get("else_statements", [])
     if else_statements:
@@ -207,10 +213,14 @@ def _handle_if_statement(
         )
         graph.add_node(else_block)
         graph.add_edge(CFGEdge(source=control_node, target=else_block, edge_type=CFGEdgeType.FALSE))
-        graph.add_edge(CFGEdge(source=else_block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL))
+        graph.add_edge(
+            CFGEdge(source=else_block, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL)
+        )
         return
 
-    graph.add_edge(CFGEdge(source=control_node, target=fallback_target, edge_type=CFGEdgeType.FALSE))
+    graph.add_edge(
+        CFGEdge(source=control_node, target=fallback_target, edge_type=CFGEdgeType.FALSE)
+    )
 
 
 def _handle_perform_statement(
@@ -234,7 +244,9 @@ def _handle_perform_statement(
 
     if not target_name:
         logger.warning("PERFORM statement without target paragraph in %s", paragraph_name)
-        graph.add_edge(CFGEdge(source=control_node, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL))
+        graph.add_edge(
+            CFGEdge(source=control_node, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL)
+        )
         return
 
     target_block = paragraph_blocks.get(target_name)
@@ -244,11 +256,15 @@ def _handle_perform_statement(
             target_name,
             paragraph_name,
         )
-        graph.add_edge(CFGEdge(source=control_node, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL))
+        graph.add_edge(
+            CFGEdge(source=control_node, target=fallback_target, edge_type=CFGEdgeType.SEQUENTIAL)
+        )
         return
 
     graph.add_edge(CFGEdge(source=control_node, target=target_block, edge_type=CFGEdgeType.CALL))
-    graph.add_edge(CFGEdge(source=target_block, target=fallback_target, edge_type=CFGEdgeType.RETURN))
+    graph.add_edge(
+        CFGEdge(source=target_block, target=fallback_target, edge_type=CFGEdgeType.RETURN)
+    )
 
 
 def _handle_goto_statement(
@@ -283,4 +299,3 @@ def _handle_goto_statement(
         return
 
     graph.add_edge(CFGEdge(source=control_node, target=target_block, edge_type=CFGEdgeType.GOTO))
-

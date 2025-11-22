@@ -16,7 +16,7 @@ from src.core.models.cobol_analysis_model import (
     StatementType,
     VariableNode,
 )
-from src.core.services.cfg_builder_service import CFGBuilderError, build_cfg
+from src.core.services.cobol_analysis.cfg_builder_service import CFGBuilderError, build_cfg
 
 
 def _create_program_with_if() -> ProgramNode:

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from src.core.services.ast_builder_service import build_ast
-from src.core.services.tool_handlers_service import (
+from src.core.services.cobol_analysis.ast_builder_service import build_ast
+from src.core.services.cobol_analysis.tool_handlers_service import (
     _serialize_ast_node,
     build_cfg_handler,
     build_dfg_handler,
