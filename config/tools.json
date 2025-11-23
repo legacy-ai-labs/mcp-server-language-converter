@@ -98,6 +98,27 @@
           "handler_name": "analyze_data_flow_handler",
           "category": "system",
           "is_active": true
+        },
+        {
+          "name": "prepare_cobol_for_antlr",
+          "description": "Prepare COBOL source for ANTLR parser by removing unsupported optional paragraphs (AUTHOR, DATE-WRITTEN, etc.)",
+          "handler_name": "prepare_cobol_for_antlr_handler",
+          "category": "preprocessing",
+          "is_active": true
+        },
+        {
+          "name": "resolve_copybooks",
+          "description": "Resolve COPY statements by replacing them with actual copybook content (COBOL preprocessor)",
+          "handler_name": "resolve_copybooks_handler",
+          "category": "preprocessing",
+          "is_active": true
+        },
+        {
+          "name": "batch_resolve_copybooks",
+          "description": "Batch resolve COPY statements for all COBOL files in a directory, renaming originals to .original",
+          "handler_name": "batch_resolve_copybooks_handler",
+          "category": "preprocessing",
+          "is_active": true
         }
       ]
     }

@@ -7,6 +7,7 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     analyze_data_flow_handler,
     analyze_program_system_handler,
     batch_analyze_cobol_directory_handler,
+    batch_resolve_copybooks_handler,
     build_ast_handler,
     build_call_graph_handler,
     build_cfg_handler,
@@ -14,6 +15,8 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     build_pdg_handler,
     parse_cobol_handler,
     parse_cobol_raw_handler,
+    prepare_cobol_for_antlr_handler,
+    resolve_copybooks_handler,
 )
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.tool_registry import register_tool
@@ -396,3 +399,188 @@ async def analyze_data_flow(
     if trace_variable is not None:
         parameters["trace_variable"] = trace_variable
     return analyze_data_flow_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="prepare_cobol_for_antlr",
+    description="Prepare COBOL source for ANTLR parser by removing unsupported optional paragraphs (AUTHOR, DATE-WRITTEN, etc.)",
+)
+async def prepare_cobol_for_antlr(
+    source_code: str | None = None,
+    source_file: str | None = None,
+    output_file: str | None = None,
+) -> dict[str, Any]:
+    """Prepare COBOL source for ANTLR parser by removing unsupported optional paragraphs.
+
+    The ANTLR Cobol85.g4 grammar doesn't support optional IDENTIFICATION DIVISION
+    paragraphs like AUTHOR, DATE-WRITTEN, DATE-COMPILED, INSTALLATION, SECURITY,
+    and REMARKS. This tool removes them to make files compatible with the parser.
+
+    This is typically the first preprocessing step before parsing COBOL files.
+
+    Args:
+        source_code: COBOL source code as string (optional if source_file provided)
+        source_file: Path to COBOL source file (optional if source_code provided)
+        output_file: Optional path to save cleaned file
+
+    Returns:
+        Dictionary containing:
+        - success: Whether cleaning succeeded
+        - cleaned_source: COBOL source with optional paragraphs removed
+        - paragraphs_removed: List of paragraph types that were removed
+        - output_file: Path to saved file (if requested)
+
+    Example:
+        # Clean a file before parsing
+        result = await prepare_cobol_for_antlr(
+            source_file="programs/ACCOUNT-VALIDATOR.cbl",
+            output_file="programs/ACCOUNT-VALIDATOR-CLEAN.cbl"
+        )
+
+        if result['success']:
+            print(f"Removed paragraphs: {result['paragraphs_removed']}")
+            # Now parse the cleaned source
+            parse_result = await parse_cobol(source_code=result['cleaned_source'])
+    """
+    parameters: dict[str, Any] = {}
+    if source_code is not None:
+        parameters["source_code"] = source_code
+    if source_file is not None:
+        parameters["source_file"] = source_file
+    if output_file is not None:
+        parameters["output_file"] = output_file
+    return prepare_cobol_for_antlr_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="resolve_copybooks",
+    description="Resolve COPY statements by replacing them with actual copybook content (COBOL preprocessor)",
+)
+async def resolve_copybooks(
+    source_file: str,
+    copybook_paths: list[str],
+    output_file: str | None = None,
+    keep_markers: bool = True,
+) -> dict[str, Any]:
+    """Resolve COPY/COPYBOOK statements by replacing them with actual copybook content.
+
+    This tool acts as a COBOL preprocessor that expands all COPY statements,
+    generating a new "flattened" file with all copybooks inlined. This is essential
+    for parsing COBOL files that use copybooks, as most parsers cannot resolve
+    COPY statements.
+
+    The resolved file can then be parsed, analyzed, or compiled without requiring
+    access to the original copybook files.
+
+    Args:
+        source_file: Path to COBOL source file with COPY statements
+        copybook_paths: List of directories to search for copybooks
+        output_file: Optional path to save resolved file (if not provided, returns content only)
+        keep_markers: Add comment markers showing copybook boundaries (default: True)
+
+    Returns:
+        Dictionary containing:
+        - success: Whether resolution succeeded
+        - resolved_source: Complete source with COPY statements expanded
+        - copybooks_resolved: List of copybooks that were successfully resolved
+        - copybooks_missing: List of copybooks that couldn't be found
+        - output_file: Path to saved file (if requested)
+        - line_mapping: Original line -> expanded line mapping
+        - original_lines: Number of lines in original file
+        - expanded_lines: Number of lines in expanded file
+
+    Example:
+        # Resolve copybooks for a single file
+        result = await resolve_copybooks(
+            source_file="programs/MAIN-BATCH.cbl",
+            copybook_paths=["copybooks/", "lib/"],
+            output_file="programs/MAIN-BATCH-RESOLVED.cbl"
+        )
+
+        if result['success']:
+            print(f"Resolved {result['total_copybooks']} copybooks")
+            # Now parse the resolved file
+            parse_result = await parse_cobol(source_code=result['resolved_source'])
+    """
+    parameters: dict[str, Any] = {
+        "source_file": source_file,
+        "copybook_paths": copybook_paths,
+        "keep_markers": keep_markers,
+    }
+    if output_file is not None:
+        parameters["output_file"] = output_file
+    return resolve_copybooks_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="batch_resolve_copybooks",
+    description="Batch resolve COPY statements for all COBOL files in a directory, renaming originals to .original",
+)
+async def batch_resolve_copybooks(
+    directory: str,
+    copybook_paths: list[str],
+    file_extensions: list[str] | None = None,
+    recursive: bool = False,
+    keep_markers: bool = True,
+    backup_originals: bool = True,
+) -> dict[str, Any]:
+    """Batch resolve COPY statements for all COBOL files in a directory.
+
+    This tool processes entire directories of COBOL files, expanding all COPY statements
+    and optionally renaming the originals to .original extension. This is the recommended
+    way to prepare a COBOL codebase for parsing and analysis.
+
+    Workflow:
+    1. Finds all COBOL files with COPY statements in the directory
+    2. Resolves copybooks by inserting actual content
+    3. Renames originals to .original extension (if backup_originals=True)
+    4. Saves resolved files with the original names
+
+    Benefits of .original strategy:
+    - Prevents re-processing the same files
+    - Preserves original files for reference
+    - Resolved files become the new "main" files for parsing
+
+    Args:
+        directory: Directory containing COBOL files to process
+        copybook_paths: List of directories to search for copybooks
+        file_extensions: List of extensions to process (default: ['.cbl', '.cob', '.cobol'])
+        recursive: Search subdirectories (default: False)
+        keep_markers: Add copybook boundary markers (default: True)
+        backup_originals: Rename originals to .original (default: True)
+
+    Returns:
+        Dictionary containing:
+        - success: Whether batch processing succeeded
+        - files_processed: List of successfully processed files with details
+        - files_failed: List of files that failed with error messages
+        - summary: Processing summary with totals and statistics
+
+    Example:
+        # Process all COBOL files in a directory
+        result = await batch_resolve_copybooks(
+            directory="programs/",
+            copybook_paths=["copybooks/", "lib/copybooks/"],
+            backup_originals=True  # Rename to .original
+        )
+
+        print(f"Processed {result['summary']['files_processed']} files")
+        print(f"Resolved {result['summary']['total_copybooks_resolved']} copybooks")
+
+        # Now you can parse all the resolved files without COPY statements
+        for file_info in result['files_processed']:
+            parse_result = await parse_cobol(file_path=file_info['file'])
+    """
+    parameters: dict[str, Any] = {
+        "directory": directory,
+        "copybook_paths": copybook_paths,
+        "recursive": recursive,
+        "keep_markers": keep_markers,
+        "backup_originals": backup_originals,
+    }
+    if file_extensions is not None:
+        parameters["file_extensions"] = file_extensions
+    return batch_resolve_copybooks_handler(parameters)

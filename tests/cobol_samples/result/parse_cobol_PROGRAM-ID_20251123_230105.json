@@ -1,0 +1,442 @@
+{
+  "success": true,
+  "ast": {
+    "type": "ProgramNode",
+    "program_name": "PROGRAM-ID",
+    "divisions": [
+      {
+        "type": "DivisionNode",
+        "division_type": "IDENTIFICATION",
+        "sections": [
+          {
+            "type": "SectionNode",
+            "section_name": "PROGRAM-ID",
+            "paragraphs": [
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "PROGRAM-ID",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "program_id": "PROGRAM-ID"
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 1,
+                  "column": 7,
+                  "file_path": null
+                }
+              }
+            ],
+            "location": {
+              "line": 1,
+              "column": 7,
+              "file_path": null
+            }
+          }
+        ],
+        "location": {
+          "line": 1,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "ENVIRONMENT",
+        "sections": [],
+        "location": {
+          "line": 3,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "DATA",
+        "sections": [],
+        "location": {
+          "line": 5,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "PROCEDURE",
+        "sections": [
+          {
+            "type": "SectionNode",
+            "section_name": "PROCEDURE",
+            "paragraphs": [
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "VALIDATE-MAIN",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "EVALUATE",
+                    "attributes": {
+                      "expression": {
+                        "type": "VariableNode",
+                        "variable_name": "LS-DATA-TYPE",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      },
+                      "when_clauses": [
+                        {
+                          "value": "LiteralNode(location=None, children=[], header_comments=[], preceding_comments=[], inline_comment=None, trailing_comments=[], value='CUSTOMER', literal_type='STRING')",
+                          "statements": [
+                            "StatementNode(location=None, children=[], header_comments=[], preceding_comments=[], inline_comment=None, trailing_comments=[], statement_type=<StatementType.PERFORM: 'PERFORM'>, attributes={'target_paragraph': 'VALIDATE-CUSTOMER-ID'})"
+                          ]
+                        },
+                        {
+                          "value": "LiteralNode(location=None, children=[], header_comments=[], preceding_comments=[], inline_comment=None, trailing_comments=[], value='ORDER', literal_type='STRING')",
+                          "statements": [
+                            "StatementNode(location=None, children=[], header_comments=[], preceding_comments=[], inline_comment=None, trailing_comments=[], statement_type=<StatementType.PERFORM: 'PERFORM'>, attributes={'target_paragraph': 'VALIDATE-ORDER-ID'})"
+                          ]
+                        }
+                      ],
+                      "default_statements": [
+                        {
+                          "type": "StatementNode",
+                          "statement_type": "MOVE",
+                          "attributes": {
+                            "source": {
+                              "type": "LiteralNode",
+                              "value": "N",
+                              "literal_type": "STRING",
+                              "location": null
+                            },
+                            "target": {
+                              "type": "VariableNode",
+                              "variable_name": "LS-VALID-FLAG",
+                              "pic_clause": null,
+                              "level_number": null,
+                              "location": null
+                            }
+                          },
+                          "location": null
+                        }
+                      ]
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "PERFORM",
+                    "attributes": {
+                      "target_paragraph": "VALIDATE-CUSTOMER-ID"
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "PERFORM",
+                    "attributes": {
+                      "target_paragraph": "VALIDATE-ORDER-ID"
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "MOVE",
+                    "attributes": {
+                      "source": {
+                        "type": "LiteralNode",
+                        "value": "N",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "LS-VALID-FLAG",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 18,
+                  "column": 7,
+                  "file_path": null
+                }
+              },
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "VALIDATE-CUSTOMER-ID",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "IF",
+                    "attributes": {
+                      "condition": {
+                        "type": "ExpressionNode",
+                        "operator": null,
+                        "left": null,
+                        "right": null,
+                        "value": null,
+                        "location": null
+                      },
+                      "then_statements": [
+                        {
+                          "type": "StatementNode",
+                          "statement_type": "MOVE",
+                          "attributes": {
+                            "source": {
+                              "type": "LiteralNode",
+                              "value": "Y",
+                              "literal_type": "STRING",
+                              "location": null
+                            },
+                            "target": {
+                              "type": "VariableNode",
+                              "variable_name": "LS-VALID-FLAG",
+                              "pic_clause": null,
+                              "level_number": null,
+                              "location": null
+                            }
+                          },
+                          "location": null
+                        }
+                      ],
+                      "else_statements": [
+                        {
+                          "type": "StatementNode",
+                          "statement_type": "MOVE",
+                          "attributes": {
+                            "source": {
+                              "type": "LiteralNode",
+                              "value": "N",
+                              "literal_type": "STRING",
+                              "location": null
+                            },
+                            "target": {
+                              "type": "VariableNode",
+                              "variable_name": "LS-VALID-FLAG",
+                              "pic_clause": null,
+                              "level_number": null,
+                              "location": null
+                            }
+                          },
+                          "location": null
+                        }
+                      ]
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "MOVE",
+                    "attributes": {
+                      "source": {
+                        "type": "LiteralNode",
+                        "value": "Y",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "LS-VALID-FLAG",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "MOVE",
+                    "attributes": {
+                      "source": {
+                        "type": "LiteralNode",
+                        "value": "N",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "LS-VALID-FLAG",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 32,
+                  "column": 7,
+                  "file_path": null
+                }
+              },
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "VALIDATE-ORDER-ID",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "IF",
+                    "attributes": {
+                      "condition": {
+                        "type": "ExpressionNode",
+                        "operator": null,
+                        "left": null,
+                        "right": null,
+                        "value": null,
+                        "location": null
+                      },
+                      "then_statements": [
+                        {
+                          "type": "StatementNode",
+                          "statement_type": "MOVE",
+                          "attributes": {
+                            "source": {
+                              "type": "LiteralNode",
+                              "value": "Y",
+                              "literal_type": "STRING",
+                              "location": null
+                            },
+                            "target": {
+                              "type": "VariableNode",
+                              "variable_name": "LS-VALID-FLAG",
+                              "pic_clause": null,
+                              "level_number": null,
+                              "location": null
+                            }
+                          },
+                          "location": null
+                        }
+                      ],
+                      "else_statements": [
+                        {
+                          "type": "StatementNode",
+                          "statement_type": "MOVE",
+                          "attributes": {
+                            "source": {
+                              "type": "LiteralNode",
+                              "value": "N",
+                              "literal_type": "STRING",
+                              "location": null
+                            },
+                            "target": {
+                              "type": "VariableNode",
+                              "variable_name": "LS-VALID-FLAG",
+                              "pic_clause": null,
+                              "level_number": null,
+                              "location": null
+                            }
+                          },
+                          "location": null
+                        }
+                      ]
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "MOVE",
+                    "attributes": {
+                      "source": {
+                        "type": "LiteralNode",
+                        "value": "Y",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "LS-VALID-FLAG",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "MOVE",
+                    "attributes": {
+                      "source": {
+                        "type": "LiteralNode",
+                        "value": "N",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "LS-VALID-FLAG",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 39,
+                  "column": 7,
+                  "file_path": null
+                }
+              }
+            ],
+            "location": {
+              "line": 14,
+              "column": 7,
+              "file_path": null
+            }
+          }
+        ],
+        "location": {
+          "line": 14,
+          "column": 7,
+          "file_path": null
+        }
+      }
+    ],
+    "location": {
+      "line": 1,
+      "column": 7,
+      "file_path": null
+    }
+  },
+  "program_name": "PROGRAM-ID",
+  "metadata": {
+    "program_info": {
+      "program_id": "PROGRAM-ID",
+      "file_path": "tests/cobol_samples/inter_program_test/programs/VALIDATE-DATA-FINAL.cbl"
+    },
+    "size_metrics": {
+      "division_count": 4
+    },
+    "dependencies": {
+      "calls": [],
+      "copybooks": [],
+      "files": []
+    }
+  }
+}

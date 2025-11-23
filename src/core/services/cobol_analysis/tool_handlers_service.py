@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -55,6 +56,66 @@ logger = logging.getLogger(__name__)
 
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
+
+
+# ============================================================================
+# Metadata extraction helper (minimal implementation)
+# ============================================================================
+
+
+def _extract_metadata_from_ast(ast: ProgramNode, file_path: str | None = None) -> dict[str, Any]:
+    """Extract basic metadata from AST for system analysis.
+
+    This is a minimal implementation that can be enhanced later.
+    Extracts only what's needed for analyze_program_system_handler.
+
+    Args:
+        ast: The program AST
+        file_path: Optional source file path
+
+    Returns:
+        Dictionary with program_info, size_metrics, and dependencies
+    """
+    metadata: dict[str, Any] = {
+        "program_info": {
+            "program_id": ast.program_name,
+            "file_path": file_path,
+        },
+        "size_metrics": {
+            "division_count": len(ast.divisions),
+        },
+        "dependencies": {
+            "calls": [],
+            "copybooks": [],
+            "files": [],
+        },
+    }
+
+    # Walk AST to extract CALL statements and other dependencies
+    # This is a simple recursive walker - can be enhanced later
+    def walk_statements(statements: list[StatementNode]) -> None:
+        for stmt in statements:
+            if stmt.statement_type == StatementType.CALL:
+                # Extract called program from attributes (stored as 'program_name' in AST)
+                target = stmt.attributes.get("program_name") or stmt.attributes.get("target")
+                if target:
+                    metadata["dependencies"]["calls"].append(
+                        {
+                            "target": target,
+                            "location": {
+                                "line": stmt.location.line if stmt.location else 0,
+                            },
+                        }
+                    )
+
+    # Walk through procedure division to find CALL statements
+    for division in ast.divisions:
+        if division.division_type == DivisionType.PROCEDURE:
+            for section in division.sections:
+                for paragraph in section.paragraphs:
+                    walk_statements(paragraph.statements)
+
+    return metadata
 
 
 # ============================================================================
@@ -692,10 +753,14 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         ast = build_ast(parsed_tree, comments)
         ast_dict = _serialize_ast_node(ast)
 
+        # Extract metadata from AST (minimal implementation)
+        metadata = _extract_metadata_from_ast(ast, file_path)
+
         result = {
             "success": True,
             "ast": ast_dict,
             "program_name": ast.program_name,
+            "metadata": metadata,  # Now includes program_info, size_metrics, dependencies
         }
 
         # Save result to file
@@ -2093,6 +2158,550 @@ def analyze_data_flow_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # 
         }
 
 
+def resolve_copybooks_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0915
+    """Resolve COPY/COPYBOOK statements by replacing them with actual copybook content.
+
+    This tool acts as a COBOL preprocessor that expands all COPY statements,
+    generating a new "flattened" file with all copybooks inlined.
+
+    Args:
+        parameters: Dictionary with:
+            - source_file: Path to COBOL source file with COPY statements
+            - copybook_paths: List of directories to search for copybooks
+            - output_file: Optional path to save resolved file
+            - keep_markers: Add comment markers showing copybook boundaries (default: True)
+
+    Returns:
+        Dictionary containing:
+            - success: Whether resolution succeeded
+            - resolved_source: Complete source with COPY statements expanded
+            - copybooks_resolved: List of copybooks that were resolved
+            - copybooks_missing: List of copybooks that couldn't be found
+            - output_file: Path to saved file (if requested)
+            - line_mapping: Original line -> expanded line mapping
+    """
+    try:
+        source_file = parameters.get("source_file")
+        if not source_file:
+            return {
+                "success": False,
+                "error": "source_file is required",
+            }
+
+        source_path = Path(source_file)
+        if not source_path.exists():
+            return {
+                "success": False,
+                "error": f"Source file not found: {source_file}",
+            }
+
+        copybook_paths = parameters.get("copybook_paths", [])
+        output_file = parameters.get("output_file")
+        keep_markers = parameters.get("keep_markers", True)
+
+        # Convert copybook paths to Path objects
+        search_dirs = [Path(p) for p in copybook_paths]
+
+        # Read source file
+        with source_path.open("r") as f:
+            source_lines = f.readlines()
+
+        resolved_lines: list[str] = []
+        copybooks_resolved: list[dict[str, Any]] = []
+        copybooks_missing: list[str] = []
+        line_mapping: dict[int, int] = {}  # original_line -> expanded_line
+
+        current_output_line = 1
+
+        # Process each line
+        for line_num, line in enumerate(source_lines, start=1):
+            stripped = line.strip().upper()
+
+            # Check if this is a COPY statement
+            if stripped.startswith("COPY ") or "COPY " in stripped:
+                # Extract copybook name from COPY statement
+                # Format: COPY COPYBOOK-NAME.
+                copybook_name = _extract_copybook_name(line)
+
+                if copybook_name:
+                    # Search for copybook file
+                    copybook_file = _find_copybook_file(copybook_name, search_dirs)
+
+                    if copybook_file:
+                        # Read copybook content
+                        with copybook_file.open("r") as f:
+                            copybook_content = f.read()
+
+                        # Add marker comment if requested
+                        if keep_markers:
+                            marker_start = (
+                                f"      *> START COPYBOOK: {copybook_name} "
+                                f"(from {copybook_file.name})\n"
+                            )
+                            resolved_lines.append(marker_start)
+                            current_output_line += 1
+
+                        # Add copybook content
+                        copybook_lines = copybook_content.splitlines(keepends=True)
+                        resolved_lines.extend(copybook_lines)
+                        current_output_line += len(copybook_lines)
+
+                        # Add marker comment if requested
+                        if keep_markers:
+                            marker_end = f"      *> END COPYBOOK: {copybook_name}\n"
+                            resolved_lines.append(marker_end)
+                            current_output_line += 1
+
+                        copybooks_resolved.append(
+                            {
+                                "name": copybook_name,
+                                "file": str(copybook_file),
+                                "original_line": line_num,
+                                "expanded_lines": len(copybook_lines),
+                            }
+                        )
+
+                        logger.info(
+                            f"Resolved COPYBOOK '{copybook_name}' from {copybook_file} "
+                            f"({len(copybook_lines)} lines)"
+                        )
+                    else:
+                        # Copybook not found - keep original COPY statement as comment
+                        copybooks_missing.append(copybook_name)
+                        warning_comment = f"      *> WARNING: COPYBOOK NOT FOUND: {copybook_name}\n"
+                        resolved_lines.append(warning_comment)
+                        resolved_lines.append(f"      *> {line}")
+                        current_output_line += 2
+
+                        logger.warning(
+                            f"Copybook '{copybook_name}' not found in search paths: "
+                            f"{[str(p) for p in search_dirs]}"
+                        )
+
+                    # Map original line to output line
+                    line_mapping[line_num] = current_output_line
+                else:
+                    # Couldn't parse COPY statement - keep original
+                    resolved_lines.append(line)
+                    line_mapping[line_num] = current_output_line
+                    current_output_line += 1
+            else:
+                # Regular line - keep as-is
+                resolved_lines.append(line)
+                line_mapping[line_num] = current_output_line
+                current_output_line += 1
+
+        # Join resolved lines
+        resolved_source = "".join(resolved_lines)
+
+        # Save to output file if requested
+        saved_file = None
+        if output_file:
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with output_path.open("w") as f:
+                f.write(resolved_source)
+            saved_file = str(output_path)
+            logger.info(f"Saved resolved COBOL to {saved_file}")
+
+        return {
+            "success": True,
+            "resolved_source": resolved_source,
+            "copybooks_resolved": copybooks_resolved,
+            "copybooks_missing": copybooks_missing,
+            "total_copybooks": len(copybooks_resolved),
+            "missing_count": len(copybooks_missing),
+            "output_file": saved_file,
+            "line_mapping": line_mapping,
+            "original_lines": len(source_lines),
+            "expanded_lines": len(resolved_lines),
+        }
+
+    except Exception as e:
+        logger.exception("Failed to resolve copybooks")
+        return {
+            "success": False,
+            "error": f"Failed to resolve copybooks: {e!s}",
+        }
+
+
+def _extract_copybook_name(copy_line: str) -> str | None:
+    """Extract copybook name from a COPY statement.
+
+    Handles formats like:
+    - COPY COPYBOOK-NAME.
+    - COPY "COPYBOOK-NAME".
+    - COPY 'COPYBOOK-NAME'.
+
+    Args:
+        copy_line: Line containing COPY statement
+
+    Returns:
+        Copybook name or None if not found
+    """
+    # Remove leading spaces and comments
+    line = copy_line.strip()
+    if line.startswith("*"):
+        return None
+
+    # Match COPY statement
+    # Pattern: COPY followed by name (with optional quotes) and optional period
+    pattern = r"COPY\s+['\"]?([A-Za-z0-9\-_]+)['\"]?\s*\.?"
+    match = re.search(pattern, line, re.IGNORECASE)
+
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def prepare_cobol_for_antlr_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Prepare COBOL source for ANTLR parser by removing unsupported optional paragraphs.
+
+    The ANTLR Cobol85.g4 grammar doesn't support optional IDENTIFICATION DIVISION
+    paragraphs like AUTHOR, DATE-WRITTEN, etc. This tool removes them to make
+    files compatible with the parser.
+
+    Args:
+        parameters: Dictionary with:
+            - source_code: COBOL source code as string (optional)
+            - source_file: Path to COBOL source file (optional)
+            - output_file: Path to save cleaned file (optional)
+
+    Returns:
+        Dictionary containing:
+            - success: Whether cleaning succeeded
+            - cleaned_source: COBOL source with optional paragraphs removed
+            - paragraphs_removed: List of paragraph types that were removed
+            - output_file: Path to saved file (if requested)
+    """
+    try:
+        source_code = parameters.get("source_code")
+        source_file = parameters.get("source_file")
+        output_file = parameters.get("output_file")
+
+        if not source_code and not source_file:
+            return {
+                "success": False,
+                "error": "Either 'source_code' or 'source_file' must be provided",
+            }
+
+        # Read source file if provided
+        if source_file:
+            source_path = Path(source_file)
+            if not source_path.exists():
+                return {
+                    "success": False,
+                    "error": f"Source file not found: {source_file}",
+                }
+            with source_path.open("r") as f:
+                source_code = f.read()
+
+        # Ensure source_code is not None (mypy type check)
+        if source_code is None:
+            return {
+                "success": False,
+                "error": "source_code is None after reading file",
+            }
+
+        # Remove optional paragraphs
+        cleaned_source, removed_paragraphs = _remove_optional_paragraphs(source_code)
+
+        # Save to output file if requested
+        saved_file = None
+        if output_file:
+            output_path = Path(output_file)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with output_path.open("w") as f:
+                f.write(cleaned_source)
+            saved_file = str(output_path)
+            logger.info(f"Saved cleaned COBOL to {saved_file}")
+
+        return {
+            "success": True,
+            "cleaned_source": cleaned_source,
+            "paragraphs_removed": removed_paragraphs,
+            "output_file": saved_file,
+        }
+
+    except Exception as e:
+        logger.exception("Failed to prepare COBOL for ANTLR")
+        return {
+            "success": False,
+            "error": f"Failed to prepare COBOL: {e!s}",
+        }
+
+
+def _remove_optional_paragraphs(cobol_source: str) -> tuple[str, list[str]]:
+    """Remove optional identification division paragraphs.
+
+    Removes:
+    - AUTHOR paragraph
+    - DATE-WRITTEN paragraph
+    - DATE-COMPILED paragraph
+    - INSTALLATION paragraph
+    - SECURITY paragraph
+    - REMARKS paragraph
+
+    Args:
+        cobol_source: Original COBOL source code
+
+    Returns:
+        Tuple of (cleaned source code, list of removed paragraph types)
+    """
+    lines = cobol_source.split("\n")
+    cleaned_lines = []
+    skip_line = False
+    removed_paragraphs: list[str] = []
+
+    optional_keywords = [
+        "AUTHOR.",
+        "DATE-WRITTEN.",
+        "DATE-COMPILED.",
+        "INSTALLATION.",
+        "SECURITY.",
+        "REMARKS.",
+    ]
+
+    for line in lines:
+        # Check if this is an optional paragraph header
+        upper_line = line.upper().strip()
+
+        # Check if we found an optional paragraph
+        for keyword in optional_keywords:
+            if keyword in upper_line:
+                skip_line = True
+                # Extract paragraph name (e.g., "AUTHOR" from "AUTHOR.")
+                para_name = keyword.rstrip(".")
+                if para_name not in removed_paragraphs:
+                    removed_paragraphs.append(para_name)
+                break
+
+        # Check if we've reached the next division or another paragraph
+        if any(
+            keyword in upper_line
+            for keyword in [
+                "DATA DIVISION",
+                "ENVIRONMENT DIVISION",
+                "PROCEDURE DIVISION",
+                "PROGRAM-ID.",
+            ]
+        ):
+            skip_line = False
+
+        if not skip_line:
+            cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines), removed_paragraphs
+
+
+def batch_resolve_copybooks_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Batch resolve COPY statements for all COBOL files in a directory.
+
+    This tool:
+    1. Finds all COBOL files with COPY statements
+    2. Resolves copybooks by inserting actual content
+    3. Renames originals to .original extension
+    4. Saves resolved files with the original name
+
+    Args:
+        parameters: Dictionary with:
+            - directory: Directory containing COBOL files
+            - copybook_paths: List of directories to search for copybooks
+            - file_extensions: List of extensions to process (default: ['.cbl', '.cob', '.cobol'])
+            - recursive: Search subdirectories (default: False)
+            - keep_markers: Add copybook boundary markers (default: True)
+            - backup_originals: Rename originals to .original (default: True)
+
+    Returns:
+        Dictionary containing:
+            - success: Whether batch processing succeeded
+            - files_processed: List of successfully processed files
+            - files_failed: List of files that failed
+            - total_files: Total files found
+            - total_copybooks_resolved: Total copybooks expanded
+            - summary: Processing summary
+    """
+    try:
+        directory = parameters.get("directory")
+        if not directory:
+            return {
+                "success": False,
+                "error": "directory is required",
+            }
+
+        dir_path = Path(directory)
+        if not dir_path.exists():
+            return {
+                "success": False,
+                "error": f"Directory not found: {directory}",
+            }
+
+        copybook_paths = parameters.get("copybook_paths", [])
+        file_extensions = parameters.get("file_extensions", [".cbl", ".cob", ".cobol"])
+        recursive = parameters.get("recursive", False)
+        keep_markers = parameters.get("keep_markers", True)
+        backup_originals = parameters.get("backup_originals", True)
+
+        # Find all COBOL files
+        cobol_files: list[Path] = []
+        if recursive:
+            for ext in file_extensions:
+                cobol_files.extend(dir_path.rglob(f"*{ext}"))
+        else:
+            for ext in file_extensions:
+                cobol_files.extend(dir_path.glob(f"*{ext}"))
+
+        # Filter out .original files
+        cobol_files = [f for f in cobol_files if not f.name.endswith(".original")]
+
+        if not cobol_files:
+            return {
+                "success": True,
+                "warning": f"No COBOL files found in {directory}",
+                "files_processed": [],
+                "files_failed": [],
+                "total_files": 0,
+            }
+
+        files_processed: list[dict[str, Any]] = []
+        files_failed: list[dict[str, Any]] = []
+        total_copybooks_resolved = 0
+
+        logger.info(f"Found {len(cobol_files)} COBOL files to process")
+
+        for cobol_file in cobol_files:
+            try:
+                # Check if file has COPY statements
+                with cobol_file.open("r") as f:
+                    content = f.read()
+                    has_copy = "COPY " in content.upper()
+
+                if not has_copy:
+                    logger.info(f"Skipping {cobol_file.name} - no COPY statements")
+                    continue
+
+                logger.info(f"Processing {cobol_file.name}...")
+
+                # Resolve copybooks
+                result = resolve_copybooks_handler(
+                    {
+                        "source_file": str(cobol_file),
+                        "copybook_paths": copybook_paths,
+                        "output_file": None,  # We'll handle output ourselves
+                        "keep_markers": keep_markers,
+                    }
+                )
+
+                if not result.get("success"):
+                    files_failed.append(
+                        {
+                            "file": str(cobol_file),
+                            "error": result.get("error"),
+                        }
+                    )
+                    continue
+
+                # Backup original file if requested
+                if backup_originals:
+                    original_backup = cobol_file.with_suffix(cobol_file.suffix + ".original")
+                    cobol_file.rename(original_backup)
+                    logger.info(f"Backed up original to {original_backup.name}")
+
+                # Write resolved content to original filename
+                with cobol_file.open("w") as f:
+                    f.write(result["resolved_source"])
+
+                files_processed.append(
+                    {
+                        "file": str(cobol_file),
+                        "original_backup": str(original_backup) if backup_originals else None,
+                        "original_lines": result["original_lines"],
+                        "expanded_lines": result["expanded_lines"],
+                        "copybooks_resolved": result["total_copybooks"],
+                        "copybooks_missing": result["missing_count"],
+                        "copybook_details": result["copybooks_resolved"],
+                    }
+                )
+
+                total_copybooks_resolved += result["total_copybooks"]
+
+                logger.info(
+                    f"✓ Processed {cobol_file.name}: "
+                    f"{result['original_lines']} → {result['expanded_lines']} lines, "
+                    f"{result['total_copybooks']} copybooks resolved"
+                )
+
+            except Exception as e:
+                logger.exception(f"Failed to process {cobol_file}")
+                files_failed.append(
+                    {
+                        "file": str(cobol_file),
+                        "error": str(e),
+                    }
+                )
+
+        summary = {
+            "total_files_found": len(cobol_files),
+            "files_with_copy_statements": len(files_processed) + len(files_failed),
+            "files_processed": len(files_processed),
+            "files_failed": len(files_failed),
+            "total_copybooks_resolved": total_copybooks_resolved,
+        }
+
+        return {
+            "success": True,
+            "files_processed": files_processed,
+            "files_failed": files_failed,
+            "summary": summary,
+        }
+
+    except Exception as e:
+        logger.exception("Batch copybook resolution failed")
+        return {
+            "success": False,
+            "error": f"Batch processing failed: {e!s}",
+        }
+
+
+def _find_copybook_file(copybook_name: str, search_dirs: list[Path]) -> Path | None:
+    """Find copybook file in search directories.
+
+    Searches for files with common copybook extensions: .cpy, .CPY, .cbl, .CBL, .copy, .COPY
+
+    Args:
+        copybook_name: Name of copybook to find
+        search_dirs: List of directories to search
+
+    Returns:
+        Path to copybook file or None if not found
+    """
+    # Common copybook extensions
+    extensions = [".cpy", ".CPY", ".cbl", ".CBL", ".copy", ".COPY", ""]
+
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+
+        for ext in extensions:
+            # Try exact name with extension
+            copybook_file = search_dir / f"{copybook_name}{ext}"
+            if copybook_file.exists() and copybook_file.is_file():
+                return copybook_file
+
+            # Try lowercase name with extension
+            copybook_file = search_dir / f"{copybook_name.lower()}{ext}"
+            if copybook_file.exists() and copybook_file.is_file():
+                return copybook_file
+
+            # Try uppercase name with extension
+            copybook_file = search_dir / f"{copybook_name.upper()}{ext}"
+            if copybook_file.exists() and copybook_file.is_file():
+                return copybook_file
+
+    return None
+
+
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "parse_cobol_handler": parse_cobol_handler,
@@ -2106,6 +2715,9 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "build_call_graph_handler": build_call_graph_handler,
     "analyze_copybook_usage_handler": analyze_copybook_usage_handler,
     "analyze_data_flow_handler": analyze_data_flow_handler,
+    "prepare_cobol_for_antlr_handler": prepare_cobol_for_antlr_handler,
+    "resolve_copybooks_handler": resolve_copybooks_handler,
+    "batch_resolve_copybooks_handler": batch_resolve_copybooks_handler,
 }
 
 

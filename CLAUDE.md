@@ -22,13 +22,13 @@ mcp_servers/
 ├── common/                      # Shared infrastructure (NO duplication!)
 │   ├── base_server.py          # FastMCP initialization
 │   ├── tool_registry.py        # Decorator-based tool registration
-│   ├── dynamic_loader.py       # Legacy DB tool loading (deprecated)
+│   ├── config_loader.py        # JSON config file loader
 │   ├── stdio_runner.py         # Generic STDIO transport
 │   └── http_runner.py          # Generic HTTP streaming transport
 │
 ├── mcp_general/                # Domain-specific servers (minimal code)
-│   ├── __main__.py             # 7 lines: run_stdio_server(domain="general")
-│   └── http_main.py            # 7 lines: run_http_server(domain="general")
+│   ├── __main__.py             # 5 lines: run_stdio_server(domain="general")
+│   └── http_main.py            # 5 lines: run_http_server(domain="general")
 │
 ├── mcp_kubernetes/             # Placeholder: Same pattern (not yet implemented)
 ├── mcp_os_commands/            # Placeholder: Same pattern (not yet implemented)
@@ -39,7 +39,7 @@ mcp_servers/
 
 ### Decorator-Based Tool Registration
 
-Tools use **decorator-based registration** with optional database control:
+Tools use **decorator-based registration** with JSON configuration control:
 
 1. **Handler Function** (domain-specific `tool_handlers_service.py`): Pure business logic organized by domain
    - General tools: `src/core/services/general/tool_handlers_service.py`
@@ -67,24 +67,31 @@ Tools use **decorator-based registration** with optional database control:
        return my_tool_handler({"input": input})
    ```
 
-3. **Database Record (Optional)** (`scripts/seed_tools.py`): Runtime enable/disable control
-   ```python
-   ToolCreate(
-       name="my_tool",
-       description="Does X",
-       handler_name="my_tool_handler",
-       category="utility",
-       domain="general",
-       is_active=True,  # Controls whether tool is loaded
-   )
+3. **JSON Configuration** (`config/tools.json`): Runtime enable/disable control
+   ```json
+   {
+     "domains": {
+       "general": {
+         "tools": [
+           {
+             "name": "my_tool",
+             "description": "Does X",
+             "handler_name": "my_tool_handler",
+             "category": "utility",
+             "is_active": true
+           }
+         ]
+       }
+     }
+   }
    ```
 
 **Key benefits**:
 - ✅ Type-safe signatures with IDE autocomplete
 - ✅ No manual wrapper functions needed
-- ✅ Automatic observability tracing via `_wrap_with_observability()`
-- ✅ 2 steps instead of 4 (database record optional)
-- ✅ Database provides runtime control when needed
+- ✅ Automatic observability tracing
+- ✅ Simple 2-step process (handler + decorator)
+- ✅ JSON config provides version-controlled enable/disable
 
 **Observability**: All decorator-based tools are automatically wrapped with observability, which:
 - Records metrics to Prometheus (request counts, latency, errors)
@@ -96,7 +103,7 @@ Tools use **decorator-based registration** with optional database control:
 
 ### Multi-Server Architecture
 
-This application supports **multiple domain-specific servers** (general, kubernetes, os_commands, shopping). Each loads tools filtered by `domain` field from the database.
+This application supports **multiple domain-specific servers** (general, cobol_analysis, kubernetes, os_commands, shopping). Each loads tools filtered by `domain` field from the JSON configuration.
 
 **Current status**: Only `mcp_general` is fully implemented. The other domain servers (`mcp_kubernetes`, `mcp_os_commands`, `mcp_shopping`) are directory placeholders to demonstrate the pattern.
 
@@ -128,22 +135,45 @@ This project includes a specialized domain for **COBOL reverse engineering** tha
 
 **Running COBOL server**:
 ```bash
-# Ensure COBOL tools are seeded in database with domain="cobol_analysis"
+# STDIO mode
 uv run python -m src.mcp_servers.mcp_cobol_analysis
+
+# HTTP mode (port 8003)
+uv run python -m src.mcp_servers.mcp_cobol_analysis.http_main
 ```
 
 This domain showcases how to build domain-specific servers with complex business logic while maintaining the shared infrastructure pattern.
 
-## Tool Model Fields
+## Tool Configuration
 
-Database schema for tools (`src/core/models/tool_model.py:13-34`):
-- `name`: Unique identifier for MCP tool registration
-- `description`: Shown to AI agents/users
-- `handler_name`: Key to lookup function in `TOOL_HANDLERS` registry
-- `category`: Functional grouping (utility, calculation, system)
-- `domain`: Business domain (general, os_commands, kubernetes, shopping)
-- `is_active`: Enable/disable without code changes
-- `parameters_schema`: JSON Schema defining tool parameters (stored but not yet used by dynamic loader)
+Tools are configured via JSON file (`config/tools.json`):
+- `name`: Unique identifier matching the decorated function name
+- `description`: Brief description shown to AI agents/users
+- `handler_name`: Key to lookup business logic function in `TOOL_HANDLERS` registry
+- `category`: Functional grouping (utility, calculation, system, parsing, analysis)
+- `is_active`: Enable/disable tool without code changes (default: true)
+
+**Configuration file structure**:
+```json
+{
+  "version": "1.0",
+  "domains": {
+    "domain_name": {
+      "tools": [
+        {
+          "name": "tool_name",
+          "description": "...",
+          "handler_name": "tool_handler_name",
+          "category": "category_name",
+          "is_active": true
+        }
+      ]
+    }
+  }
+}
+```
+
+**Note**: The database is used ONLY for observability (tracking tool executions), not for tool definitions.
 
 ## Essential Commands
 
@@ -161,25 +191,20 @@ uv remove <package>        # Remove dependency
 # Create database (first time only)
 createdb mcp_server
 
-# Initialize tables
+# Initialize tables (creates tool_executions table for observability)
 uv run python scripts/init_db.py
-
-# Load initial tools
-uv run python scripts/seed_tools.py
 ```
 
-Database must be initialized before starting any MCP server.
+**Note**: Database is used ONLY for observability (tool execution logs). Tool definitions are in `config/tools.json`.
 
 ### Database Management (Helper Script)
 ```bash
-./scripts/db.sh tools           # List all tools
-./scripts/db.sh tools-active    # List active tools only
 ./scripts/db.sh schema          # Show database schema
 ./scripts/db.sh size            # Show database size and record counts
 ./scripts/db.sh reset           # Reset database (WARNING: deletes all data)
 ./scripts/db.sh backup          # Backup database to file
 ./scripts/db.sh restore [file]  # Restore from backup
-./scripts/db.sh query "SELECT ..."  # Run custom SQL
+./scripts/db.sh query "SELECT ..."  # Run custom SQL (useful for querying tool_executions)
 ./scripts/db.sh connect         # Open psql interactive shell
 ```
 
@@ -255,9 +280,9 @@ curl http://localhost:8000/metrics
 ./scripts/db.sh query "SELECT tool_name, COUNT(*) as calls, AVG(duration_ms) as avg_duration FROM tool_executions GROUP BY tool_name;"
 ```
 
-## Adding a New Tool (2-Step Process)
+## Adding a New Tool (3-Step Process)
 
-**Current Approach**: All domains now use decorator-based tool registration for type safety and simplicity.
+**Current Approach**: All domains use decorator-based tool registration with JSON configuration control.
 
 ### Step 1: Create Handler Function
 
@@ -309,39 +334,45 @@ async def my_tool(input: str) -> dict[str, Any]:
     return my_tool_handler({"input": input})
 ```
 
-### Step 3 (Optional): Add Database Record
+### Step 3: Add to JSON Configuration
 
-For runtime enable/disable control, add a database record in `scripts/seed_tools.py`:
+Add the tool to `config/tools.json` for runtime control:
 
-```python
-ToolCreate(
-    name="my_tool",
-    description="Does X with input text",
-    handler_name="my_tool_handler",
-    category="utility",
-    domain="general",
-    is_active=True,  # Controls whether tool is loaded
-)
+```json
+{
+  "domains": {
+    "general": {
+      "tools": [
+        {
+          "name": "my_tool",
+          "description": "Does X with input text",
+          "handler_name": "my_tool_handler",
+          "category": "utility",
+          "is_active": true
+        }
+      ]
+    }
+  }
+}
 ```
 
-**Note**: If no database record exists, the tool will still be registered but cannot be disabled without code changes.
+**Note**: Tools not in `config/tools.json` will not be loaded, even if decorated in code.
 
 ### Deploy
 
 ```bash
-# If you added a database record (optional step 3):
-uv run python scripts/seed_tools.py
+# Edit config/tools.json to add your tool
 
 # Restart server to load new tool
 uv run python -m src.mcp_servers.mcp_general
 ```
 
-**Benefits of New Approach**:
+**Benefits**:
 - ✅ Type-safe signatures with IDE autocomplete
 - ✅ No manual wrapper functions needed
 - ✅ Automatic observability tracing
-- ✅ 2 steps instead of 4
-- ✅ Database still provides runtime control (enable/disable)
+- ✅ Simple 3-step process
+- ✅ JSON config provides version-controlled enable/disable
 
 ## Creating a New Domain Server (14 Lines of Code)
 
@@ -371,9 +402,9 @@ if __name__ == "__main__":
     run_http_server(domain="kubernetes")
 ```
 
-**4. Add tools with `domain="kubernetes"`** in `scripts/seed_tools.py` and create corresponding handlers.
+**4. Add tools** to `config/tools.json` with `domain="kubernetes"` and create corresponding handlers and decorators.
 
-**Done!** The server will automatically load tools with `domain="kubernetes"` from the database.
+**Done!** The server will automatically load tools with `domain="kubernetes"` from the JSON configuration.
 
 ## Services Folder Structure
 
@@ -535,19 +566,19 @@ Based on `.cursor/rules/python.mdc`:
 2. **Never duplicate server code** - use `common/` infrastructure for all domain servers
 3. **UV only** - never pip, pip-tools, or poetry
 4. **Type hints mandatory** - strict mypy enforced
-5. **2 steps per tool**: handler function + decorator registration (DB record optional)
+5. **3 steps per tool**: handler function + decorator registration + JSON config entry
 
 ## Debugging Tools
 
 Tool not working? Check in order:
 1. Handler in domain-specific `tool_handlers_service.py` + registered in `TOOL_HANDLERS`
 2. Decorator-based tool defined in domain-specific `tools.py` (e.g., `mcp_general/tools.py`)
-3. If using database control: tool record exists in DB with `is_active=True` and correct `domain`
+3. Tool entry exists in `config/tools.json` with `is_active: true` and correct `domain`
 4. Check server startup logs for "Loading N tools for domain..."
 5. Check stderr logs (all logging goes there for Claude Desktop)
 6. Verify handler accepts `parameters: dict[str, Any]` and returns `dict[str, Any]`
 
-Use `./scripts/db.sh tools` to verify tool is in database (if using database control).
+Check `config/tools.json` to verify tool is enabled and properly configured.
 
 ## Technology Stack
 

@@ -30,7 +30,6 @@ from src.core.models.cobol_analysis_model import (
     VariableUseNode,
 )
 from src.core.models.tool_execution_model import ToolExecution
-from src.core.models.tool_model import Tool
 
 
 __all__: list[str] = [
@@ -58,7 +57,6 @@ __all__: list[str] = [
     "SourceLocation",
     "StatementNode",
     "StatementType",
-    "Tool",
     "ToolExecution",
     "VariableDefNode",
     "VariableNode",

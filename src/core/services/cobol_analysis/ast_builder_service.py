@@ -625,7 +625,26 @@ def _build_if_else_statement(node: ParseNode) -> StatementNode:
 
 
 def _build_call_statement(node: ParseNode) -> StatementNode:
-    program_name = _find_child_value(node, "PROGRAM_NAME")
+    """Build CALL statement from ANTLR parse tree.
+
+    ANTLR structure:
+    CALL_STATEMENT
+      ├─ CALL: 'CALL'
+      ├─ LITERAL
+      │   └─ NONNUMERICLITERAL: "'PROGRAM-NAME'"
+      ├─ CALLUSINGPHRASE: ...
+      └─ END_CALL: 'END-CALL'
+    """
+    # Extract program name from LITERAL/NONNUMERICLITERAL
+    program_name = None
+    literal_node = _find_child_node(node, "LITERAL")
+    if literal_node:
+        nonnumeric_literal = _find_child_value(literal_node, "NONNUMERICLITERAL")
+        if nonnumeric_literal:
+            # Remove surrounding quotes (e.g., "'PROGRAM'" -> "PROGRAM")
+            program_name = nonnumeric_literal.strip("'\"")
+
+    # Extract parameters from IDENTIFIER nodes
     identifiers = _walk_nodes(node, {"IDENTIFIER_LIST"})
     parameters: list[str] = []
     for identifier_list in identifiers:
@@ -636,6 +655,7 @@ def _build_call_statement(node: ParseNode) -> StatementNode:
                 and isinstance(identifier.value, str)
             ):
                 parameters.append(identifier.value)
+
     return StatementNode(
         statement_type=StatementType.CALL,
         attributes={
