@@ -1077,6 +1077,225 @@ def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+def _process_single_cobol_file(cobol_file: Path) -> dict[str, Any]:
+    """Process a single COBOL file through all analysis stages.
+
+    Args:
+        cobol_file: Path to the COBOL file to process
+
+    Returns:
+        Dictionary with processing results for this file
+    """
+    file_result: dict[str, Any] = {
+        "file_path": str(cobol_file),
+        "success": False,
+        "stages": {},
+    }
+
+    logger.info(f"Processing {cobol_file}")
+
+    # Stage 1: Parse COBOL to AST
+    parse_result = parse_cobol_handler({"file_path": str(cobol_file)})
+    file_result["stages"]["parse"] = {
+        "success": parse_result.get("success", False),
+        "saved_to": parse_result.get("saved_to"),
+    }
+
+    if not parse_result.get("success"):
+        file_result["error"] = f"Parse failed: {parse_result.get('error', 'Unknown error')}"
+        return file_result
+
+    ast = parse_result.get("ast")
+    program_name = parse_result.get("program_name", "unknown")
+
+    # Stage 2: Build CFG
+    cfg_result = build_cfg_handler({"ast": ast})
+    file_result["stages"]["cfg"] = {
+        "success": cfg_result.get("success", False),
+        "node_count": cfg_result.get("node_count"),
+        "edge_count": cfg_result.get("edge_count"),
+        "saved_to": cfg_result.get("saved_to"),
+    }
+
+    if not cfg_result.get("success"):
+        file_result["error"] = f"CFG build failed: {cfg_result.get('error', 'Unknown error')}"
+        return file_result
+
+    cfg = cfg_result.get("cfg")
+
+    # Stage 3: Build DFG
+    dfg_result = build_dfg_handler({"ast": ast, "cfg": cfg})
+    file_result["stages"]["dfg"] = {
+        "success": dfg_result.get("success", False),
+        "node_count": dfg_result.get("node_count"),
+        "edge_count": dfg_result.get("edge_count"),
+        "saved_to": dfg_result.get("saved_to"),
+    }
+
+    if not dfg_result.get("success"):
+        file_result["error"] = f"DFG build failed: {dfg_result.get('error', 'Unknown error')}"
+        return file_result
+
+    dfg = dfg_result.get("dfg")
+
+    # Stage 4: Build PDG
+    pdg_result = build_pdg_handler({"ast": ast, "cfg": cfg, "dfg": dfg})
+    file_result["stages"]["pdg"] = {
+        "success": pdg_result.get("success", False),
+        "node_count": pdg_result.get("node_count"),
+        "edge_count": pdg_result.get("edge_count"),
+        "control_edge_count": pdg_result.get("control_edge_count"),
+        "data_edge_count": pdg_result.get("data_edge_count"),
+        "saved_to": pdg_result.get("saved_to"),
+    }
+
+    if not pdg_result.get("success"):
+        file_result["error"] = f"PDG build failed: {pdg_result.get('error', 'Unknown error')}"
+        return file_result
+
+    # All stages succeeded
+    file_result["success"] = True
+    file_result["program_name"] = program_name
+    return file_result
+
+
+def _find_cobol_files(root_path: Path, file_extensions: list[str]) -> list[Path]:
+    """Find all COBOL files in directory and subdirectories.
+
+    Args:
+        root_path: Root directory to search
+        file_extensions: List of file extensions to search for
+
+    Returns:
+        List of paths to COBOL files found
+    """
+    cobol_files: list[Path] = []
+    for ext in file_extensions:
+        cobol_files.extend(root_path.rglob(f"*{ext}"))
+    return cobol_files
+
+
+def _save_batch_summary(summary: dict[str, Any], output_path: Path) -> dict[str, Any]:
+    """Save batch processing summary to JSON file.
+
+    Args:
+        summary: Summary dictionary to save
+        output_path: Directory to save summary file in
+
+    Returns:
+        Updated summary with saved file path
+    """
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    summary_file = output_path / f"batch_summary_{timestamp}.json"
+    with summary_file.open("w") as f:
+        json.dump(summary, f, indent=2, default=str)
+    summary["summary_saved_to"] = str(summary_file)
+    return summary
+
+
+def batch_analyze_cobol_directory_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Batch analyze all COBOL files in a directory and its subdirectories.
+
+    For each COBOL file found, this handler will:
+    1. Parse the file to generate AST
+    2. Build Control Flow Graph (CFG)
+    3. Build Data Flow Graph (DFG)
+    4. Build Program Dependency Graph (PDG)
+    5. Save all results to JSON files
+
+    Args:
+        parameters: Handler parameters containing:
+            - directory_path: Root directory to scan for COBOL files
+            - file_extensions: Optional list of file extensions (default: ['.cbl', '.cob', '.cobol'])
+            - output_directory: Optional output directory for results (default: tests/cobol_samples/result)
+
+    Returns:
+        Dictionary with batch processing summary
+    """
+    directory_path = parameters.get("directory_path")
+    file_extensions = parameters.get("file_extensions", [".cbl", ".cob", ".cobol"])
+    output_directory = parameters.get("output_directory", "tests/cobol_samples/result")
+
+    if not directory_path:
+        return {"success": False, "error": "directory_path is required"}
+
+    try:
+        root_path = Path(directory_path)
+        if not root_path.exists():
+            return {"success": False, "error": f"Directory not found: {directory_path}"}
+
+        if not root_path.is_dir():
+            return {"success": False, "error": f"Path is not a directory: {directory_path}"}
+
+        # Ensure output directory exists
+        output_path = Path(output_directory)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # Find all COBOL files
+        cobol_files = _find_cobol_files(root_path, file_extensions)
+
+        if not cobol_files:
+            return {
+                "success": True,
+                "message": f"No COBOL files found in {directory_path}",
+                "files_processed": 0,
+                "files_succeeded": 0,
+                "files_failed": 0,
+                "results": [],
+            }
+
+        logger.info(f"Found {len(cobol_files)} COBOL files to process")
+
+        # Process each file
+        results = []
+        files_succeeded = 0
+        files_failed = 0
+
+        for cobol_file in cobol_files:
+            try:
+                file_result = _process_single_cobol_file(cobol_file)
+                if file_result["success"]:
+                    files_succeeded += 1
+                else:
+                    files_failed += 1
+                results.append(file_result)
+            except Exception as e:
+                logger.exception(f"Failed to process {cobol_file}")
+                results.append(
+                    {
+                        "file_path": str(cobol_file),
+                        "success": False,
+                        "error": str(e),
+                        "stages": {},
+                    }
+                )
+                files_failed += 1
+
+        # Create and save summary
+        summary = {
+            "success": True,
+            "directory": str(root_path),
+            "files_found": len(cobol_files),
+            "files_processed": len(results),
+            "files_succeeded": files_succeeded,
+            "files_failed": files_failed,
+            "output_directory": str(output_path),
+            "results": results,
+        }
+
+        summary = _save_batch_summary(summary, output_path)
+
+        logger.info(
+            f"Batch processing complete: {files_succeeded} succeeded, {files_failed} failed"
+        )
+
+        return summary
+
+    except Exception as e:
+        logger.exception("Batch processing failed")
+        return {"success": False, "error": str(e)}
+
+
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "parse_cobol_handler": parse_cobol_handler,
@@ -1085,6 +1304,7 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "build_cfg_handler": build_cfg_handler,
     "build_dfg_handler": build_dfg_handler,
     "build_pdg_handler": build_pdg_handler,
+    "batch_analyze_cobol_directory_handler": batch_analyze_cobol_directory_handler,
 }
 
 

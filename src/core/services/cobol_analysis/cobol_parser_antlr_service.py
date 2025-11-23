@@ -85,7 +85,11 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
     """
     # Terminal node (leaf) - has token value
     if isinstance(tree, TerminalNode):
-        symbol = tree.getSymbol()
+        # ANTLR4 Python TerminalNode has getSymbol() method, but type stubs may not include it
+        get_symbol = getattr(tree, "getSymbol", None)
+        if get_symbol is None:
+            raise ValueError("TerminalNode has no getSymbol method")
+        symbol = get_symbol()
         token_type = (
             parser.symbolicNames[symbol.type]
             if symbol.type < len(parser.symbolicNames)

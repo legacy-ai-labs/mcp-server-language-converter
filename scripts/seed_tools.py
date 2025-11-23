@@ -181,6 +181,33 @@ INITIAL_TOOLS = [
         domain="cobol_analysis",
         is_active=True,
     ),
+    ToolCreate(
+        name="batch_analyze_cobol_directory",
+        description="Batch analyze all COBOL files in a directory and subdirectories. For each file, generates AST, CFG, DFG, and PDG with results saved as JSON files.",
+        handler_name="batch_analyze_cobol_directory_handler",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "directory_path": {
+                    "type": "string",
+                    "description": "Root directory to scan for COBOL files",
+                },
+                "file_extensions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of file extensions to search for (default: ['.cbl', '.cob', '.cobol'])",
+                },
+                "output_directory": {
+                    "type": "string",
+                    "description": "Output directory for results (default: tests/cobol_samples/result)",
+                },
+            },
+            "required": ["directory_path"],
+        },
+        category="batch_processing",
+        domain="cobol_analysis",
+        is_active=True,
+    ),
 ]
 
 

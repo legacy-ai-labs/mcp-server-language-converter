@@ -3,6 +3,7 @@
 from typing import Any
 
 from src.core.services.cobol_analysis.tool_handlers_service import (
+    batch_analyze_cobol_directory_handler,
     build_ast_handler,
     build_cfg_handler,
     build_dfg_handler,
@@ -155,3 +156,47 @@ async def build_pdg(
         Dictionary with success status, PDG structure, and dependency information
     """
     return build_pdg_handler({"ast": ast, "cfg": cfg, "dfg": dfg})
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="batch_analyze_cobol_directory",
+    description="Batch analyze all COBOL files in a directory and subdirectories",
+)
+async def batch_analyze_cobol_directory(
+    directory_path: str,
+    file_extensions: list[str] | None = None,
+    output_directory: str | None = None,
+) -> dict[str, Any]:
+    """Batch analyze all COBOL files in a directory and its subdirectories.
+
+    For each COBOL file found, this tool will:
+    1. Parse the file to generate AST
+    2. Build Control Flow Graph (CFG)
+    3. Build Data Flow Graph (DFG)
+    4. Build Program Dependency Graph (PDG)
+    5. Save all results to JSON files
+
+    This is useful for analyzing large COBOL codebases, generating comprehensive
+    documentation, or preparing data for migration/modernization projects.
+
+    Args:
+        directory_path: Root directory to scan for COBOL files
+        file_extensions: Optional list of file extensions to search for
+                        (default: ['.cbl', '.cob', '.cobol'])
+        output_directory: Optional output directory for results
+                         (default: tests/cobol_samples/result)
+
+    Returns:
+        Dictionary with batch processing summary including:
+        - Total files found and processed
+        - Success/failure counts
+        - Per-file results with stage-by-stage status
+        - Paths to all saved analysis files
+    """
+    parameters: dict[str, Any] = {"directory_path": directory_path}
+    if file_extensions is not None:
+        parameters["file_extensions"] = file_extensions
+    if output_directory is not None:
+        parameters["output_directory"] = output_directory
+    return batch_analyze_cobol_directory_handler(parameters)
