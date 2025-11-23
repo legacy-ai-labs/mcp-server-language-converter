@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -554,16 +555,12 @@ def _serialize_cfg_node(node: CFGNode) -> dict[str, Any]:
         "label": node.label,
         "location": _serialize_source_location(node.location),
     }
-    if hasattr(node, "statements"):
+    if isinstance(node, BasicBlock):
         base["statements"] = [_serialize_ast_node(stmt) for stmt in node.statements]
         base["node_type"] = "BasicBlock"
-    elif hasattr(node, "control_type"):
+    elif isinstance(node, ControlFlowNode):
         base["control_type"] = node.control_type
-        base["condition"] = (
-            _serialize_ast_node(node.condition)
-            if hasattr(node, "condition") and node.condition
-            else None
-        )
+        base["condition"] = _serialize_ast_node(node.condition) if node.condition else None
         base["target_paragraph"] = getattr(node, "target_paragraph", None)
         base["node_type"] = "ControlFlowNode"
     elif node.node_id == "entry":
@@ -592,8 +589,10 @@ def _serialize_dfg_node(node: DFGNode) -> dict[str, Any]:
         "variable_name": node.variable_name,
         "location": _serialize_source_location(node.location),
     }
-    if hasattr(node, "statement") and node.statement:
-        base["statement"] = _serialize_ast_node(node.statement)
+    if hasattr(node, "statement"):
+        statement = getattr(node, "statement", None)
+        if statement:
+            base["statement"] = _serialize_ast_node(statement)
     if hasattr(node, "context"):
         base["context"] = getattr(node, "context", "")
     if hasattr(node, "transformation_type"):
@@ -1206,8 +1205,8 @@ def batch_analyze_cobol_directory_handler(parameters: dict[str, Any]) -> dict[st
     Args:
         parameters: Handler parameters containing:
             - directory_path: Root directory to scan for COBOL files
-            - file_extensions: Optional list of file extensions (default: ['.cbl', '.cob', '.cobol'])
-            - output_directory: Optional output directory for results (default: tests/cobol_samples/result)
+            - file_extensions: Optional list of extensions (default: ['.cbl', '.cob', '.cobol'])
+            - output_directory: Optional output dir for results (default: tests/cobol_samples/result)
 
     Returns:
         Dictionary with batch processing summary
@@ -1296,6 +1295,804 @@ def batch_analyze_cobol_directory_handler(parameters: dict[str, Any]) -> dict[st
         return {"success": False, "error": str(e)}
 
 
+def analyze_program_system_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
+    """Analyze relationships across multiple COBOL programs to build a system-level graph.
+
+    This tool performs comprehensive inter-program analysis to identify:
+    - CALL relationships between programs
+    - Shared COPYBOOK/COPY dependencies
+    - Data flow through parameters (BY VALUE/REFERENCE)
+    - Program entry/exit points
+    - External file dependencies
+
+    Args:
+        parameters: Dictionary with:
+            - directory_path: Root directory containing COBOL files
+            - file_extensions: Optional list of extensions (default: ['.cbl', '.cob', '.cobol'])
+            - include_inactive: Include commented-out relationships (default: False)
+            - max_depth: Maximum directory depth to scan (default: None for unlimited)
+
+    Returns:
+        Dictionary containing:
+            - programs: List of program metadata
+            - call_graph: Call relationships between programs
+            - copybook_usage: Copybook dependency matrix
+            - data_flows: Parameter flow information
+            - system_metrics: Overall system complexity metrics
+    """
+    try:
+        # Extract parameters
+        directory_path = parameters.get("directory_path")
+        if not directory_path:
+            return {
+                "success": False,
+                "error": "directory_path is required",
+            }
+
+        directory = Path(directory_path)
+        if not directory.exists():
+            return {
+                "success": False,
+                "error": f"Directory not found: {directory_path}",
+            }
+
+        file_extensions = parameters.get("file_extensions", [".cbl", ".cob", ".cobol"])
+        # include_inactive = parameters.get("include_inactive", False)  # Reserved for future use
+        max_depth = parameters.get("max_depth")
+
+        # Data structures for system analysis
+        programs = {}  # program_id -> program_info
+        call_graph = defaultdict(list)  # caller -> list of callees
+        copybook_usage = defaultdict(set)  # copybook -> set of programs using it
+        data_flows = []  # List of parameter flow records
+        external_files = defaultdict(set)  # file -> set of programs using it
+
+        # Find all COBOL files
+        pattern = "**/*" if max_depth is None else "*" * min(max_depth, 10) + "/*"
+        cobol_files: list[Path] = []
+        for ext in file_extensions:
+            cobol_files.extend(directory.glob(f"{pattern}{ext}"))
+
+        if not cobol_files:
+            return {
+                "success": True,
+                "warning": f"No COBOL files found in {directory_path}",
+                "programs": [],
+                "call_graph": {},
+                "copybook_usage": {},
+                "data_flows": [],
+                "system_metrics": {},
+            }
+
+        # Analyze each COBOL file
+        for file_path in cobol_files:
+            try:
+                # Parse the file
+                parse_result = parse_cobol_handler({"file_path": str(file_path)})
+
+                if not parse_result.get("success"):
+                    continue
+
+                # ast = parse_result.get("ast")  # Reserved for future AST analysis
+                metadata = parse_result.get("metadata", {})
+
+                # Extract program ID
+                program_id = metadata.get("program_info", {}).get("program_id")
+                if not program_id:
+                    # Try to extract from filename if not in metadata
+                    program_id = file_path.stem.upper()
+
+                # Store program information
+                programs[program_id] = {
+                    "file_path": str(file_path),
+                    "program_id": program_id,
+                    "size_metrics": metadata.get("size_metrics", {}),
+                    "dependencies": [],
+                    "callers": [],
+                    "callees": [],
+                    "copybooks": [],
+                    "external_files": [],
+                }
+
+                # Extract dependencies from metadata
+                dependencies = metadata.get("dependencies", {})
+
+                # Process CALL statements
+                for call in dependencies.get("calls", []):
+                    called_program = call.get("target")
+                    if called_program:
+                        call_graph[program_id].append(called_program)
+                        programs[program_id]["callees"].append(called_program)
+
+                        # Track parameter flow
+                        if call.get("parameters"):
+                            data_flows.append(
+                                {
+                                    "from": program_id,
+                                    "to": called_program,
+                                    "parameters": call.get("parameters"),
+                                    "type": "CALL",
+                                }
+                            )
+
+                # Process COPY statements
+                for copybook in dependencies.get("copybooks", []):
+                    copybook_name = copybook.get("name")
+                    if copybook_name:
+                        copybook_usage[copybook_name].add(program_id)
+                        programs[program_id]["copybooks"].append(copybook_name)
+
+                # Process file references
+                for file_ref in dependencies.get("files", []):
+                    file_name = file_ref.get("name")
+                    if file_name:
+                        external_files[file_name].add(program_id)
+                        programs[program_id]["external_files"].append(file_name)
+
+            except Exception as e:
+                # Log error but continue processing other files
+                logger.warning(f"Error analyzing {file_path}: {e}")
+                continue
+
+        # Build reverse call graph (callers)
+        for caller, callees in call_graph.items():
+            for callee in callees:
+                if callee in programs:
+                    programs[callee]["callers"].append(caller)
+
+        # Calculate system metrics
+        total_programs = len(programs)
+        total_calls = sum(len(callees) for callees in call_graph.values())
+        total_copybooks = len(copybook_usage)
+
+        # Identify isolated programs (no calls in or out)
+        isolated_programs = [
+            pid for pid, info in programs.items() if not info["callers"] and not info["callees"]
+        ]
+
+        # Identify entry points (called by no one)
+        entry_points = [
+            pid for pid, info in programs.items() if not info["callers"] and info["callees"]
+        ]
+
+        # Calculate complexity metrics
+        max_fan_out = max((len(info["callees"]) for info in programs.values()), default=0)
+        max_fan_in = max((len(info["callers"]) for info in programs.values()), default=0)
+
+        system_metrics = {
+            "total_programs": total_programs,
+            "total_relationships": total_calls,
+            "total_copybooks": total_copybooks,
+            "total_external_files": len(external_files),
+            "isolated_programs": len(isolated_programs),
+            "entry_points": len(entry_points),
+            "max_fan_out": max_fan_out,
+            "max_fan_in": max_fan_in,
+            "average_dependencies": total_calls / total_programs if total_programs > 0 else 0,
+        }
+
+        return {
+            "success": True,
+            "programs": programs,
+            "call_graph": {k: list(v) for k, v in call_graph.items()},
+            "copybook_usage": {k: list(v) for k, v in copybook_usage.items()},
+            "data_flows": data_flows,
+            "external_files": {k: list(v) for k, v in external_files.items()},
+            "system_metrics": system_metrics,
+            "entry_points": entry_points,
+            "isolated_programs": isolated_programs,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"System analysis failed: {e!s}",
+        }
+
+
+def build_call_graph_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0915
+    """Build a call graph showing CALL relationships between COBOL programs.
+
+    This tool creates a directed graph of program calls, useful for:
+    - Understanding program dependencies
+    - Identifying entry points and dead code
+    - Impact analysis for changes
+    - Detecting circular dependencies
+
+    Args:
+        parameters: Dictionary with:
+            - programs: Dictionary of program information from analyze_program_system
+            - call_graph: Raw call relationships
+            - output_format: Graph format (dict, dot, json, mermaid) (default: dict)
+            - include_metrics: Include graph metrics (default: True)
+
+    Returns:
+        Dictionary containing:
+            - nodes: List of program nodes with attributes
+            - edges: List of call edges with attributes
+            - metrics: Graph-level metrics (cycles, depth, components)
+            - visualization: Graph in requested format
+    """
+    try:
+        programs = parameters.get("programs", {})
+        call_graph = parameters.get("call_graph", {})
+        output_format = parameters.get("output_format", "dict")
+        include_metrics = parameters.get("include_metrics", True)
+
+        if not programs and not call_graph:
+            return {
+                "success": False,
+                "error": "Either programs or call_graph must be provided",
+            }
+
+        # Build nodes list
+        nodes = []
+        for program_id, info in programs.items():
+            node = {
+                "id": program_id,
+                "label": program_id,
+                "type": "program",
+                "metrics": {
+                    "fan_in": len(info.get("callers", [])),
+                    "fan_out": len(info.get("callees", [])),
+                    "size": info.get("size_metrics", {}).get("total_lines", 0),
+                },
+                "attributes": {
+                    "file_path": info.get("file_path"),
+                    "is_entry_point": len(info.get("callers", [])) == 0,
+                    "is_leaf": len(info.get("callees", [])) == 0,
+                },
+            }
+            nodes.append(node)
+
+        # Build edges list
+        edges = []
+        edge_id = 0
+        for caller, callees in call_graph.items():
+            for callee in callees:
+                edge = {
+                    "id": edge_id,
+                    "source": caller,
+                    "target": callee,
+                    "type": "calls",
+                    "weight": 1,  # Could be enhanced with call frequency if available
+                }
+                edges.append(edge)
+                edge_id += 1
+
+        # Calculate metrics if requested
+        metrics = {}
+        if include_metrics:
+            # Detect cycles using DFS
+            def find_cycles() -> list[list[str]]:
+                cycles: list[list[str]] = []
+                visited: set[str] = set()
+                rec_stack: set[str] = set()
+
+                def dfs(node: str, path: list[str]) -> bool:
+                    visited.add(node)
+                    rec_stack.add(node)
+                    path.append(node)
+
+                    for neighbor in call_graph.get(node, []):
+                        if neighbor not in visited:
+                            if dfs(neighbor, path.copy()):
+                                return True
+                        elif neighbor in rec_stack:
+                            # Found a cycle
+                            cycle_start = path.index(neighbor)
+                            cycles.append([*path[cycle_start:], neighbor])
+
+                    rec_stack.remove(node)
+                    return False
+
+                for node in programs:
+                    if node not in visited:
+                        dfs(node, [])
+
+                return cycles
+
+            cycles = find_cycles()
+
+            # Find strongly connected components
+            def find_components() -> list[list[str]]:
+                # Tarjan's algorithm for SCCs
+                index_counter = [0]
+                stack: list[str] = []
+                lowlinks: dict[str, int] = {}
+                index: dict[str, int] = {}
+                on_stack: dict[str, bool] = {}
+                components: list[list[str]] = []
+
+                def strongconnect(v: str) -> None:
+                    index[v] = index_counter[0]
+                    lowlinks[v] = index_counter[0]
+                    index_counter[0] += 1
+                    stack.append(v)
+                    on_stack[v] = True
+
+                    for w in call_graph.get(v, []):
+                        if w not in index:
+                            strongconnect(w)
+                            lowlinks[v] = min(lowlinks[v], lowlinks[w])
+                        elif on_stack.get(w, False):
+                            lowlinks[v] = min(lowlinks[v], index[w])
+
+                    if lowlinks[v] == index[v]:
+                        component = []
+                        while True:
+                            w = stack.pop()
+                            on_stack[w] = False
+                            component.append(w)
+                            if w == v:
+                                break
+                        components.append(component)
+
+                for v in programs:
+                    if v not in index:
+                        strongconnect(v)
+
+                return components
+
+            components = find_components()
+
+            metrics = {
+                "total_nodes": len(nodes),
+                "total_edges": len(edges),
+                "has_cycles": len(cycles) > 0,
+                "cycle_count": len(cycles),
+                "cycles": cycles,
+                "strongly_connected_components": len(components),
+                "largest_component_size": max(len(c) for c in components) if components else 0,
+                "density": len(edges) / (len(nodes) * (len(nodes) - 1)) if len(nodes) > 1 else 0,
+            }
+
+        # Generate visualization in requested format
+        visualization = None
+        if output_format == "dot":
+            # Generate Graphviz DOT format
+            dot_lines = ["digraph CallGraph {"]
+            dot_lines.append("  rankdir=TB;")
+            dot_lines.append("  node [shape=box];")
+
+            for node in nodes:
+                attrs = []
+                if node["attributes"]["is_entry_point"]:
+                    attrs.append("style=filled,fillcolor=lightgreen")
+                elif node["attributes"]["is_leaf"]:
+                    attrs.append("style=filled,fillcolor=lightblue")
+
+                attr_str = f'[{",".join(attrs)}]' if attrs else ""
+                dot_lines.append(f'  "{node["id"]}" {attr_str};')
+
+            for edge in edges:
+                dot_lines.append(f'  "{edge["source"]}" -> "{edge["target"]}";')
+
+            dot_lines.append("}")
+            visualization = "\n".join(dot_lines)
+
+        elif output_format == "mermaid":
+            # Generate Mermaid diagram format
+            mermaid_lines = ["graph TD"]
+
+            for node in nodes:
+                shape = "([" if node["attributes"]["is_entry_point"] else "["
+                shape_end = "])" if node["attributes"]["is_entry_point"] else "]"
+                mermaid_lines.append(f'  {node["id"]}{shape}{node["label"]}{shape_end}')
+
+            for edge in edges:
+                mermaid_lines.append(f'  {edge["source"]} --> {edge["target"]}')
+
+            visualization = "\n".join(mermaid_lines)
+
+        return {
+            "success": True,
+            "nodes": nodes,
+            "edges": edges,
+            "metrics": metrics,
+            "visualization": visualization,
+            "format": output_format,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to build call graph: {e!s}",
+        }
+
+
+def analyze_copybook_usage_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Analyze COPYBOOK usage patterns across COBOL programs.
+
+    This tool identifies:
+    - Which programs use which copybooks
+    - Shared copybook dependencies
+    - Copybook impact analysis (which programs affected by copybook changes)
+    - Unused copybooks
+    - Most frequently used copybooks
+
+    Args:
+        parameters: Dictionary with:
+            - copybook_usage: Dictionary of copybook -> programs mapping
+            - programs: Optional program information dictionary
+            - include_recommendations: Generate optimization recommendations (default: True)
+
+    Returns:
+        Dictionary containing:
+            - copybooks: List of copybook analysis records
+            - usage_matrix: Programs vs copybooks matrix
+            - impact_analysis: Programs affected by each copybook
+            - recommendations: Suggested optimizations
+    """
+    try:
+        copybook_usage = parameters.get("copybook_usage", {})
+        programs = parameters.get("programs", {})
+        include_recommendations = parameters.get("include_recommendations", True)
+
+        if not copybook_usage:
+            return {
+                "success": True,
+                "warning": "No copybook usage data provided",
+                "copybooks": [],
+                "usage_matrix": {},
+                "impact_analysis": {},
+                "recommendations": [],
+            }
+
+        # Analyze each copybook
+        copybooks = []
+        for copybook_name, using_programs in copybook_usage.items():
+            copybook_info = {
+                "name": copybook_name,
+                "usage_count": len(using_programs),
+                "used_by": list(using_programs),
+                "usage_percentage": len(using_programs) / len(programs) * 100 if programs else 0,
+                "is_shared": len(using_programs) > 1,
+                "is_heavily_used": len(using_programs) > 5,  # Threshold can be adjusted
+            }
+            copybooks.append(copybook_info)
+
+        # Sort by usage count
+        copybooks.sort(key=lambda x: x["usage_count"], reverse=True)
+
+        # Build usage matrix (programs vs copybooks)
+        usage_matrix: dict[str, list[str]] = {}
+        all_programs = set()
+
+        for copybook_name, using_programs in copybook_usage.items():
+            all_programs.update(using_programs)
+            for program in using_programs:
+                if program not in usage_matrix:
+                    usage_matrix[program] = []
+                usage_matrix[program].append(copybook_name)
+
+        # Impact analysis - reverse mapping for change impact
+        impact_analysis = {}
+        for copybook in copybooks:
+            impact_analysis[copybook["name"]] = {
+                "directly_affected": copybook["used_by"],
+                "affected_count": copybook["usage_count"],
+                "risk_level": "HIGH"
+                if copybook["usage_count"] > 10
+                else "MEDIUM"
+                if copybook["usage_count"] > 5
+                else "LOW",
+                "change_complexity": "Complex"
+                if copybook["is_heavily_used"]
+                else "Moderate"
+                if copybook["is_shared"]
+                else "Simple",
+            }
+
+        # Generate recommendations if requested
+        recommendations = []
+        if include_recommendations:
+            # Find potential consolidation candidates
+            single_use_copybooks = [c for c in copybooks if c["usage_count"] == 1]
+            if single_use_copybooks:
+                recommendations.append(
+                    {
+                        "type": "CONSOLIDATION",
+                        "priority": "LOW",
+                        "description": (
+                            f"Consider consolidating {len(single_use_copybooks)} single-use copybooks"
+                        ),
+                        "copybooks": [c["name"] for c in single_use_copybooks[:5]],  # Show first 5
+                    }
+                )
+
+            # Find heavily shared copybooks that might need refactoring
+            heavily_shared = [c for c in copybooks if c["usage_count"] > 10]
+            if heavily_shared:
+                recommendations.append(
+                    {
+                        "type": "REFACTORING",
+                        "priority": "MEDIUM",
+                        "description": f"{len(heavily_shared)} copybooks are used by >10 programs",
+                        "copybooks": [c["name"] for c in heavily_shared],
+                        "suggestion": "Consider breaking down into smaller, more focused copybooks",
+                    }
+                )
+
+            # Find programs with too many copybook dependencies
+            heavy_users = [
+                (prog, copies)
+                for prog, copies in usage_matrix.items()
+                if len(copies) > 15  # Threshold can be adjusted
+            ]
+            if heavy_users:
+                recommendations.append(
+                    {
+                        "type": "DEPENDENCY_REDUCTION",
+                        "priority": "HIGH",
+                        "description": f"{len(heavy_users)} programs have >15 copybook dependencies",
+                        "programs": [prog for prog, _ in heavy_users[:5]],  # Show first 5
+                        "suggestion": "Review for potential consolidation or modularization",
+                    }
+                )
+
+        # Calculate summary statistics
+        stats = {
+            "total_copybooks": len(copybooks),
+            "total_relationships": sum(c["usage_count"] for c in copybooks),
+            "average_usage": (
+                sum(c["usage_count"] for c in copybooks) / len(copybooks) if copybooks else 0
+            ),
+            "max_usage": max((c["usage_count"] for c in copybooks), default=0),
+            "single_use_count": len(single_use_copybooks) if include_recommendations else 0,
+            "shared_count": len([c for c in copybooks if c["is_shared"]]),
+        }
+
+        return {
+            "success": True,
+            "copybooks": copybooks,
+            "usage_matrix": usage_matrix,
+            "impact_analysis": impact_analysis,
+            "recommendations": recommendations,
+            "statistics": stats,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to analyze copybook usage: {e!s}",
+        }
+
+
+def analyze_data_flow_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912, PLR0915
+    """Analyze data flow through program parameters (BY VALUE/REFERENCE).
+
+    This tool tracks how data flows between programs through CALL parameters,
+    identifying:
+    - Parameter passing patterns (BY VALUE vs BY REFERENCE)
+    - Data dependencies between programs
+    - Potential data integrity issues
+    - Parameter type mismatches
+
+    Args:
+        parameters: Dictionary with:
+            - data_flows: List of data flow records from analyze_program_system
+            - programs: Optional program information
+            - trace_variable: Optional specific variable to trace through the system
+
+    Returns:
+        Dictionary containing:
+            - flows: Analyzed data flow records
+            - chains: Data flow chains showing multi-hop flows
+            - warnings: Potential issues detected
+            - variable_usage: Usage patterns for traced variables
+    """
+    try:
+        data_flows = parameters.get("data_flows", [])
+        programs = parameters.get("programs", {})
+        trace_variable = parameters.get("trace_variable")
+
+        if not data_flows:
+            return {
+                "success": True,
+                "warning": "No data flow information provided",
+                "flows": [],
+                "chains": [],
+                "warnings": [],
+                "variable_usage": {},
+            }
+
+        # Analyze each flow
+        analyzed_flows = []
+        parameter_types: dict[str, list[dict[str, Any]]] = {}  # Track parameter types across calls
+
+        for flow in data_flows:
+            analyzed = {
+                "from": flow.get("from"),
+                "to": flow.get("to"),
+                "type": flow.get("type", "CALL"),
+                "parameters": [],
+            }
+
+            # Analyze each parameter
+            for param in flow.get("parameters", []):
+                param_info = {
+                    "name": param.get("name"),
+                    "passing_mode": param.get("mode", "BY REFERENCE"),  # COBOL default
+                    "data_type": param.get("type"),
+                    "size": param.get("size"),
+                    "is_modified": param.get("mode") == "BY REFERENCE",
+                }
+                analyzed["parameters"].append(param_info)
+
+                # Track parameter types for mismatch detection
+                param_key = f"{flow['to']}.{param.get('name')}"
+                if param_key not in parameter_types:
+                    parameter_types[param_key] = []
+                parameter_types[param_key].append(
+                    {
+                        "caller": flow["from"],
+                        "type": param.get("type"),
+                        "size": param.get("size"),
+                    }
+                )
+
+            analyzed_flows.append(analyzed)
+
+        # Build data flow chains (trace multi-hop flows)
+        chains = []
+        if trace_variable:
+            # Trace specific variable through the system
+            def trace_flow(
+                variable: str, start_program: str, visited: set[str] | None = None
+            ) -> list[str]:
+                if visited is None:
+                    visited = set()
+
+                if start_program in visited:
+                    return []  # Avoid cycles
+
+                visited.add(start_program)
+                chain = [start_program]
+
+                # Find outgoing flows from this program
+                for flow in analyzed_flows:
+                    if flow["from"] == start_program:
+                        for param in flow["parameters"]:
+                            if param["name"] == variable:
+                                # Found flow of this variable
+                                sub_chain = trace_flow(variable, flow["to"], visited.copy())
+                                if sub_chain:
+                                    return chain + sub_chain
+                                else:
+                                    return [*chain, flow["to"]]
+
+                return chain
+
+            # Trace from all entry points
+            entry_points = [pid for pid, info in programs.items() if not info.get("callers")]
+
+            for entry in entry_points:
+                chain = trace_flow(trace_variable, entry)
+                if len(chain) > 1:
+                    chains.append(
+                        {
+                            "variable": trace_variable,
+                            "start": entry,
+                            "path": chain,
+                            "length": len(chain),
+                        }
+                    )
+
+        # Detect warnings and potential issues
+        warnings: list[dict[str, Any]] = []
+
+        # Check for parameter type mismatches
+        for param_key, callers in parameter_types.items():
+            if len(callers) > 1:
+                types = {c["type"] for c in callers if c["type"]}
+                sizes = {c["size"] for c in callers if c["size"]}
+
+                if len(types) > 1 or len(sizes) > 1:
+                    warnings.append(
+                        {
+                            "type": "PARAMETER_MISMATCH",
+                            "severity": "HIGH",
+                            "parameter": param_key,
+                            "callers": [c["caller"] for c in callers],
+                            "details": f"Inconsistent types: {types}, sizes: {sizes}",
+                        }
+                    )
+
+        # Check for excessive parameter passing
+        for flow in analyzed_flows:
+            if len(flow["parameters"]) > 10:
+                warnings.append(
+                    {
+                        "type": "EXCESSIVE_PARAMETERS",
+                        "severity": "MEDIUM",
+                        "from": flow["from"],
+                        "to": flow["to"],
+                        "parameter_count": len(flow["parameters"]),
+                        "suggestion": "Consider using a data structure or reducing parameters",
+                    }
+                )
+
+        # Analyze BY REFERENCE usage for potential side effects
+        by_reference_flows = []
+        for flow in analyzed_flows:
+            ref_params = [p for p in flow["parameters"] if p["is_modified"]]
+            if ref_params:
+                by_reference_flows.append(
+                    {
+                        "from": flow["from"],
+                        "to": flow["to"],
+                        "modified_params": [p["name"] for p in ref_params],
+                        "count": len(ref_params),
+                    }
+                )
+
+                if len(ref_params) > 5:
+                    warnings.append(
+                        {
+                            "type": "EXCESSIVE_SIDE_EFFECTS",
+                            "severity": "MEDIUM",
+                            "from": flow["from"],
+                            "to": flow["to"],
+                            "parameter_count": len(ref_params),
+                            "suggestion": "Many BY REFERENCE parameters may cause side effects",
+                        }
+                    )
+
+        # Build variable usage summary
+        variable_usage: dict[str, dict[str, Any]] = {}
+        for flow in analyzed_flows:
+            for param in flow["parameters"]:
+                var_name = param["name"]
+                if var_name:
+                    if var_name not in variable_usage:
+                        variable_usage[var_name] = {
+                            "occurrences": 0,
+                            "programs": set(),
+                            "by_value_count": 0,
+                            "by_reference_count": 0,
+                        }
+
+                    var_info = variable_usage[var_name]
+                    var_info["occurrences"] += 1
+                    var_info["programs"].add(flow["from"])
+                    var_info["programs"].add(flow["to"])
+
+                    if param["passing_mode"] == "BY VALUE":
+                        var_info["by_value_count"] += 1
+                    else:
+                        var_info["by_reference_count"] += 1
+
+        # Convert sets to lists for JSON serialization
+        for _var_name, var_info in variable_usage.items():
+            var_info["programs"] = list(var_info["programs"])
+
+        # Calculate statistics
+        stats = {
+            "total_flows": len(analyzed_flows),
+            "total_parameters": sum(len(f["parameters"]) for f in analyzed_flows),
+            "by_reference_flows": len(by_reference_flows),
+            "unique_variables": len(variable_usage),
+            "warnings_count": len(warnings),
+        }
+
+        return {
+            "success": True,
+            "flows": analyzed_flows,
+            "chains": chains,
+            "warnings": warnings,
+            "variable_usage": variable_usage,
+            "by_reference_summary": by_reference_flows,
+            "statistics": stats,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Failed to analyze data flow: {e!s}",
+        }
+
+
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "parse_cobol_handler": parse_cobol_handler,
@@ -1305,6 +2102,10 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "build_dfg_handler": build_dfg_handler,
     "build_pdg_handler": build_pdg_handler,
     "batch_analyze_cobol_directory_handler": batch_analyze_cobol_directory_handler,
+    "analyze_program_system_handler": analyze_program_system_handler,
+    "build_call_graph_handler": build_call_graph_handler,
+    "analyze_copybook_usage_handler": analyze_copybook_usage_handler,
+    "analyze_data_flow_handler": analyze_data_flow_handler,
 }
 
 

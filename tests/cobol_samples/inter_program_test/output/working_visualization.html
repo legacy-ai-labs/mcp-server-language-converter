@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COBOL Program Relationships - Working Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2d3748;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        #metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .metric {
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .metric-value.warning { color: #f6ad55; }
+        .metric-value.error { color: #fc8181; }
+        .metric-value.success { color: #48bb78; }
+
+        #main-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #cy {
+            flex: 1;
+            background: white;
+            margin: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        #sidebar {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            margin: 20px 20px 20px 0;
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        button:hover { opacity: 0.9; }
+
+        #node-info {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .legend h3 {
+            font-size: 14px;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+            color: #4a5568;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>COBOL Program Relationships - Working Visualization</h1>
+        <div id="metrics">
+            <div class="metric">
+                <div class="metric-label">Programs</div>
+                <div class="metric-value" id="total-programs">10</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Relationships</div>
+                <div class="metric-value" id="total-relationships">15</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Copybooks</div>
+                <div class="metric-value" id="total-copybooks">3</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Entry Points</div>
+                <div class="metric-value success" id="entry-points">1</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Isolated Programs</div>
+                <div class="metric-value warning" id="isolated-programs">0</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Circular Dependencies</div>
+                <div class="metric-value error" id="circular-deps">1</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-container">
+        <div id="cy"></div>
+        <div id="sidebar">
+            <div id="controls">
+                <button onclick="resetView()">Reset View</button>
+                <button onclick="fitView()">Fit to Screen</button>
+                <button onclick="changeLayout('breadthfirst')">Tree Layout</button>
+                <button onclick="changeLayout('circle')">Circle Layout</button>
+                <button onclick="changeLayout('grid')">Grid Layout</button>
+                <button onclick="highlightCycles()">Highlight Cycles</button>
+            </div>
+
+            <div class="legend">
+                <h3>Node Types</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #48bb78;"></div>
+                    <span>Entry Point (MAIN-BATCH)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4299e1;"></div>
+                    <span>Normal Program</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fc8181;"></div>
+                    <span>Circular Dependency (DB-ACCESS ↔ AUDIT-LOG)</span>
+                </div>
+            </div>
+
+            <div id="node-info">
+                <h3>Program Details</h3>
+                <p>Click on a program to see details</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // EMBEDDED DATA - No external file loading needed!
+        const analysisData = {
+            "programs": {
+                "CUSTOMER_MGMT": {
+                    "callees": ["VALIDATE_DATA", "AUDIT_LOG", "DB_ACCESS"],
+                    "callers": ["MAIN_BATCH"],
+                    "copybooks": ["DB-CONFIG", "CUSTOMER-REC"]
+                },
+                "DB_ACCESS": {
+                    "callees": ["AUDIT_LOG"],
+                    "callers": ["CUSTOMER_MGMT", "INVENTORY_CHK", "AUDIT_LOG", "PAYMENT_PROC"],
+                    "copybooks": ["DB-CONFIG", "CUSTOMER-REC"]
+                },
+                "INVENTORY_CHK": {
+                    "callees": ["DB_ACCESS"],
+                    "callers": ["ORDER_PROCESS"],
+                    "copybooks": ["DB-CONFIG"]
+                },
+                "AUDIT_LOG": {
+                    "callees": ["DB_ACCESS"],
+                    "callers": ["CUSTOMER_MGMT", "DB_ACCESS"],
+                    "copybooks": ["DB-CONFIG"]
+                },
+                "UTILITY_FUNCS": {
+                    "callees": [],
+                    "callers": ["ORDER_PROCESS", "REPORT_GEN", "MAIN_BATCH"],
+                    "copybooks": ["COMMON-DEFS"]
+                },
+                "PAYMENT_PROC": {
+                    "callees": ["DB_ACCESS"],
+                    "callers": ["ORDER_PROCESS"],
+                    "copybooks": ["COMMON-DEFS"]
+                },
+                "VALIDATE_DATA": {
+                    "callees": [],
+                    "callers": ["CUSTOMER_MGMT"],
+                    "copybooks": ["COMMON-DEFS"]
+                },
+                "ORDER_PROCESS": {
+                    "callees": ["INVENTORY_CHK", "PAYMENT_PROC", "UTILITY_FUNCS"],
+                    "callers": ["MAIN_BATCH"],
+                    "copybooks": ["COMMON-DEFS"]
+                },
+                "REPORT_GEN": {
+                    "callees": ["UTILITY_FUNCS"],
+                    "callers": ["MAIN_BATCH"],
+                    "copybooks": ["CUSTOMER-REC", "COMMON-DEFS"]
+                },
+                "MAIN_BATCH": {
+                    "callees": ["CUSTOMER_MGMT", "ORDER_PROCESS", "REPORT_GEN", "UTILITY_FUNCS"],
+                    "callers": [],
+                    "copybooks": ["COMMON-DEFS"]
+                }
+            },
+            "call_graph": {
+                "CUSTOMER_MGMT": ["VALIDATE_DATA", "AUDIT_LOG", "DB_ACCESS"],
+                "DB_ACCESS": ["AUDIT_LOG"],
+                "INVENTORY_CHK": ["DB_ACCESS"],
+                "AUDIT_LOG": ["DB_ACCESS"],
+                "PAYMENT_PROC": ["DB_ACCESS"],
+                "ORDER_PROCESS": ["INVENTORY_CHK", "PAYMENT_PROC", "UTILITY_FUNCS"],
+                "REPORT_GEN": ["UTILITY_FUNCS"],
+                "MAIN_BATCH": ["CUSTOMER_MGMT", "ORDER_PROCESS", "REPORT_GEN", "UTILITY_FUNCS"]
+            },
+            "entry_points": ["MAIN_BATCH"],
+            "isolated_programs": []
+        };
+
+        let cy;
+        let cycleEdges = new Set();
+
+        // Initialize visualization on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing with embedded data:', analysisData);
+            initializeVisualization();
+        });
+
+        function initializeVisualization() {
+            // Create graph elements
+            const elements = createGraphElements();
+
+            // Initialize Cytoscape
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(label)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'background-color': '#4299e1',
+                            'color': '#fff',
+                            'text-outline-color': '#4299e1',
+                            'text-outline-width': 2,
+                            'font-size': '12px',
+                            'width': 60,
+                            'height': 60,
+                            'border-width': 3,
+                            'border-color': '#fff'
+                        }
+                    },
+                    {
+                        selector: 'node[type="entry"]',
+                        style: {
+                            'background-color': '#48bb78',
+                            'text-outline-color': '#48bb78',
+                            'width': 80,
+                            'height': 80,
+                            'font-weight': 'bold',
+                            'font-size': '14px'
+                        }
+                    },
+                    {
+                        selector: 'node[type="cycle"]',
+                        style: {
+                            'background-color': '#fc8181',
+                            'text-outline-color': '#fc8181',
+                            'border-color': '#e53e3e'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#cbd5e0',
+                            'target-arrow-color': '#cbd5e0',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'arrow-scale': 1.2
+                        }
+                    },
+                    {
+                        selector: 'edge.cycle-edge',
+                        style: {
+                            'line-color': '#fc8181',
+                            'target-arrow-color': '#fc8181',
+                            'width': 3,
+                            'z-index': 100
+                        }
+                    },
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'border-width': 5,
+                            'border-color': '#764ba2',
+                            'overlay-color': '#764ba2',
+                            'overlay-opacity': 0.1,
+                            'overlay-padding': 10
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'breadthfirst',
+                    directed: true,
+                    spacingFactor: 1.75,
+                    padding: 50
+                }
+            });
+
+            // Node click handler
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                const nodeId = node.data('id');
+                const programData = analysisData.programs[nodeId];
+
+                document.getElementById('node-info').innerHTML = `
+                    <h3>${node.data('label')}</h3>
+                    <p><strong>Type:</strong> ${node.data('type')}</p>
+                    <p><strong>Calls:</strong> ${programData.callees.join(', ') || 'None'}</p>
+                    <p><strong>Called by:</strong> ${programData.callers.join(', ') || 'None'}</p>
+                    <p><strong>Copybooks:</strong> ${programData.copybooks.join(', ') || 'None'}</p>
+                    ${node.data('type') === 'cycle' ? '<p style="color: #fc8181;"><strong>⚠️ Part of circular dependency</strong></p>' : ''}
+                `;
+            });
+
+            console.log('Visualization initialized with', cy.nodes().length, 'nodes and', cy.edges().length, 'edges');
+        }
+
+        function createGraphElements() {
+            const nodes = [];
+            const edges = [];
+
+            // Programs in the circular dependency
+            const cyclePrograms = new Set(['DB_ACCESS', 'AUDIT_LOG']);
+
+            // Create nodes
+            Object.keys(analysisData.programs).forEach(progId => {
+                let type = 'normal';
+                if (analysisData.entry_points.includes(progId)) {
+                    type = 'entry';
+                } else if (cyclePrograms.has(progId)) {
+                    type = 'cycle';
+                }
+
+                nodes.push({
+                    data: {
+                        id: progId,
+                        label: progId.replace(/_/g, '-'),
+                        type: type
+                    }
+                });
+            });
+
+            // Create edges
+            Object.entries(analysisData.call_graph).forEach(([source, targets]) => {
+                targets.forEach(target => {
+                    const edgeId = `${source}-${target}`;
+                    const isCycleEdge = (source === 'DB_ACCESS' && target === 'AUDIT_LOG') ||
+                                       (source === 'AUDIT_LOG' && target === 'DB_ACCESS');
+
+                    edges.push({
+                        data: {
+                            id: edgeId,
+                            source: source,
+                            target: target
+                        },
+                        classes: isCycleEdge ? 'cycle-edge' : ''
+                    });
+
+                    if (isCycleEdge) {
+                        cycleEdges.add(edgeId);
+                    }
+                });
+            });
+
+            return [...nodes, ...edges];
+        }
+
+        function resetView() {
+            cy.reset();
+        }
+
+        function fitView() {
+            cy.fit();
+        }
+
+        function changeLayout(layoutName) {
+            const layouts = {
+                'breadthfirst': {
+                    name: 'breadthfirst',
+                    directed: true,
+                    spacingFactor: 1.75,
+                    padding: 50
+                },
+                'circle': {
+                    name: 'circle',
+                    padding: 50
+                },
+                'grid': {
+                    name: 'grid',
+                    rows: 3,
+                    padding: 50
+                }
+            };
+
+            cy.layout(layouts[layoutName]).run();
+        }
+
+        function highlightCycles() {
+            // Toggle cycle edge highlighting
+            cycleEdges.forEach(edgeId => {
+                const edge = cy.getElementById(edgeId);
+                if (edge.hasClass('cycle-edge')) {
+                    edge.removeClass('cycle-edge');
+                } else {
+                    edge.addClass('cycle-edge');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

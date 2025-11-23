@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "description": "MCP Server Language Converter - Tool Configuration",
+  "domains": {
+    "general": {
+      "tools": [
+        {
+          "name": "echo",
+          "description": "Echo back the provided text",
+          "handler_name": "echo_handler",
+          "category": "utility",
+          "is_active": true
+        },
+        {
+          "name": "calculator_add",
+          "description": "Add two numbers together",
+          "handler_name": "calculator_add_handler",
+          "category": "calculation",
+          "is_active": true
+        }
+      ]
+    },
+    "cobol_analysis": {
+      "tools": [
+        {
+          "name": "parse_cobol",
+          "description": "Parse COBOL source code into Abstract Syntax Tree (AST)",
+          "handler_name": "parse_cobol_handler",
+          "category": "parsing",
+          "is_active": true
+        },
+        {
+          "name": "parse_cobol_raw",
+          "description": "Parse COBOL source code into raw ParseNode (parse tree)",
+          "handler_name": "parse_cobol_raw_handler",
+          "category": "parsing",
+          "is_active": true
+        },
+        {
+          "name": "build_ast",
+          "description": "Build Abstract Syntax Tree (AST) from ParseNode",
+          "handler_name": "build_ast_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "build_cfg",
+          "description": "Build Control Flow Graph (CFG) from AST",
+          "handler_name": "build_cfg_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "build_dfg",
+          "description": "Build Data Flow Graph (DFG) from AST and CFG",
+          "handler_name": "build_dfg_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "build_pdg",
+          "description": "Build Program Dependency Graph (PDG) from AST, CFG, and DFG",
+          "handler_name": "build_pdg_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "batch_analyze_cobol_directory",
+          "description": "Batch analyze all COBOL files in a directory and subdirectories",
+          "handler_name": "batch_analyze_cobol_directory_handler",
+          "category": "batch",
+          "is_active": true
+        },
+        {
+          "name": "analyze_program_system",
+          "description": "Analyze relationships across multiple COBOL programs to build a system graph",
+          "handler_name": "analyze_program_system_handler",
+          "category": "system",
+          "is_active": true
+        },
+        {
+          "name": "build_call_graph",
+          "description": "Build a call graph showing CALL relationships between COBOL programs",
+          "handler_name": "build_call_graph_handler",
+          "category": "system",
+          "is_active": true
+        },
+        {
+          "name": "analyze_copybook_usage",
+          "description": "Analyze COPYBOOK usage patterns across COBOL programs",
+          "handler_name": "analyze_copybook_usage_handler",
+          "category": "system",
+          "is_active": true
+        },
+        {
+          "name": "analyze_data_flow",
+          "description": "Analyze data flow through program parameters (BY VALUE/REFERENCE)",
+          "handler_name": "analyze_data_flow_handler",
+          "category": "system",
+          "is_active": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,507 @@
+{
+  "success": true,
+  "programs": {
+    "CUSTOMER_MGMT": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT.cbl",
+      "program_id": "CUSTOMER_MGMT",
+      "type": "PROGRAM",
+      "callees": [
+        "VALIDATE_DATA",
+        "AUDIT_LOG",
+        "DB_ACCESS"
+      ],
+      "callers": [
+        "MAIN_BATCH"
+      ],
+      "copybooks": [
+        "DB-CONFIG",
+        "CUSTOMER-REC"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "DB_ACCESS": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/DB-ACCESS.cbl",
+      "program_id": "DB_ACCESS",
+      "type": "PROGRAM",
+      "callees": [
+        "AUDIT_LOG"
+      ],
+      "callers": [
+        "CUSTOMER_MGMT",
+        "INVENTORY_CHK",
+        "AUDIT_LOG",
+        "PAYMENT_PROC"
+      ],
+      "copybooks": [
+        "DB-CONFIG",
+        "CUSTOMER-REC"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "INVENTORY_CHK": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/INVENTORY-CHK.cbl",
+      "program_id": "INVENTORY_CHK",
+      "type": "PROGRAM",
+      "callees": [
+        "DB_ACCESS"
+      ],
+      "callers": [
+        "ORDER_PROCESS"
+      ],
+      "copybooks": [
+        "DB-CONFIG"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "AUDIT_LOG": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/AUDIT-LOG.cbl",
+      "program_id": "AUDIT_LOG",
+      "type": "PROGRAM",
+      "callees": [
+        "DB_ACCESS"
+      ],
+      "callers": [
+        "CUSTOMER_MGMT",
+        "DB_ACCESS"
+      ],
+      "copybooks": [
+        "DB-CONFIG"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "UTILITY_FUNCS": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/UTILITY-FUNCS.cbl",
+      "program_id": "UTILITY_FUNCS",
+      "type": "PROGRAM",
+      "callees": [],
+      "callers": [
+        "ORDER_PROCESS",
+        "REPORT_GEN",
+        "MAIN_BATCH"
+      ],
+      "copybooks": [
+        "COMMON-DEFS"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "PAYMENT_PROC": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/PAYMENT-PROC.cbl",
+      "program_id": "PAYMENT_PROC",
+      "type": "PROGRAM",
+      "callees": [
+        "DB_ACCESS"
+      ],
+      "callers": [
+        "ORDER_PROCESS"
+      ],
+      "copybooks": [
+        "COMMON-DEFS"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "VALIDATE_DATA": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/VALIDATE-DATA.cbl",
+      "program_id": "VALIDATE_DATA",
+      "type": "PROGRAM",
+      "callees": [],
+      "callers": [
+        "CUSTOMER_MGMT"
+      ],
+      "copybooks": [
+        "COMMON-DEFS"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "ORDER_PROCESS": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/ORDER-PROCESS.cbl",
+      "program_id": "ORDER_PROCESS",
+      "type": "PROGRAM",
+      "callees": [
+        "INVENTORY_CHK",
+        "PAYMENT_PROC",
+        "UTILITY_FUNCS"
+      ],
+      "callers": [
+        "MAIN_BATCH"
+      ],
+      "copybooks": [
+        "COMMON-DEFS"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "REPORT_GEN": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/REPORT-GEN.cbl",
+      "program_id": "REPORT_GEN",
+      "type": "PROGRAM",
+      "callees": [
+        "UTILITY_FUNCS"
+      ],
+      "callers": [
+        "MAIN_BATCH"
+      ],
+      "copybooks": [
+        "CUSTOMER-REC",
+        "COMMON-DEFS"
+      ],
+      "has_linkage": true,
+      "entry_point": false
+    },
+    "MAIN_BATCH": {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/MAIN-BATCH.cbl",
+      "program_id": "MAIN_BATCH",
+      "type": "BATCH",
+      "callees": [
+        "CUSTOMER_MGMT",
+        "ORDER_PROCESS",
+        "REPORT_GEN",
+        "UTILITY_FUNCS"
+      ],
+      "callers": [],
+      "copybooks": [
+        "COMMON-DEFS"
+      ],
+      "has_linkage": false,
+      "entry_point": true
+    }
+  },
+  "call_graph": {
+    "CUSTOMER_MGMT": [
+      "VALIDATE_DATA",
+      "AUDIT_LOG",
+      "DB_ACCESS"
+    ],
+    "DB_ACCESS": [
+      "AUDIT_LOG"
+    ],
+    "INVENTORY_CHK": [
+      "DB_ACCESS"
+    ],
+    "AUDIT_LOG": [
+      "DB_ACCESS"
+    ],
+    "PAYMENT_PROC": [
+      "DB_ACCESS"
+    ],
+    "ORDER_PROCESS": [
+      "INVENTORY_CHK",
+      "PAYMENT_PROC",
+      "UTILITY_FUNCS"
+    ],
+    "REPORT_GEN": [
+      "UTILITY_FUNCS"
+    ],
+    "MAIN_BATCH": [
+      "CUSTOMER_MGMT",
+      "ORDER_PROCESS",
+      "REPORT_GEN",
+      "UTILITY_FUNCS"
+    ]
+  },
+  "copybook_usage": {
+    "CUSTOMER-REC": [
+      "CUSTOMER_MGMT",
+      "DB_ACCESS",
+      "REPORT_GEN"
+    ],
+    "DB-CONFIG": [
+      "CUSTOMER_MGMT",
+      "DB_ACCESS",
+      "INVENTORY_CHK",
+      "AUDIT_LOG"
+    ],
+    "COMMON-DEFS": [
+      "UTILITY_FUNCS",
+      "PAYMENT_PROC",
+      "VALIDATE_DATA",
+      "ORDER_PROCESS",
+      "REPORT_GEN",
+      "MAIN_BATCH"
+    ]
+  },
+  "data_flows": [
+    {
+      "from": "CUSTOMER_MGMT",
+      "to": "VALIDATE_DATA",
+      "parameters": [
+        {
+          "name": "VALUE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-CUSTOMER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-VALIDATION-FLAG",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "CUSTOMER_MGMT",
+      "to": "DB_ACCESS",
+      "parameters": [
+        {
+          "name": "WS-DB-OPERATION",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-CUSTOMER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "CUSTOMER-RECORD",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "CUSTOMER_MGMT",
+      "to": "AUDIT_LOG",
+      "parameters": [
+        {
+          "name": "VALUE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-CUSTOMER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "DB_ACCESS",
+      "to": "AUDIT_LOG",
+      "parameters": [
+        {
+          "name": "VALUE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-KEY-VALUE",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "INVENTORY_CHK",
+      "to": "DB_ACCESS",
+      "parameters": [
+        {
+          "name": "WS-DB-OPERATION",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-ORDER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-STOCK-LEVEL",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "AUDIT_LOG",
+      "to": "DB_ACCESS",
+      "parameters": [
+        {
+          "name": "WS-DB-OPERATION",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-AUDIT-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-AUDIT-RECORD",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "PAYMENT_PROC",
+      "to": "DB_ACCESS",
+      "parameters": [
+        {
+          "name": "WS-DB-OPERATION",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-ORDER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-DB-RESULT",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "ORDER_PROCESS",
+      "to": "INVENTORY_CHK",
+      "parameters": [
+        {
+          "name": "WS-ITEM-CODE",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "LS-ORDER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-INVENTORY-STATUS",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "ORDER_PROCESS",
+      "to": "PAYMENT_PROC",
+      "parameters": [
+        {
+          "name": "LS-ORDER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-AMOUNT",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-PAYMENT-STATUS",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "ORDER_PROCESS",
+      "to": "UTILITY_FUNCS",
+      "parameters": [
+        {
+          "name": "VALUE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "REPORT_GEN",
+      "to": "UTILITY_FUNCS",
+      "parameters": [
+        {
+          "name": "VALUE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "MAIN_BATCH",
+      "to": "CUSTOMER_MGMT",
+      "parameters": [
+        {
+          "name": "WS-CUSTOMER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-PROCESS-STATUS",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-ERROR-CODE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "MAIN_BATCH",
+      "to": "ORDER_PROCESS",
+      "parameters": [
+        {
+          "name": "WS-ORDER-ID",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-PROCESS-STATUS",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "MAIN_BATCH",
+      "to": "REPORT_GEN",
+      "parameters": [
+        {
+          "name": "WS-REPORT-TYPE",
+          "mode": "VALUE",
+          "type": "UNKNOWN"
+        },
+        {
+          "name": "WS-PROCESS-STATUS",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    },
+    {
+      "from": "MAIN_BATCH",
+      "to": "UTILITY_FUNCS",
+      "parameters": [
+        {
+          "name": "VALUE",
+          "mode": "REFERENCE",
+          "type": "UNKNOWN"
+        }
+      ]
+    }
+  ],
+  "entry_points": [
+    "MAIN_BATCH"
+  ],
+  "isolated_programs": [],
+  "system_metrics": {
+    "total_programs": 10,
+    "total_relationships": 15,
+    "total_copybooks": 3,
+    "entry_point_count": 1,
+    "isolated_count": 0
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "cobol-analysis": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "-m",
+        "src.mcp_servers.mcp_cobol_analysis"
+      ],
+      "env": {},
+      "description": "COBOL Analysis MCP Server - Reverse engineering tools for COBOL programs",
+      "tools": [
+        "parse_cobol",
+        "parse_cobol_raw",
+        "build_ast",
+        "build_cfg",
+        "build_dfg",
+        "build_pdg",
+        "batch_analyze_cobol_directory",
+        "analyze_program_system",
+        "build_call_graph",
+        "analyze_copybook_usage",
+        "analyze_data_flow"
+      ]
+    }
+  }
+}
