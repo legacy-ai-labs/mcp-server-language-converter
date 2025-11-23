@@ -96,7 +96,7 @@ Tools use **decorator-based registration** with optional database control:
 
 ### Multi-Server Architecture
 
-This blueprint supports **multiple domain-specific servers** (general, kubernetes, os_commands, shopping). Each loads tools filtered by `domain` field from the database.
+This application supports **multiple domain-specific servers** (general, kubernetes, os_commands, shopping). Each loads tools filtered by `domain` field from the database.
 
 **Current status**: Only `mcp_general` is fully implemented. The other domain servers (`mcp_kubernetes`, `mcp_os_commands`, `mcp_shopping`) are directory placeholders to demonstrate the pattern.
 
