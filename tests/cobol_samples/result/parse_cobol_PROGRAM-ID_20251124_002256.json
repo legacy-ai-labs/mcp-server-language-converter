@@ -1,0 +1,324 @@
+{
+  "success": true,
+  "ast": {
+    "type": "ProgramNode",
+    "program_name": "PROGRAM-ID",
+    "divisions": [
+      {
+        "type": "DivisionNode",
+        "division_type": "IDENTIFICATION",
+        "sections": [
+          {
+            "type": "SectionNode",
+            "section_name": "PROGRAM-ID",
+            "paragraphs": [
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "PROGRAM-ID",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "program_id": "PROGRAM-ID"
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 1,
+                  "column": 7,
+                  "file_path": null
+                }
+              }
+            ],
+            "location": {
+              "line": 1,
+              "column": 7,
+              "file_path": null
+            }
+          }
+        ],
+        "location": {
+          "line": 1,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "ENVIRONMENT",
+        "sections": [],
+        "location": {
+          "line": 3,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "DATA",
+        "sections": [],
+        "location": {
+          "line": 5,
+          "column": 7,
+          "file_path": null
+        }
+      },
+      {
+        "type": "DivisionNode",
+        "division_type": "PROCEDURE",
+        "sections": [
+          {
+            "type": "SectionNode",
+            "section_name": "PROCEDURE",
+            "paragraphs": [
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "CLEANUP-MAIN",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "PERFORM",
+                    "attributes": {
+                      "target_paragraph": "CLEANUP-OLD-FILES"
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "PERFORM",
+                    "attributes": {
+                      "target_paragraph": "CLEANUP-TEMP-DATA"
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "PERFORM",
+                    "attributes": {
+                      "target_paragraph": "DISPLAY-STATISTICS"
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "STOP",
+                    "attributes": {},
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 13,
+                  "column": 7,
+                  "file_path": null
+                }
+              },
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "CLEANUP-OLD-FILES",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "ADD",
+                    "attributes": {
+                      "value": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "WS-FILE-COUNTER",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "MOVE",
+                    "attributes": {
+                      "source": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "WS-CLEANUP-DATE",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 23,
+                  "column": 7,
+                  "file_path": null
+                }
+              },
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "CLEANUP-TEMP-DATA",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "ADD",
+                    "attributes": {
+                      "value": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      },
+                      "target": {
+                        "type": "VariableNode",
+                        "variable_name": "WS-FILE-COUNTER",
+                        "pic_clause": null,
+                        "level_number": null,
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 28,
+                  "column": 7,
+                  "file_path": null
+                }
+              },
+              {
+                "type": "ParagraphNode",
+                "paragraph_name": "DISPLAY-STATISTICS",
+                "statements": [
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  },
+                  {
+                    "type": "StatementNode",
+                    "statement_type": "DISPLAY",
+                    "attributes": {
+                      "message": {
+                        "type": "LiteralNode",
+                        "value": "None",
+                        "literal_type": "STRING",
+                        "location": null
+                      }
+                    },
+                    "location": null
+                  }
+                ],
+                "location": {
+                  "line": 32,
+                  "column": 7,
+                  "file_path": null
+                }
+              }
+            ],
+            "location": {
+              "line": 11,
+              "column": 7,
+              "file_path": null
+            }
+          }
+        ],
+        "location": {
+          "line": 11,
+          "column": 7,
+          "file_path": null
+        }
+      }
+    ],
+    "location": {
+      "line": 1,
+      "column": 7,
+      "file_path": null
+    }
+  },
+  "program_name": "PROGRAM-ID",
+  "metadata": {
+    "program_info": {
+      "program_id": "PROGRAM-ID",
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/BATCH-CLEANUP-FINAL.cbl"
+    },
+    "size_metrics": {
+      "division_count": 4
+    },
+    "dependencies": {
+      "calls": [],
+      "copybooks": [],
+      "files": []
+    }
+  }
+}

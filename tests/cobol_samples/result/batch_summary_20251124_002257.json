@@ -1,0 +1,682 @@
+{
+  "success": true,
+  "directory": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples",
+  "files_found": 41,
+  "files_processed": 41,
+  "files_succeeded": 11,
+  "files_failed": 30,
+  "output_directory": "tests/cobol_samples/result",
+  "results": [
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/CUSTOMER-ACCOUNT-MAIN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/CALCULATE-PENALTY-CLEAN.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002255.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 12,
+          "edge_count": 15,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 20,
+          "edge_count": 23,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 20,
+          "edge_count": 8,
+          "control_edge_count": 8,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002255.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/CALCULATE-PENALTY.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/CALCULATE-PENALTY-AUTO-CLEAN.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002255.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 12,
+          "edge_count": 15,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 20,
+          "edge_count": 23,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 20,
+          "edge_count": 8,
+          "control_edge_count": 8,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002255.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/ACCOUNT-VALIDATOR-CLEAN.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002255.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 16,
+          "edge_count": 24,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 20,
+          "edge_count": 15,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 34,
+          "edge_count": 14,
+          "control_edge_count": 14,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002255.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/ACCOUNT-VALIDATOR-SIMPLE.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002255.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 16,
+          "edge_count": 24,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 20,
+          "edge_count": 15,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 34,
+          "edge_count": 14,
+          "control_edge_count": 14,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002255.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/ACCOUNT-VALIDATOR.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/DB-ACCESS.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/PAYMENT-PROC-FINAL.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002255.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 7,
+          "edge_count": 9,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 3,
+          "edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002255.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 10,
+          "edge_count": 0,
+          "control_edge_count": 0,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002255.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/INVENTORY-CHK.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/REPORT-GEN-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/AUDIT-LOG.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/INVENTORY-CHK-FINAL.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/ORDER-PROCESS-FINAL.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/BATCH-CLEANUP-CLEAN.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002256.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 9,
+          "edge_count": 13,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 3,
+          "edge_count": 1,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 16,
+          "edge_count": 0,
+          "control_edge_count": 0,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002256.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/UTILITY-FUNCS-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/AUDIT-LOG-FINAL.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 12 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/MAIN-BATCH-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/VALIDATE-DATA-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/UTILITY-FUNCS.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/DB-ACCESS-FINAL.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 15 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/PAYMENT-PROC-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT-FINAL.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002256.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 13,
+          "edge_count": 20,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 2,
+          "edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 19,
+          "edge_count": 4,
+          "control_edge_count": 4,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002256.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/PAYMENT-PROC.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/BATCH-CLEANUP.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/MAIN-BATCH-RESOLVED.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/INVENTORY-CHK-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/REPORT-GEN-FINAL.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 4 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/AUDIT-LOG-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/UTILITY-FUNCS-FINAL.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002256.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 11,
+          "edge_count": 17,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 4,
+          "edge_count": 2,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 19,
+          "edge_count": 0,
+          "control_edge_count": 0,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002256.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/BATCH-CLEANUP-FINAL.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002256.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 9,
+          "edge_count": 13,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 3,
+          "edge_count": 1,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002256.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 16,
+          "edge_count": 0,
+          "control_edge_count": 0,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002256.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/ORDER-PROCESS-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/VALIDATE-DATA.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/ORDER-PROCESS.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/DB-ACCESS-CLEAN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/REPORT-GEN.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/MAIN-BATCH.cbl",
+      "success": false,
+      "stages": {
+        "parse": {
+          "success": false,
+          "saved_to": null
+        }
+      },
+      "error": "Parse failed: Failed to parse COBOL: Parsing failed with 1 syntax error(s)"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/MAIN-BATCH-FINAL.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002257.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 11,
+          "edge_count": 17,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002257.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 3,
+          "edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002257.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 17,
+          "edge_count": 0,
+          "control_edge_count": 0,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002257.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    },
+    {
+      "file_path": "/Users/hyalen/workspace/mcp-server-language-converter/tests/cobol_samples/inter_program_test/programs/VALIDATE-DATA-FINAL.cbl",
+      "success": true,
+      "stages": {
+        "parse": {
+          "success": true,
+          "saved_to": "tests/cobol_samples/result/parse_cobol_PROGRAM-ID_20251124_002257.json"
+        },
+        "cfg": {
+          "success": true,
+          "node_count": 13,
+          "edge_count": 17,
+          "saved_to": "tests/cobol_samples/result/build_cfg_PROGRAM-ID_20251124_002257.json"
+        },
+        "dfg": {
+          "success": true,
+          "node_count": 9,
+          "edge_count": 8,
+          "saved_to": "tests/cobol_samples/result/build_dfg_PROGRAM-ID_20251124_002257.json"
+        },
+        "pdg": {
+          "success": true,
+          "node_count": 19,
+          "edge_count": 4,
+          "control_edge_count": 4,
+          "data_edge_count": 0,
+          "saved_to": "tests/cobol_samples/result/build_pdg_PROGRAM-ID_20251124_002257.json"
+        }
+      },
+      "program_name": "PROGRAM-ID"
+    }
+  ]
+}

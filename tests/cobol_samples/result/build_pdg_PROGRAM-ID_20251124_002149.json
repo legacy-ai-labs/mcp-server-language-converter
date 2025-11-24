@@ -1,0 +1,261 @@
+{
+  "success": true,
+  "pdg": {
+    "nodes": [
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_0",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_1",
+        "label": "PERFORM PROCESS-CUSTOMERS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "PROCESS-CUSTOMERS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_2",
+        "label": "PERFORM PROCESS-ORDERS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "PROCESS-ORDERS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_3",
+        "label": "PERFORM GENERATE-REPORTS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "GENERATE-REPORTS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_4",
+        "label": "PERFORM CLEANUP-PROCESS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "CLEANUP-PROCESS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_5",
+        "label": "STOP",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "STOP",
+          "attributes": {},
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-CUSTOMERS_0",
+        "label": "MOVE -> WS-CUSTOMER-ID",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-CUSTOMERS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-CUSTOMER-ID",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-CUSTOMERS_1",
+        "label": "CALL",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-CUSTOMERS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "CALL",
+          "attributes": {
+            "program_name": "CUSTOMER-MGMT",
+            "parameters": []
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-ORDERS_0",
+        "label": "MOVE -> WS-ORDER-ID",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-ORDERS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-ORDER-ID",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-ORDERS_1",
+        "label": "CALL",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-ORDERS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "CALL",
+          "attributes": {
+            "program_name": "ORDER-PROCESS",
+            "parameters": []
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_GENERATE-REPORTS_0",
+        "label": "MOVE -> WS-REPORT-TYPE",
+        "location": null,
+        "cfg_node_id": "paragraph_GENERATE-REPORTS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "DAILY",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-REPORT-TYPE",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_GENERATE-REPORTS_1",
+        "label": "CALL",
+        "location": null,
+        "cfg_node_id": "paragraph_GENERATE-REPORTS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "CALL",
+          "attributes": {
+            "program_name": "REPORT-GEN",
+            "parameters": []
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_CLEANUP-PROCESS_0",
+        "label": "CALL",
+        "location": null,
+        "cfg_node_id": "paragraph_CLEANUP-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "CALL",
+          "attributes": {
+            "program_name": "UTILITY-FUNCS",
+            "parameters": []
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_1",
+        "label": "PERFORM PROCESS-CUSTOMERS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_1"
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_2",
+        "label": "PERFORM PROCESS-ORDERS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_2"
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_3",
+        "label": "PERFORM GENERATE-REPORTS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_3"
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_4",
+        "label": "PERFORM CLEANUP-PROCESS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_4"
+      }
+    ],
+    "edges": []
+  },
+  "node_count": 17,
+  "edge_count": 0,
+  "control_edge_count": 0,
+  "data_edge_count": 0
+}

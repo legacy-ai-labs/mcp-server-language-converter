@@ -1,0 +1,787 @@
+{
+  "success": true,
+  "cfg": {
+    "entry_node": {
+      "node_id": "entry",
+      "label": "Entry",
+      "location": null,
+      "node_type": "EntryNode"
+    },
+    "exit_node": {
+      "node_id": "exit",
+      "label": "Exit",
+      "location": null,
+      "node_type": "ExitNode"
+    },
+    "nodes": [
+      {
+        "node_id": "entry",
+        "label": "Entry",
+        "location": null,
+        "node_type": "EntryNode"
+      },
+      {
+        "node_id": "exit",
+        "label": "Exit",
+        "location": null,
+        "node_type": "ExitNode"
+      },
+      {
+        "node_id": "paragraph_CALCULATE-PENALTY-MAIN",
+        "label": "CALCULATE-PENALTY-MAIN",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "IF",
+            "attributes": {
+              "condition": {
+                "type": "ExpressionNode",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "value": null,
+                "location": null
+              },
+              "then_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "LiteralNode",
+                      "value": "None",
+                      "literal_type": "STRING",
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "LS-PENALTY-AMOUNT",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ],
+              "else_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "COMPUTE",
+                  "attributes": {
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "expression": null
+                  },
+                  "location": null
+                },
+                {
+                  "type": "StatementNode",
+                  "statement_type": "IF",
+                  "attributes": {
+                    "condition": {
+                      "type": "ExpressionNode",
+                      "operator": null,
+                      "left": null,
+                      "right": null,
+                      "value": null,
+                      "location": null
+                    },
+                    "then_statements": [
+                      {
+                        "type": "StatementNode",
+                        "statement_type": "MOVE",
+                        "attributes": {
+                          "source": {
+                            "type": "VariableNode",
+                            "variable_name": "WS-MINIMUM-PENALTY",
+                            "pic_clause": null,
+                            "level_number": null,
+                            "location": null
+                          },
+                          "target": {
+                            "type": "VariableNode",
+                            "variable_name": "WS-MINIMUM-PENALTY",
+                            "pic_clause": null,
+                            "level_number": null,
+                            "location": null
+                          }
+                        },
+                        "location": null
+                      }
+                    ],
+                    "else_statements": [
+                      {
+                        "type": "StatementNode",
+                        "statement_type": "MOVE",
+                        "attributes": {
+                          "source": {
+                            "type": "VariableNode",
+                            "variable_name": "WS-CALCULATED-PENALTY",
+                            "pic_clause": null,
+                            "level_number": null,
+                            "location": null
+                          },
+                          "target": {
+                            "type": "VariableNode",
+                            "variable_name": "WS-CALCULATED-PENALTY",
+                            "pic_clause": null,
+                            "level_number": null,
+                            "location": null
+                          }
+                        },
+                        "location": null
+                      }
+                    ]
+                  },
+                  "location": null
+                },
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-MINIMUM-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-MINIMUM-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                },
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-CALCULATED-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-CALCULATED-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ]
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "LS-PENALTY-AMOUNT",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "COMPUTE",
+            "attributes": {
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "expression": null
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "IF",
+            "attributes": {
+              "condition": {
+                "type": "ExpressionNode",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "value": null,
+                "location": null
+              },
+              "then_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-MINIMUM-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-MINIMUM-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ],
+              "else_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-CALCULATED-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-CALCULATED-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ]
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "VariableNode",
+                "variable_name": "WS-MINIMUM-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-MINIMUM-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "VariableNode",
+                "variable_name": "WS-CALCULATED-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-CALCULATED-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "EXIT",
+            "attributes": {},
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_VALIDATE-PENALTY-CALCULATION",
+        "label": "VALIDATE-PENALTY-CALCULATION",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "IF",
+            "attributes": {
+              "condition": {
+                "type": "ExpressionNode",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "value": null,
+                "location": null
+              },
+              "then_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "LiteralNode",
+                      "value": "None",
+                      "literal_type": "STRING",
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "LS-PENALTY-AMOUNT",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ]
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "LS-PENALTY-AMOUNT",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "if_CALCULATE-PENALTY-MAIN_0",
+        "label": "IF CALCULATE-PENALTY-MAIN#0",
+        "location": null,
+        "control_type": "IF",
+        "condition": {
+          "type": "ExpressionNode",
+          "operator": null,
+          "left": null,
+          "right": null,
+          "value": null,
+          "location": null
+        },
+        "target_paragraph": null,
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "CALCULATE-PENALTY-MAIN_if_then_0",
+        "label": "CALCULATE-PENALTY-MAIN-THEN-0",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "LS-PENALTY-AMOUNT",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "CALCULATE-PENALTY-MAIN_if_else_0",
+        "label": "CALCULATE-PENALTY-MAIN-ELSE-0",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "COMPUTE",
+            "attributes": {
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "expression": null
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "IF",
+            "attributes": {
+              "condition": {
+                "type": "ExpressionNode",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "value": null,
+                "location": null
+              },
+              "then_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-MINIMUM-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-MINIMUM-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ],
+              "else_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "MOVE",
+                  "attributes": {
+                    "source": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-CALCULATED-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    },
+                    "target": {
+                      "type": "VariableNode",
+                      "variable_name": "WS-CALCULATED-PENALTY",
+                      "pic_clause": null,
+                      "level_number": null,
+                      "location": null
+                    }
+                  },
+                  "location": null
+                }
+              ]
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "VariableNode",
+                "variable_name": "WS-MINIMUM-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-MINIMUM-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "VariableNode",
+                "variable_name": "WS-CALCULATED-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-CALCULATED-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "if_CALCULATE-PENALTY-MAIN_3",
+        "label": "IF CALCULATE-PENALTY-MAIN#3",
+        "location": null,
+        "control_type": "IF",
+        "condition": {
+          "type": "ExpressionNode",
+          "operator": null,
+          "left": null,
+          "right": null,
+          "value": null,
+          "location": null
+        },
+        "target_paragraph": null,
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "CALCULATE-PENALTY-MAIN_if_then_3",
+        "label": "CALCULATE-PENALTY-MAIN-THEN-3",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "VariableNode",
+                "variable_name": "WS-MINIMUM-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-MINIMUM-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "CALCULATE-PENALTY-MAIN_if_else_3",
+        "label": "CALCULATE-PENALTY-MAIN-ELSE-3",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "VariableNode",
+                "variable_name": "WS-CALCULATED-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-CALCULATED-PENALTY",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "if_VALIDATE-PENALTY-CALCULATION_0",
+        "label": "IF VALIDATE-PENALTY-CALCULATION#0",
+        "location": null,
+        "control_type": "IF",
+        "condition": {
+          "type": "ExpressionNode",
+          "operator": null,
+          "left": null,
+          "right": null,
+          "value": null,
+          "location": null
+        },
+        "target_paragraph": null,
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "VALIDATE-PENALTY-CALCULATION_if_then_0",
+        "label": "VALIDATE-PENALTY-CALCULATION-THEN-0",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "LS-PENALTY-AMOUNT",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      }
+    ],
+    "edges": [
+      {
+        "source_id": "entry",
+        "target_id": "paragraph_CALCULATE-PENALTY-MAIN",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CALCULATE-PENALTY-MAIN",
+        "target_id": "if_CALCULATE-PENALTY-MAIN_0",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_CALCULATE-PENALTY-MAIN_0",
+        "target_id": "CALCULATE-PENALTY-MAIN_if_then_0",
+        "edge_type": "TRUE",
+        "label": ""
+      },
+      {
+        "source_id": "CALCULATE-PENALTY-MAIN_if_then_0",
+        "target_id": "paragraph_VALIDATE-PENALTY-CALCULATION",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_CALCULATE-PENALTY-MAIN_0",
+        "target_id": "CALCULATE-PENALTY-MAIN_if_else_0",
+        "edge_type": "FALSE",
+        "label": ""
+      },
+      {
+        "source_id": "CALCULATE-PENALTY-MAIN_if_else_0",
+        "target_id": "paragraph_VALIDATE-PENALTY-CALCULATION",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CALCULATE-PENALTY-MAIN",
+        "target_id": "if_CALCULATE-PENALTY-MAIN_3",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_CALCULATE-PENALTY-MAIN_3",
+        "target_id": "CALCULATE-PENALTY-MAIN_if_then_3",
+        "edge_type": "TRUE",
+        "label": ""
+      },
+      {
+        "source_id": "CALCULATE-PENALTY-MAIN_if_then_3",
+        "target_id": "paragraph_VALIDATE-PENALTY-CALCULATION",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_CALCULATE-PENALTY-MAIN_3",
+        "target_id": "CALCULATE-PENALTY-MAIN_if_else_3",
+        "edge_type": "FALSE",
+        "label": ""
+      },
+      {
+        "source_id": "CALCULATE-PENALTY-MAIN_if_else_3",
+        "target_id": "paragraph_VALIDATE-PENALTY-CALCULATION",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_VALIDATE-PENALTY-CALCULATION",
+        "target_id": "if_VALIDATE-PENALTY-CALCULATION_0",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_VALIDATE-PENALTY-CALCULATION_0",
+        "target_id": "VALIDATE-PENALTY-CALCULATION_if_then_0",
+        "edge_type": "TRUE",
+        "label": ""
+      },
+      {
+        "source_id": "VALIDATE-PENALTY-CALCULATION_if_then_0",
+        "target_id": "exit",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_VALIDATE-PENALTY-CALCULATION_0",
+        "target_id": "exit",
+        "edge_type": "FALSE",
+        "label": ""
+      }
+    ]
+  },
+  "node_count": 12,
+  "edge_count": 15
+}

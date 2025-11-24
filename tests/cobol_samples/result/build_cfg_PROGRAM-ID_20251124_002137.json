@@ -1,0 +1,450 @@
+{
+  "success": true,
+  "cfg": {
+    "entry_node": {
+      "node_id": "entry",
+      "label": "Entry",
+      "location": null,
+      "node_type": "EntryNode"
+    },
+    "exit_node": {
+      "node_id": "exit",
+      "label": "Exit",
+      "location": null,
+      "node_type": "ExitNode"
+    },
+    "nodes": [
+      {
+        "node_id": "entry",
+        "label": "Entry",
+        "location": null,
+        "node_type": "EntryNode"
+      },
+      {
+        "node_id": "exit",
+        "label": "Exit",
+        "location": null,
+        "node_type": "ExitNode"
+      },
+      {
+        "node_id": "paragraph_CUSTOMER-MAIN",
+        "label": "CUSTOMER-MAIN",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "VALIDATE-CUSTOMER"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "IF",
+            "attributes": {
+              "condition": {
+                "type": "ExpressionNode",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "value": null,
+                "location": null
+              },
+              "then_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "PERFORM",
+                  "attributes": {
+                    "target_paragraph": "ACCESS-DATABASE"
+                  },
+                  "location": null
+                },
+                {
+                  "type": "StatementNode",
+                  "statement_type": "PERFORM",
+                  "attributes": {
+                    "target_paragraph": "AUDIT-TRAIL"
+                  },
+                  "location": null
+                }
+              ]
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "ACCESS-DATABASE"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "AUDIT-TRAIL"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "S",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "LS-PROCESS-STATUS",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_VALIDATE-CUSTOMER",
+        "label": "VALIDATE-CUSTOMER",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "CALL",
+            "attributes": {
+              "program_name": "VALIDATE-DATA",
+              "parameters": []
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_ACCESS-DATABASE",
+        "label": "ACCESS-DATABASE",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "SELECT",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-DB-OPERATION",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "CALL",
+            "attributes": {
+              "program_name": "DB-ACCESS",
+              "parameters": []
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_AUDIT-TRAIL",
+        "label": "AUDIT-TRAIL",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "IF",
+            "attributes": {
+              "condition": {
+                "type": "ExpressionNode",
+                "operator": null,
+                "left": null,
+                "right": null,
+                "value": null,
+                "location": null
+              },
+              "then_statements": [
+                {
+                  "type": "StatementNode",
+                  "statement_type": "CALL",
+                  "attributes": {
+                    "program_name": "AUDIT-LOG",
+                    "parameters": []
+                  },
+                  "location": null
+                }
+              ]
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "CALL",
+            "attributes": {
+              "program_name": "AUDIT-LOG",
+              "parameters": []
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "perform_CUSTOMER-MAIN_1",
+        "label": "PERFORM VALIDATE-CUSTOMER",
+        "location": null,
+        "control_type": "PERFORM",
+        "condition": null,
+        "target_paragraph": "VALIDATE-CUSTOMER",
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "if_CUSTOMER-MAIN_2",
+        "label": "IF CUSTOMER-MAIN#2",
+        "location": null,
+        "control_type": "IF",
+        "condition": {
+          "type": "ExpressionNode",
+          "operator": null,
+          "left": null,
+          "right": null,
+          "value": null,
+          "location": null
+        },
+        "target_paragraph": null,
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "CUSTOMER-MAIN_if_then_2",
+        "label": "CUSTOMER-MAIN-THEN-2",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "ACCESS-DATABASE"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "AUDIT-TRAIL"
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "perform_CUSTOMER-MAIN_3",
+        "label": "PERFORM ACCESS-DATABASE",
+        "location": null,
+        "control_type": "PERFORM",
+        "condition": null,
+        "target_paragraph": "ACCESS-DATABASE",
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "perform_CUSTOMER-MAIN_4",
+        "label": "PERFORM AUDIT-TRAIL",
+        "location": null,
+        "control_type": "PERFORM",
+        "condition": null,
+        "target_paragraph": "AUDIT-TRAIL",
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "if_AUDIT-TRAIL_0",
+        "label": "IF AUDIT-TRAIL#0",
+        "location": null,
+        "control_type": "IF",
+        "condition": {
+          "type": "ExpressionNode",
+          "operator": null,
+          "left": null,
+          "right": null,
+          "value": null,
+          "location": null
+        },
+        "target_paragraph": null,
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "AUDIT-TRAIL_if_then_0",
+        "label": "AUDIT-TRAIL-THEN-0",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "CALL",
+            "attributes": {
+              "program_name": "AUDIT-LOG",
+              "parameters": []
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      }
+    ],
+    "edges": [
+      {
+        "source_id": "entry",
+        "target_id": "paragraph_CUSTOMER-MAIN",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CUSTOMER-MAIN",
+        "target_id": "perform_CUSTOMER-MAIN_1",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "perform_CUSTOMER-MAIN_1",
+        "target_id": "paragraph_VALIDATE-CUSTOMER",
+        "edge_type": "CALL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_VALIDATE-CUSTOMER",
+        "target_id": "paragraph_VALIDATE-CUSTOMER",
+        "edge_type": "RETURN",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CUSTOMER-MAIN",
+        "target_id": "if_CUSTOMER-MAIN_2",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_CUSTOMER-MAIN_2",
+        "target_id": "CUSTOMER-MAIN_if_then_2",
+        "edge_type": "TRUE",
+        "label": ""
+      },
+      {
+        "source_id": "CUSTOMER-MAIN_if_then_2",
+        "target_id": "paragraph_VALIDATE-CUSTOMER",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_CUSTOMER-MAIN_2",
+        "target_id": "paragraph_VALIDATE-CUSTOMER",
+        "edge_type": "FALSE",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CUSTOMER-MAIN",
+        "target_id": "perform_CUSTOMER-MAIN_3",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "perform_CUSTOMER-MAIN_3",
+        "target_id": "paragraph_ACCESS-DATABASE",
+        "edge_type": "CALL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_ACCESS-DATABASE",
+        "target_id": "paragraph_VALIDATE-CUSTOMER",
+        "edge_type": "RETURN",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CUSTOMER-MAIN",
+        "target_id": "perform_CUSTOMER-MAIN_4",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "perform_CUSTOMER-MAIN_4",
+        "target_id": "paragraph_AUDIT-TRAIL",
+        "edge_type": "CALL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_AUDIT-TRAIL",
+        "target_id": "paragraph_VALIDATE-CUSTOMER",
+        "edge_type": "RETURN",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_VALIDATE-CUSTOMER",
+        "target_id": "paragraph_ACCESS-DATABASE",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_ACCESS-DATABASE",
+        "target_id": "paragraph_AUDIT-TRAIL",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_AUDIT-TRAIL",
+        "target_id": "if_AUDIT-TRAIL_0",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_AUDIT-TRAIL_0",
+        "target_id": "AUDIT-TRAIL_if_then_0",
+        "edge_type": "TRUE",
+        "label": ""
+      },
+      {
+        "source_id": "AUDIT-TRAIL_if_then_0",
+        "target_id": "exit",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "if_AUDIT-TRAIL_0",
+        "target_id": "exit",
+        "edge_type": "FALSE",
+        "label": ""
+      }
+    ]
+  },
+  "node_count": 13,
+  "edge_count": 20
+}

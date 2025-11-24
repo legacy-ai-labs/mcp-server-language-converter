@@ -1,0 +1,637 @@
+{
+  "success": true,
+  "pdg": {
+    "nodes": [
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_0",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_1",
+        "label": "PERFORM INIT-VALUES",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "INIT-VALUES"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_2",
+        "label": "PERFORM PROCESS-LOOP",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "PROCESS-LOOP"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_3",
+        "label": "IF",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "IF",
+          "attributes": {
+            "condition": {
+              "type": "ExpressionNode",
+              "operator": null,
+              "left": null,
+              "right": null,
+              "value": null,
+              "location": null
+            },
+            "then_statements": [
+              {
+                "type": "StatementNode",
+                "statement_type": "PERFORM",
+                "attributes": {
+                  "target_paragraph": "HIGH-TOTAL-PROCESS"
+                },
+                "location": null
+              }
+            ],
+            "else_statements": [
+              {
+                "type": "StatementNode",
+                "statement_type": "PERFORM",
+                "attributes": {
+                  "target_paragraph": "LOW-TOTAL-PROCESS"
+                },
+                "location": null
+              }
+            ]
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_4",
+        "label": "PERFORM HIGH-TOTAL-PROCESS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "HIGH-TOTAL-PROCESS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_5",
+        "label": "PERFORM LOW-TOTAL-PROCESS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "LOW-TOTAL-PROCESS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_6",
+        "label": "PERFORM DISPLAY-RESULTS",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "DISPLAY-RESULTS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_MAIN-PROCESS_7",
+        "label": "STOP",
+        "location": null,
+        "cfg_node_id": "paragraph_MAIN-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "STOP",
+          "attributes": {},
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_INIT-VALUES_0",
+        "label": "MOVE -> WS-COUNTER",
+        "location": null,
+        "cfg_node_id": "paragraph_INIT-VALUES",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-COUNTER",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_INIT-VALUES_1",
+        "label": "MOVE -> WS-TOTAL",
+        "location": null,
+        "cfg_node_id": "paragraph_INIT-VALUES",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-TOTAL",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-LOOP_0",
+        "label": "ADD",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-LOOP",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "ADD",
+          "attributes": {
+            "value": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-COUNTER",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-LOOP_1",
+        "label": "COMPUTE",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-LOOP",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "COMPUTE",
+          "attributes": {
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            },
+            "expression": null
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-LOOP_2",
+        "label": "ADD",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-LOOP",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "ADD",
+          "attributes": {
+            "value": {
+              "type": "LiteralNode",
+              "value": "WS-RESULT",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-TOTAL",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-LOOP_3",
+        "label": "IF",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-LOOP",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "IF",
+          "attributes": {
+            "condition": {
+              "type": "ExpressionNode",
+              "operator": null,
+              "left": null,
+              "right": null,
+              "value": null,
+              "location": null
+            },
+            "then_statements": [
+              {
+                "type": "StatementNode",
+                "statement_type": "DISPLAY",
+                "attributes": {
+                  "message": {
+                    "type": "LiteralNode",
+                    "value": "None",
+                    "literal_type": "STRING",
+                    "location": null
+                  }
+                },
+                "location": null
+              }
+            ]
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-LOOP_4",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-LOOP",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_PROCESS-LOOP_5",
+        "label": "IF",
+        "location": null,
+        "cfg_node_id": "paragraph_PROCESS-LOOP",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "IF",
+          "attributes": {
+            "condition": {
+              "type": "ExpressionNode",
+              "operator": null,
+              "left": null,
+              "right": null,
+              "value": null,
+              "location": null
+            },
+            "then_statements": []
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_HIGH-TOTAL-PROCESS_0",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_HIGH-TOTAL-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_HIGH-TOTAL-PROCESS_1",
+        "label": "PERFORM SPECIAL-CALCULATION",
+        "location": null,
+        "cfg_node_id": "paragraph_HIGH-TOTAL-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "SPECIAL-CALCULATION"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_LOW-TOTAL-PROCESS_0",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_LOW-TOTAL-PROCESS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_SPECIAL-CALCULATION_0",
+        "label": "COMPUTE",
+        "location": null,
+        "cfg_node_id": "paragraph_SPECIAL-CALCULATION",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "COMPUTE",
+          "attributes": {
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            },
+            "expression": null
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_SPECIAL-CALCULATION_1",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_SPECIAL-CALCULATION",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_DISPLAY-RESULTS_0",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_DISPLAY-RESULTS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_paragraph_DISPLAY-RESULTS_1",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "paragraph_DISPLAY-RESULTS",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_1",
+        "label": "PERFORM INIT-VALUES",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_1"
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_2",
+        "label": "PERFORM PROCESS-LOOP",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_2"
+      },
+      {
+        "node_id": "pdg_if_MAIN-PROCESS_3",
+        "label": "IF MAIN-PROCESS#3",
+        "location": null,
+        "cfg_node_id": "if_MAIN-PROCESS_3"
+      },
+      {
+        "node_id": "pdg_MAIN-PROCESS_if_then_3_0",
+        "label": "PERFORM HIGH-TOTAL-PROCESS",
+        "location": null,
+        "cfg_node_id": "MAIN-PROCESS_if_then_3",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "HIGH-TOTAL-PROCESS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_MAIN-PROCESS_if_else_3_0",
+        "label": "PERFORM LOW-TOTAL-PROCESS",
+        "location": null,
+        "cfg_node_id": "MAIN-PROCESS_if_else_3",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "PERFORM",
+          "attributes": {
+            "target_paragraph": "LOW-TOTAL-PROCESS"
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_4",
+        "label": "PERFORM HIGH-TOTAL-PROCESS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_4"
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_5",
+        "label": "PERFORM LOW-TOTAL-PROCESS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_5"
+      },
+      {
+        "node_id": "pdg_perform_MAIN-PROCESS_6",
+        "label": "PERFORM DISPLAY-RESULTS",
+        "location": null,
+        "cfg_node_id": "perform_MAIN-PROCESS_6"
+      },
+      {
+        "node_id": "pdg_if_PROCESS-LOOP_3",
+        "label": "IF PROCESS-LOOP#3",
+        "location": null,
+        "cfg_node_id": "if_PROCESS-LOOP_3"
+      },
+      {
+        "node_id": "pdg_PROCESS-LOOP_if_then_3_0",
+        "label": "DISPLAY",
+        "location": null,
+        "cfg_node_id": "PROCESS-LOOP_if_then_3",
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "DISPLAY",
+          "attributes": {
+            "message": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            }
+          },
+          "location": null
+        }
+      },
+      {
+        "node_id": "pdg_if_PROCESS-LOOP_5",
+        "label": "IF PROCESS-LOOP#5",
+        "location": null,
+        "cfg_node_id": "if_PROCESS-LOOP_5"
+      },
+      {
+        "node_id": "pdg_perform_HIGH-TOTAL-PROCESS_1",
+        "label": "PERFORM SPECIAL-CALCULATION",
+        "location": null,
+        "cfg_node_id": "perform_HIGH-TOTAL-PROCESS_1"
+      }
+    ],
+    "edges": [
+      {
+        "source_id": "pdg_if_MAIN-PROCESS_3",
+        "target_id": "pdg_MAIN-PROCESS_if_then_3_0",
+        "edge_type": "CONTROL",
+        "label": "TRUE",
+        "variable_name": null
+      },
+      {
+        "source_id": "pdg_if_MAIN-PROCESS_3",
+        "target_id": "pdg_MAIN-PROCESS_if_else_3_0",
+        "edge_type": "CONTROL",
+        "label": "FALSE",
+        "variable_name": null
+      },
+      {
+        "source_id": "pdg_if_PROCESS-LOOP_3",
+        "target_id": "pdg_PROCESS-LOOP_if_then_3_0",
+        "edge_type": "CONTROL",
+        "label": "TRUE",
+        "variable_name": null
+      },
+      {
+        "source_id": "pdg_if_PROCESS-LOOP_3",
+        "target_id": "pdg_paragraph_HIGH-TOTAL-PROCESS_0",
+        "edge_type": "CONTROL",
+        "label": "FALSE",
+        "variable_name": null
+      },
+      {
+        "source_id": "pdg_if_PROCESS-LOOP_3",
+        "target_id": "pdg_paragraph_HIGH-TOTAL-PROCESS_1",
+        "edge_type": "CONTROL",
+        "label": "FALSE",
+        "variable_name": null
+      },
+      {
+        "source_id": "pdg_if_PROCESS-LOOP_5",
+        "target_id": "pdg_paragraph_HIGH-TOTAL-PROCESS_0",
+        "edge_type": "CONTROL",
+        "label": "FALSE",
+        "variable_name": null
+      },
+      {
+        "source_id": "pdg_if_PROCESS-LOOP_5",
+        "target_id": "pdg_paragraph_HIGH-TOTAL-PROCESS_1",
+        "edge_type": "CONTROL",
+        "label": "FALSE",
+        "variable_name": null
+      }
+    ]
+  },
+  "node_count": 35,
+  "edge_count": 7,
+  "control_edge_count": 7,
+  "data_edge_count": 0
+}

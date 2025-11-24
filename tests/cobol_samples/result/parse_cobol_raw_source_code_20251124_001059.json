@@ -1,0 +1,1056 @@
+{
+  "success": true,
+  "parse_tree": {
+    "node_type": "PROGRAM",
+    "value": null,
+    "line_number": 1,
+    "children": [
+      {
+        "node_type": "IDENTIFICATION_DIVISION",
+        "value": null,
+        "line_number": 1,
+        "children": [
+          {
+            "node_type": "IDENTIFICATION",
+            "value": "IDENTIFICATION",
+            "line_number": 1,
+            "children": []
+          },
+          {
+            "node_type": "DIVISION",
+            "value": "DIVISION",
+            "line_number": 1,
+            "children": []
+          },
+          {
+            "node_type": "DOT_FS",
+            "value": ".\n",
+            "line_number": 1,
+            "children": []
+          },
+          {
+            "node_type": "PROGRAM_ID_PARAGRAPH",
+            "value": null,
+            "line_number": 2,
+            "children": [
+              {
+                "node_type": "PROGRAM_ID",
+                "value": "PROGRAM-ID",
+                "line_number": 2,
+                "children": []
+              },
+              {
+                "node_type": "DOT_FS",
+                "value": ". ",
+                "line_number": 2,
+                "children": []
+              },
+              {
+                "node_type": "PROGRAM_NAME",
+                "value": "AST-TEST",
+                "line_number": 2,
+                "children": [
+                  {
+                    "node_type": "COBOLWORD",
+                    "value": null,
+                    "line_number": 2,
+                    "children": [
+                      {
+                        "node_type": "IDENTIFIER",
+                        "value": "AST-TEST",
+                        "line_number": 2,
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "node_type": "DOT_FS",
+                "value": ".\n\n",
+                "line_number": 2,
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "node_type": "DATA_DIVISION",
+        "value": null,
+        "line_number": 4,
+        "children": [
+          {
+            "node_type": "DATA",
+            "value": "DATA",
+            "line_number": 4,
+            "children": []
+          },
+          {
+            "node_type": "DIVISION",
+            "value": "DIVISION",
+            "line_number": 4,
+            "children": []
+          },
+          {
+            "node_type": "DOT_FS",
+            "value": ".\n",
+            "line_number": 4,
+            "children": []
+          },
+          {
+            "node_type": "DATADIVISIONSECTION",
+            "value": null,
+            "line_number": 5,
+            "children": [
+              {
+                "node_type": "WORKING_STORAGE_SECTION",
+                "value": null,
+                "line_number": 5,
+                "children": [
+                  {
+                    "node_type": "WORKING_STORAGE",
+                    "value": "WORKING-STORAGE",
+                    "line_number": 5,
+                    "children": []
+                  },
+                  {
+                    "node_type": "SECTION",
+                    "value": "SECTION",
+                    "line_number": 5,
+                    "children": []
+                  },
+                  {
+                    "node_type": "DOT_FS",
+                    "value": ".\n",
+                    "line_number": 5,
+                    "children": []
+                  },
+                  {
+                    "node_type": "DATADESCRIPTIONENTRY",
+                    "value": null,
+                    "line_number": 6,
+                    "children": [
+                      {
+                        "node_type": "DATADESCRIPTIONENTRYFORMAT1",
+                        "value": null,
+                        "line_number": 6,
+                        "children": [
+                          {
+                            "node_type": "INTEGERLITERAL",
+                            "value": "01",
+                            "line_number": 6,
+                            "children": []
+                          },
+                          {
+                            "node_type": "DATANAME",
+                            "value": "WS-COUNTER",
+                            "line_number": 6,
+                            "children": [
+                              {
+                                "node_type": "COBOLWORD",
+                                "value": null,
+                                "line_number": 6,
+                                "children": [
+                                  {
+                                    "node_type": "IDENTIFIER",
+                                    "value": "WS-COUNTER",
+                                    "line_number": 6,
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DATAPICTURECLAUSE",
+                            "value": null,
+                            "line_number": 6,
+                            "children": [
+                              {
+                                "node_type": "PIC",
+                                "value": "PIC",
+                                "line_number": 6,
+                                "children": []
+                              },
+                              {
+                                "node_type": "PICTURESTRING",
+                                "value": null,
+                                "line_number": 6,
+                                "children": [
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 6,
+                                    "children": [
+                                      {
+                                        "node_type": "INTEGERLITERAL",
+                                        "value": null,
+                                        "line_number": 6,
+                                        "children": [
+                                          {
+                                            "node_type": "INTEGERLITERAL",
+                                            "value": "9",
+                                            "line_number": 6,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 6,
+                                    "children": [
+                                      {
+                                        "node_type": "LPARENCHAR",
+                                        "value": "(",
+                                        "line_number": 6,
+                                        "children": []
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 6,
+                                    "children": [
+                                      {
+                                        "node_type": "INTEGERLITERAL",
+                                        "value": null,
+                                        "line_number": 6,
+                                        "children": [
+                                          {
+                                            "node_type": "INTEGERLITERAL",
+                                            "value": "3",
+                                            "line_number": 6,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 6,
+                                    "children": [
+                                      {
+                                        "node_type": "RPARENCHAR",
+                                        "value": ")",
+                                        "line_number": 6,
+                                        "children": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DATAVALUECLAUSE",
+                            "value": null,
+                            "line_number": 6,
+                            "children": [
+                              {
+                                "node_type": "VALUE",
+                                "value": "VALUE",
+                                "line_number": 6,
+                                "children": []
+                              },
+                              {
+                                "node_type": "DATAVALUEINTERVAL",
+                                "value": null,
+                                "line_number": 6,
+                                "children": [
+                                  {
+                                    "node_type": "DATAVALUEINTERVALFROM",
+                                    "value": null,
+                                    "line_number": 6,
+                                    "children": [
+                                      {
+                                        "node_type": "LITERAL",
+                                        "value": null,
+                                        "line_number": 6,
+                                        "children": [
+                                          {
+                                            "node_type": "NUMERICLITERAL",
+                                            "value": null,
+                                            "line_number": 6,
+                                            "children": [
+                                              {
+                                                "node_type": "INTEGERLITERAL",
+                                                "value": null,
+                                                "line_number": 6,
+                                                "children": [
+                                                  {
+                                                    "node_type": "INTEGERLITERAL",
+                                                    "value": "0",
+                                                    "line_number": 6,
+                                                    "children": []
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n",
+                            "line_number": 6,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "node_type": "DATADESCRIPTIONENTRY",
+                    "value": null,
+                    "line_number": 7,
+                    "children": [
+                      {
+                        "node_type": "DATADESCRIPTIONENTRYFORMAT1",
+                        "value": null,
+                        "line_number": 7,
+                        "children": [
+                          {
+                            "node_type": "INTEGERLITERAL",
+                            "value": "01",
+                            "line_number": 7,
+                            "children": []
+                          },
+                          {
+                            "node_type": "DATANAME",
+                            "value": "WS-MESSAGE",
+                            "line_number": 7,
+                            "children": [
+                              {
+                                "node_type": "COBOLWORD",
+                                "value": null,
+                                "line_number": 7,
+                                "children": [
+                                  {
+                                    "node_type": "IDENTIFIER",
+                                    "value": "WS-MESSAGE",
+                                    "line_number": 7,
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DATAPICTURECLAUSE",
+                            "value": null,
+                            "line_number": 7,
+                            "children": [
+                              {
+                                "node_type": "PIC",
+                                "value": "PIC",
+                                "line_number": 7,
+                                "children": []
+                              },
+                              {
+                                "node_type": "PICTURESTRING",
+                                "value": null,
+                                "line_number": 7,
+                                "children": [
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 7,
+                                    "children": [
+                                      {
+                                        "node_type": "IDENTIFIER",
+                                        "value": "X",
+                                        "line_number": 7,
+                                        "children": []
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 7,
+                                    "children": [
+                                      {
+                                        "node_type": "LPARENCHAR",
+                                        "value": "(",
+                                        "line_number": 7,
+                                        "children": []
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 7,
+                                    "children": [
+                                      {
+                                        "node_type": "INTEGERLITERAL",
+                                        "value": null,
+                                        "line_number": 7,
+                                        "children": [
+                                          {
+                                            "node_type": "INTEGERLITERAL",
+                                            "value": "50",
+                                            "line_number": 7,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "PICTURECHARS",
+                                    "value": null,
+                                    "line_number": 7,
+                                    "children": [
+                                      {
+                                        "node_type": "RPARENCHAR",
+                                        "value": ")",
+                                        "line_number": 7,
+                                        "children": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DATAVALUECLAUSE",
+                            "value": null,
+                            "line_number": 7,
+                            "children": [
+                              {
+                                "node_type": "VALUE",
+                                "value": "VALUE",
+                                "line_number": 7,
+                                "children": []
+                              },
+                              {
+                                "node_type": "DATAVALUEINTERVAL",
+                                "value": null,
+                                "line_number": 7,
+                                "children": [
+                                  {
+                                    "node_type": "DATAVALUEINTERVALFROM",
+                                    "value": null,
+                                    "line_number": 7,
+                                    "children": [
+                                      {
+                                        "node_type": "LITERAL",
+                                        "value": null,
+                                        "line_number": 7,
+                                        "children": [
+                                          {
+                                            "node_type": "NONNUMERICLITERAL",
+                                            "value": "'HELLO FROM AST TEST'",
+                                            "line_number": 7,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n\n",
+                            "line_number": 7,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "node_type": "PROCEDURE_DIVISION",
+        "value": null,
+        "line_number": 9,
+        "children": [
+          {
+            "node_type": "PROCEDURE",
+            "value": "PROCEDURE",
+            "line_number": 9,
+            "children": []
+          },
+          {
+            "node_type": "DIVISION",
+            "value": "DIVISION",
+            "line_number": 9,
+            "children": []
+          },
+          {
+            "node_type": "DOT_FS",
+            "value": ".\n",
+            "line_number": 9,
+            "children": []
+          },
+          {
+            "node_type": "PROCEDURE_BODY",
+            "value": null,
+            "line_number": 10,
+            "children": [
+              {
+                "node_type": "PARAGRAPHS",
+                "value": null,
+                "line_number": 10,
+                "children": [
+                  {
+                    "node_type": "PARAGRAPH",
+                    "value": null,
+                    "line_number": 10,
+                    "children": [
+                      {
+                        "node_type": "PARAGRAPH_NAME",
+                        "value": "MAIN-PARAGRAPH",
+                        "line_number": 10,
+                        "children": [
+                          {
+                            "node_type": "COBOLWORD",
+                            "value": null,
+                            "line_number": 10,
+                            "children": [
+                              {
+                                "node_type": "IDENTIFIER",
+                                "value": "MAIN-PARAGRAPH",
+                                "line_number": 10,
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "node_type": "DOT_FS",
+                        "value": ".\n    ",
+                        "line_number": 10,
+                        "children": []
+                      },
+                      {
+                        "node_type": "SENTENCE",
+                        "value": null,
+                        "line_number": 11,
+                        "children": [
+                          {
+                            "node_type": "STATEMENT",
+                            "value": null,
+                            "line_number": 11,
+                            "children": [
+                              {
+                                "node_type": "DISPLAY_STATEMENT",
+                                "value": null,
+                                "line_number": 11,
+                                "children": [
+                                  {
+                                    "node_type": "DISPLAY",
+                                    "value": "DISPLAY",
+                                    "line_number": 11,
+                                    "children": []
+                                  },
+                                  {
+                                    "node_type": "DISPLAYOPERAND",
+                                    "value": null,
+                                    "line_number": 11,
+                                    "children": [
+                                      {
+                                        "node_type": "LITERAL",
+                                        "value": null,
+                                        "line_number": 11,
+                                        "children": [
+                                          {
+                                            "node_type": "NONNUMERICLITERAL",
+                                            "value": "'STARTING AST TEST PROGRAM'",
+                                            "line_number": 11,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n    ",
+                            "line_number": 11,
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "node_type": "SENTENCE",
+                        "value": null,
+                        "line_number": 12,
+                        "children": [
+                          {
+                            "node_type": "STATEMENT",
+                            "value": null,
+                            "line_number": 12,
+                            "children": [
+                              {
+                                "node_type": "MOVE_STATEMENT",
+                                "value": null,
+                                "line_number": 12,
+                                "children": [
+                                  {
+                                    "node_type": "MOVE",
+                                    "value": "MOVE",
+                                    "line_number": 12,
+                                    "children": []
+                                  },
+                                  {
+                                    "node_type": "MOVETOSTATEMENT",
+                                    "value": null,
+                                    "line_number": 12,
+                                    "children": [
+                                      {
+                                        "node_type": "MOVETOSENDINGAREA",
+                                        "value": null,
+                                        "line_number": 12,
+                                        "children": [
+                                          {
+                                            "node_type": "LITERAL",
+                                            "value": null,
+                                            "line_number": 12,
+                                            "children": [
+                                              {
+                                                "node_type": "NUMERICLITERAL",
+                                                "value": null,
+                                                "line_number": 12,
+                                                "children": [
+                                                  {
+                                                    "node_type": "INTEGERLITERAL",
+                                                    "value": null,
+                                                    "line_number": 12,
+                                                    "children": [
+                                                      {
+                                                        "node_type": "INTEGERLITERAL",
+                                                        "value": "1",
+                                                        "line_number": 12,
+                                                        "children": []
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "node_type": "TO",
+                                        "value": "TO",
+                                        "line_number": 12,
+                                        "children": []
+                                      },
+                                      {
+                                        "node_type": "IDENTIFIER",
+                                        "value": null,
+                                        "line_number": 12,
+                                        "children": [
+                                          {
+                                            "node_type": "QUALIFIEDDATANAME",
+                                            "value": null,
+                                            "line_number": 12,
+                                            "children": [
+                                              {
+                                                "node_type": "QUALIFIEDDATANAMEFORMAT1",
+                                                "value": null,
+                                                "line_number": 12,
+                                                "children": [
+                                                  {
+                                                    "node_type": "DATANAME",
+                                                    "value": "WS-COUNTER",
+                                                    "line_number": 12,
+                                                    "children": [
+                                                      {
+                                                        "node_type": "COBOLWORD",
+                                                        "value": null,
+                                                        "line_number": 12,
+                                                        "children": [
+                                                          {
+                                                            "node_type": "IDENTIFIER",
+                                                            "value": "WS-COUNTER",
+                                                            "line_number": 12,
+                                                            "children": []
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n    ",
+                            "line_number": 12,
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "node_type": "SENTENCE",
+                        "value": null,
+                        "line_number": 13,
+                        "children": [
+                          {
+                            "node_type": "STATEMENT",
+                            "value": null,
+                            "line_number": 13,
+                            "children": [
+                              {
+                                "node_type": "PERFORM_STATEMENT",
+                                "value": null,
+                                "line_number": 13,
+                                "children": [
+                                  {
+                                    "node_type": "PERFORM",
+                                    "value": "PERFORM",
+                                    "line_number": 13,
+                                    "children": []
+                                  },
+                                  {
+                                    "node_type": "PERFORMPROCEDURESTATEMENT",
+                                    "value": null,
+                                    "line_number": 13,
+                                    "children": [
+                                      {
+                                        "node_type": "PROCEDURENAME",
+                                        "value": "SHOW-MESSAGE",
+                                        "line_number": 13,
+                                        "children": [
+                                          {
+                                            "node_type": "PARAGRAPH_NAME",
+                                            "value": "SHOW-MESSAGE",
+                                            "line_number": 13,
+                                            "children": [
+                                              {
+                                                "node_type": "COBOLWORD",
+                                                "value": null,
+                                                "line_number": 13,
+                                                "children": [
+                                                  {
+                                                    "node_type": "IDENTIFIER",
+                                                    "value": "SHOW-MESSAGE",
+                                                    "line_number": 13,
+                                                    "children": []
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n    ",
+                            "line_number": 13,
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "node_type": "SENTENCE",
+                        "value": null,
+                        "line_number": 14,
+                        "children": [
+                          {
+                            "node_type": "STATEMENT",
+                            "value": null,
+                            "line_number": 14,
+                            "children": [
+                              {
+                                "node_type": "STOP_STATEMENT",
+                                "value": null,
+                                "line_number": 14,
+                                "children": [
+                                  {
+                                    "node_type": "STOP",
+                                    "value": "STOP",
+                                    "line_number": 14,
+                                    "children": []
+                                  },
+                                  {
+                                    "node_type": "RUN",
+                                    "value": "RUN",
+                                    "line_number": 14,
+                                    "children": []
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n\n",
+                            "line_number": 14,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "node_type": "PARAGRAPH",
+                    "value": null,
+                    "line_number": 16,
+                    "children": [
+                      {
+                        "node_type": "PARAGRAPH_NAME",
+                        "value": "SHOW-MESSAGE",
+                        "line_number": 16,
+                        "children": [
+                          {
+                            "node_type": "COBOLWORD",
+                            "value": null,
+                            "line_number": 16,
+                            "children": [
+                              {
+                                "node_type": "IDENTIFIER",
+                                "value": "SHOW-MESSAGE",
+                                "line_number": 16,
+                                "children": []
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "node_type": "DOT_FS",
+                        "value": ".\n    ",
+                        "line_number": 16,
+                        "children": []
+                      },
+                      {
+                        "node_type": "SENTENCE",
+                        "value": null,
+                        "line_number": 17,
+                        "children": [
+                          {
+                            "node_type": "STATEMENT",
+                            "value": null,
+                            "line_number": 17,
+                            "children": [
+                              {
+                                "node_type": "DISPLAY_STATEMENT",
+                                "value": null,
+                                "line_number": 17,
+                                "children": [
+                                  {
+                                    "node_type": "DISPLAY",
+                                    "value": "DISPLAY",
+                                    "line_number": 17,
+                                    "children": []
+                                  },
+                                  {
+                                    "node_type": "DISPLAYOPERAND",
+                                    "value": null,
+                                    "line_number": 17,
+                                    "children": [
+                                      {
+                                        "node_type": "IDENTIFIER",
+                                        "value": null,
+                                        "line_number": 17,
+                                        "children": [
+                                          {
+                                            "node_type": "QUALIFIEDDATANAME",
+                                            "value": null,
+                                            "line_number": 17,
+                                            "children": [
+                                              {
+                                                "node_type": "QUALIFIEDDATANAMEFORMAT1",
+                                                "value": null,
+                                                "line_number": 17,
+                                                "children": [
+                                                  {
+                                                    "node_type": "DATANAME",
+                                                    "value": "WS-MESSAGE",
+                                                    "line_number": 17,
+                                                    "children": [
+                                                      {
+                                                        "node_type": "COBOLWORD",
+                                                        "value": null,
+                                                        "line_number": 17,
+                                                        "children": [
+                                                          {
+                                                            "node_type": "IDENTIFIER",
+                                                            "value": "WS-MESSAGE",
+                                                            "line_number": 17,
+                                                            "children": []
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".\n    ",
+                            "line_number": 17,
+                            "children": []
+                          }
+                        ]
+                      },
+                      {
+                        "node_type": "SENTENCE",
+                        "value": null,
+                        "line_number": 18,
+                        "children": [
+                          {
+                            "node_type": "STATEMENT",
+                            "value": null,
+                            "line_number": 18,
+                            "children": [
+                              {
+                                "node_type": "DISPLAY_STATEMENT",
+                                "value": null,
+                                "line_number": 18,
+                                "children": [
+                                  {
+                                    "node_type": "DISPLAY",
+                                    "value": "DISPLAY",
+                                    "line_number": 18,
+                                    "children": []
+                                  },
+                                  {
+                                    "node_type": "DISPLAYOPERAND",
+                                    "value": null,
+                                    "line_number": 18,
+                                    "children": [
+                                      {
+                                        "node_type": "LITERAL",
+                                        "value": null,
+                                        "line_number": 18,
+                                        "children": [
+                                          {
+                                            "node_type": "NONNUMERICLITERAL",
+                                            "value": "'COUNTER VALUE: '",
+                                            "line_number": 18,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "node_type": "DISPLAYOPERAND",
+                                    "value": null,
+                                    "line_number": 18,
+                                    "children": [
+                                      {
+                                        "node_type": "IDENTIFIER",
+                                        "value": null,
+                                        "line_number": 18,
+                                        "children": [
+                                          {
+                                            "node_type": "QUALIFIEDDATANAME",
+                                            "value": null,
+                                            "line_number": 18,
+                                            "children": [
+                                              {
+                                                "node_type": "QUALIFIEDDATANAMEFORMAT1",
+                                                "value": null,
+                                                "line_number": 18,
+                                                "children": [
+                                                  {
+                                                    "node_type": "DATANAME",
+                                                    "value": "WS-COUNTER",
+                                                    "line_number": 18,
+                                                    "children": [
+                                                      {
+                                                        "node_type": "COBOLWORD",
+                                                        "value": null,
+                                                        "line_number": 18,
+                                                        "children": [
+                                                          {
+                                                            "node_type": "IDENTIFIER",
+                                                            "value": "WS-COUNTER",
+                                                            "line_number": 18,
+                                                            "children": []
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "node_type": "DOT_FS",
+                            "value": ".",
+                            "line_number": 18,
+                            "children": []
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "node_type": "PROGRAM"
+}

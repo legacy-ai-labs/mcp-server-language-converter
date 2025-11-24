@@ -1,0 +1,95 @@
+{
+  "success": true,
+  "dfg": {
+    "nodes": [
+      {
+        "node_id": "def_WS-FILE-COUNTER_0",
+        "variable_name": "WS-FILE-COUNTER",
+        "location": null,
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "ADD",
+          "attributes": {
+            "value": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-FILE-COUNTER",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        },
+        "node_type": "VariableDefNode"
+      },
+      {
+        "node_id": "def_WS-CLEANUP-DATE_0",
+        "variable_name": "WS-CLEANUP-DATE",
+        "location": null,
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-CLEANUP-DATE",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        },
+        "node_type": "VariableDefNode"
+      },
+      {
+        "node_id": "def_WS-FILE-COUNTER_1",
+        "variable_name": "WS-FILE-COUNTER",
+        "location": null,
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "ADD",
+          "attributes": {
+            "value": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-FILE-COUNTER",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        },
+        "node_type": "VariableDefNode"
+      }
+    ],
+    "edges": [
+      {
+        "source_id": "def_WS-FILE-COUNTER_0",
+        "target_id": "def_WS-FILE-COUNTER_1",
+        "edge_type": "DEF_USE",
+        "label": ""
+      }
+    ]
+  },
+  "node_count": 3,
+  "edge_count": 1
+}

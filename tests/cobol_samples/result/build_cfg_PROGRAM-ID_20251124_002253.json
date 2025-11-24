@@ -1,0 +1,340 @@
+{
+  "success": true,
+  "cfg": {
+    "entry_node": {
+      "node_id": "entry",
+      "label": "Entry",
+      "location": null,
+      "node_type": "EntryNode"
+    },
+    "exit_node": {
+      "node_id": "exit",
+      "label": "Exit",
+      "location": null,
+      "node_type": "ExitNode"
+    },
+    "nodes": [
+      {
+        "node_id": "entry",
+        "label": "Entry",
+        "location": null,
+        "node_type": "EntryNode"
+      },
+      {
+        "node_id": "exit",
+        "label": "Exit",
+        "location": null,
+        "node_type": "ExitNode"
+      },
+      {
+        "node_id": "paragraph_CLEANUP-MAIN",
+        "label": "CLEANUP-MAIN",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "CLEANUP-OLD-FILES"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "CLEANUP-TEMP-DATA"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "PERFORM",
+            "attributes": {
+              "target_paragraph": "DISPLAY-STATISTICS"
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "STOP",
+            "attributes": {},
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_CLEANUP-OLD-FILES",
+        "label": "CLEANUP-OLD-FILES",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "ADD",
+            "attributes": {
+              "value": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-FILE-COUNTER",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "MOVE",
+            "attributes": {
+              "source": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-CLEANUP-DATE",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_CLEANUP-TEMP-DATA",
+        "label": "CLEANUP-TEMP-DATA",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "ADD",
+            "attributes": {
+              "value": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              },
+              "target": {
+                "type": "VariableNode",
+                "variable_name": "WS-FILE-COUNTER",
+                "pic_clause": null,
+                "level_number": null,
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "paragraph_DISPLAY-STATISTICS",
+        "label": "DISPLAY-STATISTICS",
+        "location": null,
+        "statements": [
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          },
+          {
+            "type": "StatementNode",
+            "statement_type": "DISPLAY",
+            "attributes": {
+              "message": {
+                "type": "LiteralNode",
+                "value": "None",
+                "literal_type": "STRING",
+                "location": null
+              }
+            },
+            "location": null
+          }
+        ],
+        "node_type": "BasicBlock"
+      },
+      {
+        "node_id": "perform_CLEANUP-MAIN_1",
+        "label": "PERFORM CLEANUP-OLD-FILES",
+        "location": null,
+        "control_type": "PERFORM",
+        "condition": null,
+        "target_paragraph": "CLEANUP-OLD-FILES",
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "perform_CLEANUP-MAIN_2",
+        "label": "PERFORM CLEANUP-TEMP-DATA",
+        "location": null,
+        "control_type": "PERFORM",
+        "condition": null,
+        "target_paragraph": "CLEANUP-TEMP-DATA",
+        "node_type": "ControlFlowNode"
+      },
+      {
+        "node_id": "perform_CLEANUP-MAIN_3",
+        "label": "PERFORM DISPLAY-STATISTICS",
+        "location": null,
+        "control_type": "PERFORM",
+        "condition": null,
+        "target_paragraph": "DISPLAY-STATISTICS",
+        "node_type": "ControlFlowNode"
+      }
+    ],
+    "edges": [
+      {
+        "source_id": "entry",
+        "target_id": "paragraph_CLEANUP-MAIN",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-MAIN",
+        "target_id": "perform_CLEANUP-MAIN_1",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "perform_CLEANUP-MAIN_1",
+        "target_id": "paragraph_CLEANUP-OLD-FILES",
+        "edge_type": "CALL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-OLD-FILES",
+        "target_id": "paragraph_CLEANUP-OLD-FILES",
+        "edge_type": "RETURN",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-MAIN",
+        "target_id": "perform_CLEANUP-MAIN_2",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "perform_CLEANUP-MAIN_2",
+        "target_id": "paragraph_CLEANUP-TEMP-DATA",
+        "edge_type": "CALL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-TEMP-DATA",
+        "target_id": "paragraph_CLEANUP-OLD-FILES",
+        "edge_type": "RETURN",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-MAIN",
+        "target_id": "perform_CLEANUP-MAIN_3",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "perform_CLEANUP-MAIN_3",
+        "target_id": "paragraph_DISPLAY-STATISTICS",
+        "edge_type": "CALL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_DISPLAY-STATISTICS",
+        "target_id": "paragraph_CLEANUP-OLD-FILES",
+        "edge_type": "RETURN",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-OLD-FILES",
+        "target_id": "paragraph_CLEANUP-TEMP-DATA",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_CLEANUP-TEMP-DATA",
+        "target_id": "paragraph_DISPLAY-STATISTICS",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      },
+      {
+        "source_id": "paragraph_DISPLAY-STATISTICS",
+        "target_id": "exit",
+        "edge_type": "SEQUENTIAL",
+        "label": ""
+      }
+    ]
+  },
+  "node_count": 9,
+  "edge_count": 13
+}

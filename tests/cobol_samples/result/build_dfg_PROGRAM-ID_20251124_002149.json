@@ -1,0 +1,88 @@
+{
+  "success": true,
+  "dfg": {
+    "nodes": [
+      {
+        "node_id": "def_WS-CUSTOMER-ID_0",
+        "variable_name": "WS-CUSTOMER-ID",
+        "location": null,
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-CUSTOMER-ID",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        },
+        "node_type": "VariableDefNode"
+      },
+      {
+        "node_id": "def_WS-ORDER-ID_0",
+        "variable_name": "WS-ORDER-ID",
+        "location": null,
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "None",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-ORDER-ID",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        },
+        "node_type": "VariableDefNode"
+      },
+      {
+        "node_id": "def_WS-REPORT-TYPE_0",
+        "variable_name": "WS-REPORT-TYPE",
+        "location": null,
+        "statement": {
+          "type": "StatementNode",
+          "statement_type": "MOVE",
+          "attributes": {
+            "source": {
+              "type": "LiteralNode",
+              "value": "DAILY",
+              "literal_type": "STRING",
+              "location": null
+            },
+            "target": {
+              "type": "VariableNode",
+              "variable_name": "WS-REPORT-TYPE",
+              "pic_clause": null,
+              "level_number": null,
+              "location": null
+            }
+          },
+          "location": null
+        },
+        "node_type": "VariableDefNode"
+      }
+    ],
+    "edges": []
+  },
+  "node_count": 3,
+  "edge_count": 0
+}
