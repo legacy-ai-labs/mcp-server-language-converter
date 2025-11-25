@@ -11,6 +11,23 @@ A hybrid MCP server demonstrating **Hexagonal Architecture** - implementing busi
 
 **Core architectural principle**: Business logic in `src/core/` is transport-agnostic and shared by all interfaces.
 
+## Project Context
+
+This MCP server is part of a larger reverse engineering platform with multiple modules:
+
+- **MCP Server (Core Platform)** - This repository (~85% complete)
+  - Supports reverse engineering of any programming language
+  - Processing done locally using compiler algorithms, AI only when necessary
+  - Currently focused on COBOL analysis with extensible architecture for other languages
+  - Graph-building capabilities for code analysis
+  - Comprehensive observability with Prometheus metrics and execution tracking
+
+- **MCP Client (Frontend)** - React + TypeScript (in development)
+- **Backend Services** - Node.js + NoSQL (supporting services)
+- **Infrastructure** - Kubernetes, Docker, Terraform, CI/CD pipelines
+
+**Primary focus**: The MCP server provides language-agnostic reverse engineering capabilities, with COBOL as the first complete implementation demonstrating the pattern. The architecture is designed to support any programming language through the same shared infrastructure.
+
 ## Critical Architecture Concepts
 
 ### Shared Infrastructure Pattern
@@ -124,12 +141,21 @@ This project includes a specialized domain for **COBOL reverse engineering** tha
 - Control Flow Graph (CFG) generation from COBOL code
 - Data Flow Graph (DFG) analysis
 - AST (Abstract Syntax Tree) building
-- COBOL parser integration using PLY (Python Lex-Yacc)
+- COBOL parser integration using ANTLR4
+- **COBOL preprocessing and copybook resolution** - Handle COPY statements and resolve copybooks
+- **File connection graph generation** - Visualize relationships between COBOL files
+- **Config loader for COBOL projects** - Load and manage COBOL project configurations
+- Recursive directory scanning for COBOL projects
+- Metadata generation (complexity, lines, clauses, relationships)
 
-**Services**:
-- `cfg_builder_service.py` - Control flow analysis (`src/core/services/cfg_builder_service.py`)
-- `dfg_builder_service.py` - Data flow analysis (`src/core/services/dfg_builder_service.py`)
-- COBOL-specific tool handlers with complex parameter schemas
+**Services** (in `src/core/services/cobol_analysis/`):
+- `cfg_builder_service.py` - Control flow analysis
+- `dfg_builder_service.py` - Data flow analysis
+- `pdg_builder_service.py` - Program dependence graphs
+- `ast_builder_service.py` - Abstract syntax tree construction
+- `cobol_parser_antlr_service.py` - ANTLR-based COBOL parsing
+- `antlr_cobol/` - ANTLR grammar files for COBOL
+- `tool_handlers_service.py` - COBOL-specific tool handlers with complex parameter schemas
 
 **Documentation**: See `docs/cobol/` for implementation details, phase plans, and progress tracking
 
