@@ -7,7 +7,6 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     analyze_program_system_handler,
     build_call_graph_handler,
 )
-from src.mcp_servers.common.base_server import mcp
 from src.mcp_servers.common.tool_registry import register_tool
 
 
@@ -16,7 +15,6 @@ from src.mcp_servers.common.tool_registry import register_tool
     tool_name="analyze_program_system",
     description="Analyze COBOL program system to identify relationships, dependencies, and architecture",
 )
-@mcp.tool()
 async def analyze_program_system(
     directory_path: str, file_extensions: list[str] | None = None, include_inactive: bool = False
 ) -> dict[str, Any]:
@@ -58,7 +56,6 @@ async def analyze_program_system(
     tool_name="build_call_graph",
     description="Build a call graph visualization from analyzed COBOL programs",
 )
-@mcp.tool()
 async def build_call_graph(
     programs: dict[str, Any],
     call_graph: dict[str, list[str]],
@@ -101,7 +98,6 @@ async def build_call_graph(
     tool_name="analyze_copybook_usage",
     description="Analyze how copybooks are used across COBOL programs",
 )
-@mcp.tool()
 async def analyze_copybook_usage(
     copybook_usage: dict[str, list[str]],
     programs: dict[str, Any],
@@ -141,7 +137,6 @@ async def analyze_copybook_usage(
     tool_name="analyze_data_flow",
     description="Analyze data flow through parameters between COBOL programs",
 )
-@mcp.tool()
 async def analyze_data_flow(
     data_flows: list[dict[str, Any]], programs: dict[str, Any], trace_variable: str | None = None
 ) -> dict[str, Any]:

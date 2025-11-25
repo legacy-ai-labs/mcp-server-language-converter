@@ -211,7 +211,7 @@ def analyze_data_flows(system_result: dict[str, Any], directory_path: str) -> di
     return result
 
 
-def generate_html_visualization(system_result: dict[str, Any], directory_path: str):
+def generate_html_visualization(system_result: dict[str, Any], directory_path: str) -> None:
     """Generate HTML visualization file."""
     print("\n" + "=" * 70)
     print("STEP 5: Generating HTML Visualization")
