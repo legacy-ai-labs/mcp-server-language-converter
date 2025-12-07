@@ -32,16 +32,18 @@ This MCP server is part of a larger reverse engineering platform with multiple m
 
 ### Shared Infrastructure Pattern
 
-All domain-specific servers share common infrastructure in `mcp_servers/common/`:
+All domain-specific servers share common infrastructure in `src/mcp_servers/common/`:
 
 ```
-mcp_servers/
-├── common/                      # Shared infrastructure (NO duplication!)
-│   ├── base_server.py          # FastMCP initialization
-│   ├── tool_registry.py        # Decorator-based tool registration
-│   ├── config_loader.py        # JSON config file loader
-│   ├── stdio_runner.py         # Generic STDIO transport
-│   └── http_runner.py          # Generic HTTP streaming transport
+src/mcp_servers/
+├── common/                           # Shared infrastructure (NO duplication!)
+│   ├── base_server.py               # FastMCP initialization
+│   ├── tool_registry.py             # Decorator-based tool registration
+│   ├── config_loader.py             # JSON config file loader
+│   ├── stdio_runner.py              # Generic STDIO transport
+│   ├── http_runner.py               # Generic HTTP streaming transport
+│   ├── streamable_http_runner.py    # Streamable HTTP transport
+│   └── observability_middleware.py  # Metrics and tracing middleware
 │
 ├── mcp_general/                # Domain-specific servers (minimal code)
 │   ├── __main__.py             # 5 lines: run_stdio_server(domain="general")
@@ -107,7 +109,7 @@ Tools use **decorator-based registration** with JSON configuration control:
 - ✅ Type-safe signatures with IDE autocomplete
 - ✅ No manual wrapper functions needed
 - ✅ Automatic observability tracing
-- ✅ Simple 2-step process (handler + decorator)
+- ✅ Simple 3-step process (handler + decorator + JSON config)
 - ✅ JSON config provides version-controlled enable/disable
 
 **Observability**: All decorator-based tools are automatically wrapped with observability, which:

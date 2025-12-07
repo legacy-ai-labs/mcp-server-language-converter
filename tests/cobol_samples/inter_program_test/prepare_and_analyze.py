@@ -7,7 +7,7 @@ This script handles COPY statements and generates proper relationships.
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def remove_copy_statements(content: str) -> str:
@@ -17,7 +17,7 @@ def remove_copy_statements(content: str) -> str:
     return content
 
 
-def further_clean_cobol_files(input_dir: Path, output_suffix: str = "-FINAL"):
+def further_clean_cobol_files(input_dir: Path, output_suffix: str = "-FINAL") -> None:
     """Further clean COBOL files by removing COPY statements."""
     print(f"Further cleaning COBOL files in {input_dir}")
 
@@ -39,7 +39,7 @@ def extract_program_relationships(programs_dir: Path) -> dict[str, Any]:  # noqa
     """Extract program relationships directly from COBOL source."""
     programs = {}
     call_graph = {}
-    copybook_usage = {}
+    copybook_usage: dict[str, list[str]] = {}
     data_flows = []
 
     # Read all COBOL files
@@ -107,7 +107,7 @@ def extract_program_relationships(programs_dir: Path) -> dict[str, Any]:  # noqa
     for caller, callees in call_graph.items():
         for callee in callees:
             if callee in programs:
-                programs[callee]["callers"].append(caller)
+                cast(list, programs[callee]["callers"]).append(caller)
 
     # Identify entry points and isolated programs
     entry_points = []
