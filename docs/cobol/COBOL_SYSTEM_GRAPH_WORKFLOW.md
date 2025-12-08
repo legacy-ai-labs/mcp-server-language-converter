@@ -29,7 +29,7 @@ graph LR
 | Category | Purpose | Tools |
 |----------|---------|-------|
 | 🔧 **Preprocessing** | Prepare files for parsing | `prepare_cobol_for_antlr`, `resolve_copybooks`, `batch_resolve_copybooks` |
-| 🔍 **Single-Program** | Analyze individual programs | `parse_cobol`, `build_ast`, `build_cfg`, `build_dfg`, `build_pdg` |
+| 🔍 **Single-Program** | Analyze individual programs | `parse_cobol`, `parse_cobol_raw`, `build_ast`, `build_cfg`, `build_dfg`, `build_pdg` |
 | 🌐 **System Analysis** | Build inter-program relationships | `analyze_program_system`, `build_call_graph`, `analyze_copybook_usage`, `analyze_data_flow` |
 
 ---
@@ -152,6 +152,7 @@ Output:
   - call_graph: Who calls whom
   - copybook_usage: Which programs use which copybooks
   - data_flows: Parameter passing between programs
+  - external_files: File dependencies (SELECT/ASSIGN statements)
   - system_metrics: Overall statistics
   - entry_points: Programs that are never called (main programs)
   - isolated_programs: Programs with no dependencies
@@ -178,6 +179,10 @@ Output:
   "call_graph": {
     "MAIN-BATCH": ["VALIDATE-ACCOUNT", "PROCESS-TRANS"],
     "VALIDATE-ACCOUNT": ["CHECK-BALANCE"]
+  },
+  "external_files": {
+    "MAIN-BATCH": ["TRANS-FILE", "REPORT-FILE"],
+    "VALIDATE-ACCOUNT": ["ACCOUNT-MASTER"]
   },
   "system_metrics": {
     "total_programs": 15,
@@ -373,7 +378,9 @@ flowchart LR
 |------|-----------------|-------------|
 | `batch_resolve_copybooks` | `directory`, `copybook_paths` | `files_processed`, `copybooks_resolved` |
 | `prepare_cobol_for_antlr` | `source_file` OR `source_code` | `cleaned_source`, `paragraphs_removed` |
-| `analyze_program_system` | `directory_path` | `programs`, `call_graph`, `copybook_usage`, `data_flows` |
+| `parse_cobol` | `source_code` OR `file_path` | `ast`, `program_name`, `metadata` |
+| `parse_cobol_raw` | `source_code` OR `file_path` | `parse_tree` (raw ParseNode) |
+| `analyze_program_system` | `directory_path` | `programs`, `call_graph`, `copybook_usage`, `data_flows`, `external_files` |
 | `build_call_graph` | `programs`, `call_graph` | `nodes`, `edges`, `visualization` |
 | `analyze_copybook_usage` | `copybook_usage`, `programs` | `impact_analysis`, `recommendations` |
 | `analyze_data_flow` | `data_flows`, `programs` | `flows`, `chains`, `warnings` |
@@ -387,13 +394,13 @@ Here's a complete example of building a system graph for a COBOL codebase:
 
 ```python
 # Step 1: Resolve copybooks (if your files use COPY statements)
-result1 = await resolve_copybooks(
+result1 = await batch_resolve_copybooks(
     directory="/projects/banking/cobol",
     copybook_paths=["/projects/banking/copybooks", "/lib/common"],
     recursive=True,
     backup_originals=True
 )
-print(f"Resolved {len(result1['copybooks_resolved'])} copybooks")
+print(f"Processed {len(result1['files_processed'])} files")
 
 # Step 2: Analyze the entire system
 result2 = await analyze_program_system(

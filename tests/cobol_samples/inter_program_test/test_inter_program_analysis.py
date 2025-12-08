@@ -1,7 +1,27 @@
 #!/usr/bin/env python3
 """
 Test script for inter-program COBOL analysis tools.
-This script runs all analysis tools and generates visualizations.
+
+Purpose:
+    Validates the end-to-end workflow for analyzing a system of COBOL programs by
+    directly invoking the core service handlers (bypassing the MCP layer).
+
+Workflow:
+    1. System Analysis: Scans for programs and maps relationships.
+    2. Call Graph: Generates DOT/Mermaid graphs and checks for cycles.
+    3. Copybook Analysis: Analyzes shared code usage.
+    4. Data Flow Analysis: Traces variables (currently hardcoded to 'WS-CUSTOMER-ID').
+    5. Visualization: Prepares HTML reporting (placeholder).
+
+Input:
+    - Looks for COBOL files with suffix '*.cbl' in the 'programs/' subdirectory.
+
+Output:
+    Generates the following in the 'output/' directory:
+    - system_analysis.json: Complete system metadata.
+    - call_graph.dot/.mmd: Graph visualization source files.
+    - copybook_analysis.json: Usage statistics.
+    - data_flow_analysis.json: Variable traces.
 """
 
 import json
@@ -31,7 +51,7 @@ def run_system_analysis(directory_path: str) -> dict[str, Any]:
     result = analyze_program_system_handler(
         {
             "directory_path": directory_path,
-            "file_extensions": ["-FINAL.cbl"],  # Use files without COPY statements
+            "file_extensions": [".cbl"],
             "include_inactive": False,
         }
     )
