@@ -40,6 +40,7 @@ repos:
       - id: mypy
         additional_dependencies:
           - pydantic>=2.6.0
+          - pydantic-settings>=2.1.0
         args: [--strict, --ignore-missing-imports]
         exclude: ^tests/
 
