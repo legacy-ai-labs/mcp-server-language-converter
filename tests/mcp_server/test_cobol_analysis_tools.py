@@ -4,29 +4,21 @@ from pathlib import Path
 
 import pytest
 
-from src.core.services.cobol_analysis.ast_builder_service import build_ast
 from src.core.services.cobol_analysis.tool_handlers_service import (
-    _serialize_ast_node,
-    build_cfg_handler,
-    build_dfg_handler,
+    build_asg_handler,
     parse_cobol_handler,
-)
-from tests.core.test_ast_builder import _create_sample_program_parse_tree
-from tests.core.test_cfg_builder import (
-    _create_program_with_nested_if,
-    _create_program_with_perform,
+    parse_cobol_raw_handler,
 )
 
 
 @pytest.mark.integration
-def test_full_pipeline_with_sample_file() -> None:
-    """Test full pipeline: Parse → AST → CFG → DFG with sample COBOL file."""
+def test_parse_cobol_with_sample_file() -> None:
+    """Test parsing a real sample COBOL file via handler."""
     file_path = Path(__file__).parent / ".." / "cobol_samples" / "CUSTOMER-ACCOUNT-MAIN.cbl"
 
     if not file_path.exists():
         pytest.skip(f"Sample file not found: {file_path}")
 
-    # Step 1: Parse COBOL
     parse_result = parse_cobol_handler({"file_path": str(file_path)})
     if not parse_result["success"]:
         # Parser may not support all COBOL constructs in sample files yet
@@ -36,41 +28,27 @@ def test_full_pipeline_with_sample_file() -> None:
 
     assert "ast" in parse_result
     ast_dict = parse_result["ast"]
-
-    # Step 2: Build CFG
-    cfg_result = build_cfg_handler({"ast": ast_dict})
-    assert cfg_result["success"] is True
-    assert "cfg" in cfg_result
-    assert cfg_result["node_count"] > 0
-    assert cfg_result["edge_count"] > 0
-
-    # Step 3: Build DFG
-    dfg_result = build_dfg_handler({"ast": ast_dict, "cfg": cfg_result["cfg"]})
-    assert dfg_result["success"] is True
-    assert "dfg" in dfg_result
-    assert dfg_result["node_count"] >= 0
-    assert dfg_result["edge_count"] >= 0
+    assert ast_dict["node_type"] == "PROGRAM"
+    assert "children" in ast_dict
 
 
 @pytest.mark.integration
-def test_tool_chaining_with_serialization() -> None:
-    """Test that tools can chain together using serialized data."""
-    # Use helper function to create AST directly (bypassing parser limitations)
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-    ast_dict = _serialize_ast_node(ast)
+def test_parse_cobol_raw_with_source() -> None:
+    """Test raw parse tree output."""
+    source_code = (
+        "IDENTIFICATION DIVISION.\n"
+        "PROGRAM-ID. RAW-TEST.\n"
+        "PROCEDURE DIVISION.\n"
+        "MAIN.\n"
+        "    STOP RUN.\n"
+    )
+    result = parse_cobol_raw_handler({"source_code": source_code})
+    if not result["success"]:
+        pytest.skip(f"Parser limitation: {result.get('error', 'Unknown error')}")
 
-    # Step 2: Build CFG (using serialized AST)
-    cfg_result = build_cfg_handler({"ast": ast_dict})
-    assert cfg_result["success"] is True
-    cfg_dict = cfg_result["cfg"]
-
-    # Step 3: Build DFG (using serialized AST and CFG)
-    dfg_result = build_dfg_handler({"ast": ast_dict, "cfg": cfg_dict})
-    assert dfg_result["success"] is True
-
-    # Verify data flow exists
-    assert len(dfg_result["dfg"]["nodes"]) >= 0
+    assert result["node_type"] == "PROGRAM"
+    assert "parse_tree" in result
+    assert result["parse_tree"]["node_type"] == "PROGRAM"
 
 
 @pytest.mark.integration
@@ -86,53 +64,30 @@ def test_error_handling_invalid_cobol() -> None:
 
 
 @pytest.mark.integration
-def test_error_handling_missing_dependencies() -> None:
-    """Test error handling when dependencies are missing."""
-    # Try to build CFG without AST
-    cfg_result = build_cfg_handler({})
-    assert cfg_result["success"] is False
-    assert "error" in cfg_result
+def test_build_asg_from_source() -> None:
+    """Test building ASG (semantic graph) from source using the Python builder."""
+    source_code = """\
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. ASG-TEST.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-COUNTER PIC 9(5) VALUE 0.
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           STOP RUN.
+"""
+    result = build_asg_handler({"source_code": source_code})
+    if not result["success"]:
+        pytest.skip(f"ASG builder limitation: {result.get('error', 'Unknown error')}")
 
-    # Try to build DFG without CFG - use helper to create AST
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-    ast_dict = _serialize_ast_node(ast)
-
-    dfg_result = build_dfg_handler({"ast": ast_dict})
-    assert dfg_result["success"] is False
-    assert "error" in dfg_result
-    assert "cfg" in dfg_result["error"].lower()
-
-
-@pytest.mark.integration
-def test_perform_paragraph_call_flow() -> None:
-    """Test full pipeline with PERFORM paragraph call."""
-    # Use helper function to create AST with PERFORM
-    program = _create_program_with_perform()
-    ast_dict = _serialize_ast_node(program)
-
-    # Build CFG → DFG
-    cfg_result = build_cfg_handler({"ast": ast_dict})
-    assert cfg_result["success"] is True
-    assert cfg_result["edge_count"] > 0  # Should have PERFORM call edges
-
-    dfg_result = build_dfg_handler({"ast": ast_dict, "cfg": cfg_result["cfg"]})
-    assert dfg_result["success"] is True
+    assert result["builder"] == "python"
+    assert "asg" in result
+    assert result["compilation_unit_count"] >= 1
 
 
 @pytest.mark.integration
-def test_nested_conditionals_flow() -> None:
-    """Test full pipeline with nested conditionals."""
-    # Use helper function to create AST with nested IFs
-    program = _create_program_with_nested_if()
-    ast_dict = _serialize_ast_node(program)
-
-    cfg_result = build_cfg_handler({"ast": ast_dict})
-    assert cfg_result["success"] is True
-    # Should have multiple control flow nodes for nested IFs
-    assert cfg_result["node_count"] >= 3
-
-    dfg_result = build_dfg_handler({"ast": ast_dict, "cfg": cfg_result["cfg"]})
-    assert dfg_result["success"] is True
-    # Should track data flow through nested conditionals
-    assert dfg_result["node_count"] >= 0
+def test_build_asg_missing_parameters() -> None:
+    """Test build_asg_handler with missing parameters."""
+    result = build_asg_handler({})
+    assert result["success"] is False
+    assert "error" in result

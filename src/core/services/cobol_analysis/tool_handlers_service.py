@@ -7,49 +7,21 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from src.core.models.cobol_analysis_model import (
-    ASTNode,
-    BasicBlock,
-    CFGEdge,
-    CFGEdgeType,
-    CFGNode,
-    ControlFlowGraph,
-    ControlFlowNode,
-    DataFlowGraph,
-    DataFlowNode,
-    DFGEdge,
-    DFGEdgeType,
-    DFGNode,
-    DivisionNode,
-    DivisionType,
-    EntryNode,
-    ExitNode,
-    ExpressionNode,
-    LiteralNode,
-    ParagraphNode,
-    PDGEdge,
-    PDGEdgeType,
-    PDGNode,
-    ProgramNode,
-    SectionNode,
-    SourceLocation,
-    StatementNode,
-    StatementType,
-    VariableDefNode,
-    VariableNode,
-    VariableUseNode,
+from src.core.services.cobol_analysis.asg_builder_service import (
+    ASGBuilderError,
+    build_asg_from_file,
+    build_asg_from_source,
 )
-from src.core.services.cobol_analysis.ast_builder_service import build_ast
-from src.core.services.cobol_analysis.cfg_builder_service import build_cfg
 from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
+    Comment,
     ParseNode,
     parse_cobol,
     parse_cobol_file,
+    parse_cobol_file_with_copybooks,
+    parse_cobol_with_copybooks,
 )
-from src.core.services.cobol_analysis.dfg_builder_service import build_dfg
-from src.core.services.cobol_analysis.pdg_builder_service import build_pdg
 
 
 logger = logging.getLogger(__name__)
@@ -59,30 +31,67 @@ ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 # ============================================================================
-# Metadata extraction helper (minimal implementation)
+# Metadata extraction helper (works with ParseNode)
 # ============================================================================
 
 
-def _extract_metadata_from_ast(ast: ProgramNode, file_path: str | None = None) -> dict[str, Any]:
-    """Extract basic metadata from AST for system analysis.
-
-    This is a minimal implementation that can be enhanced later.
-    Extracts only what's needed for analyze_program_system_handler.
+def _extract_program_name_from_parse_tree(parse_tree: ParseNode) -> str | None:
+    """Extract program name from parse tree.
 
     Args:
-        ast: The program AST
+        parse_tree: The ParseNode tree
+
+    Returns:
+        Program name or None if not found
+    """
+
+    def find_node(node: ParseNode, target_type: str) -> ParseNode | None:
+        if target_type in {node.type, node.rule_name}:
+            return node
+        for child in node.children:
+            result = find_node(child, target_type)
+            if result:
+                return result
+        return None
+
+    # Try to find PROGRAM_NAME or programIdParagraph
+    program_name_node = find_node(parse_tree, "PROGRAM_NAME")
+    if program_name_node and program_name_node.value:
+        return str(program_name_node.value)
+
+    # Try finding in programIdParagraph
+    program_id_node = find_node(parse_tree, "programIdParagraph")
+    if program_id_node:
+        # Look for the program name in children
+        for child in program_id_node.children:
+            if "programName" in {child.type, child.rule_name}:
+                if child.value:
+                    return str(child.value)
+                # Get text from terminal children
+                for terminal in child.children:
+                    if terminal.text:
+                        return terminal.text
+    return None
+
+
+def _extract_metadata_from_parse_tree(
+    parse_tree: ParseNode, file_path: str | None = None
+) -> dict[str, Any]:
+    """Extract basic metadata from parse tree.
+
+    Args:
+        parse_tree: The ParseNode tree
         file_path: Optional source file path
 
     Returns:
-        Dictionary with program_info, size_metrics, and dependencies
+        Dictionary with program_info and basic metrics
     """
-    metadata: dict[str, Any] = {
+    program_name = _extract_program_name_from_parse_tree(parse_tree)
+
+    return {
         "program_info": {
-            "program_id": ast.program_name,
+            "program_id": program_name,
             "file_path": file_path,
-        },
-        "size_metrics": {
-            "division_count": len(ast.divisions),
         },
         "dependencies": {
             "calls": [],
@@ -90,32 +99,6 @@ def _extract_metadata_from_ast(ast: ProgramNode, file_path: str | None = None) -
             "files": [],
         },
     }
-
-    # Walk AST to extract CALL statements and other dependencies
-    # This is a simple recursive walker - can be enhanced later
-    def walk_statements(statements: list[StatementNode]) -> None:
-        for stmt in statements:
-            if stmt.statement_type == StatementType.CALL:
-                # Extract called program from attributes (stored as 'program_name' in AST)
-                target = stmt.attributes.get("program_name") or stmt.attributes.get("target")
-                if target:
-                    metadata["dependencies"]["calls"].append(
-                        {
-                            "target": target,
-                            "location": {
-                                "line": stmt.location.line if stmt.location else 0,
-                            },
-                        }
-                    )
-
-    # Walk through procedure division to find CALL statements
-    for division in ast.divisions:
-        if division.division_type == DivisionType.PROCEDURE:
-            for section in division.sections:
-                for paragraph in section.paragraphs:
-                    walk_statements(paragraph.statements)
-
-    return metadata
 
 
 # ============================================================================
@@ -163,327 +146,6 @@ def _save_tool_result(
         return None
 
 
-# ============================================================================
-# Deserialization helpers for AST/CFG/DFG models
-# ============================================================================
-
-
-def _deserialize_source_location(location_dict: dict[str, Any] | None) -> SourceLocation | None:
-    """Deserialize SourceLocation from dict."""
-    if location_dict is None:
-        return None
-    return SourceLocation(
-        line=location_dict.get("line", 0),
-        column=location_dict.get("column"),
-        file_path=location_dict.get("file_path"),
-    )
-
-
-def _deserialize_ast_node(node_dict: dict[str, Any]) -> ASTNode:
-    """Deserialize AST node from dict."""
-    if not isinstance(node_dict, dict):
-        raise ValueError(f"Expected dict for AST node, got {type(node_dict).__name__}")
-
-    node_type = node_dict.get("type", "")
-
-    # Handle empty or missing type field
-    if not node_type:
-        logger.warning(
-            f"AST node missing 'type' field. Node keys: {list(node_dict.keys())}, "
-            f"Sample data: {str(node_dict)[:200]}"
-        )
-        raise ValueError(f"AST node missing 'type' field. Available keys: {list(node_dict.keys())}")
-
-    location = _deserialize_source_location(node_dict.get("location"))
-
-    if node_type == "ProgramNode":
-        return ProgramNode(
-            program_name=node_dict.get("program_name", ""),
-            divisions=cast(
-                list[DivisionNode],
-                [_deserialize_ast_node(div) for div in node_dict.get("divisions", [])],
-            ),
-            location=location,
-        )
-    if node_type == "DivisionNode":
-        division_type_str = node_dict.get("division_type", "IDENTIFICATION")
-        division_type = (
-            DivisionType(division_type_str)
-            if division_type_str in [dt.value for dt in DivisionType]
-            else DivisionType.IDENTIFICATION
-        )
-        return DivisionNode(
-            division_type=division_type,
-            sections=cast(
-                list[SectionNode],
-                [_deserialize_ast_node(sec) for sec in node_dict.get("sections", [])],
-            ),
-            location=location,
-        )
-    if node_type == "SectionNode":
-        return SectionNode(
-            section_name=node_dict.get("section_name"),
-            paragraphs=cast(
-                list[ParagraphNode],
-                [_deserialize_ast_node(para) for para in node_dict.get("paragraphs", [])],
-            ),
-            location=location,
-        )
-    if node_type == "ParagraphNode":
-        return ParagraphNode(
-            paragraph_name=node_dict.get("paragraph_name", ""),
-            statements=cast(
-                list[StatementNode],
-                [_deserialize_ast_node(stmt) for stmt in node_dict.get("statements", [])],
-            ),
-            location=location,
-        )
-    if node_type == "StatementNode":
-        statement_type_str = node_dict.get("statement_type", "IF")
-        statement_type = (
-            StatementType(statement_type_str)
-            if statement_type_str in [st.value for st in StatementType]
-            else StatementType.IF
-        )
-        attrs: dict[str, Any] = {}
-        for key, value in node_dict.get("attributes", {}).items():
-            if isinstance(value, dict) and value.get("type") in [
-                "ExpressionNode",
-                "VariableNode",
-                "LiteralNode",
-                "StatementNode",
-            ]:
-                attrs[key] = _deserialize_ast_node(value)
-            elif isinstance(value, list):
-                attrs[key] = [
-                    _deserialize_ast_node(item)
-                    if isinstance(item, dict)
-                    and item.get("type")
-                    in ["StatementNode", "ExpressionNode", "VariableNode", "LiteralNode"]
-                    else item
-                    for item in value
-                ]
-            else:
-                attrs[key] = value
-        return StatementNode(
-            statement_type=statement_type,
-            attributes=attrs,
-            location=location,
-        )
-    if node_type == "ExpressionNode":
-        left = _deserialize_ast_node(left_dict) if (left_dict := node_dict.get("left")) else None
-        right = (
-            _deserialize_ast_node(right_dict) if (right_dict := node_dict.get("right")) else None
-        )
-        return ExpressionNode(
-            operator=node_dict.get("operator"),
-            left=left,
-            right=right,
-            value=node_dict.get("value"),
-            location=location,
-        )
-    if node_type == "VariableNode":
-        return VariableNode(
-            variable_name=node_dict.get("variable_name", ""),
-            pic_clause=node_dict.get("pic_clause"),
-            level_number=node_dict.get("level_number"),
-            location=location,
-        )
-    if node_type == "LiteralNode":
-        return LiteralNode(
-            value=node_dict.get("value", ""),
-            literal_type=node_dict.get("literal_type", "STRING"),
-            location=location,
-        )
-    # Fallback for unknown types
-    raise ValueError(f"Unknown AST node type: {node_type}")
-
-
-def _deserialize_cfg_node(node_dict: dict[str, Any]) -> CFGNode:
-    """Deserialize CFG node from dict."""
-    node_id = node_dict.get("node_id", "")
-    label = node_dict.get("label", "")
-    location = _deserialize_source_location(node_dict.get("location"))
-    node_type = node_dict.get("node_type", "")
-
-    if node_type == "EntryNode" or node_id == "entry":
-        return EntryNode(node_id=node_id, location=location)
-    if node_type == "ExitNode" or node_id == "exit":
-        return ExitNode(node_id=node_id, location=location)
-    if node_type == "BasicBlock":
-        statements: list[StatementNode] = cast(
-            list[StatementNode],
-            [_deserialize_ast_node(stmt) for stmt in node_dict.get("statements", [])],
-        )
-        block = BasicBlock(node_id=node_id, label=label, location=location)
-        block.statements = statements
-        return block
-    if node_type == "ControlFlowNode":
-        condition_dict = node_dict.get("condition")
-        condition_node = (
-            _deserialize_ast_node(condition_dict)
-            if condition_dict and isinstance(condition_dict, dict)
-            else None
-        )
-        condition = condition_node if isinstance(condition_node, ExpressionNode) else None
-        control_node = ControlFlowNode(
-            node_id=node_id,
-            label=label,
-            location=location,
-            control_type=node_dict.get("control_type", ""),
-            condition=condition,
-            target_paragraph=node_dict.get("target_paragraph"),
-        )
-        return control_node
-    # Fallback to base CFGNode
-    return CFGNode(node_id=node_id, label=label, location=location)
-
-
-def _deserialize_cfg_edge(edge_dict: dict[str, Any], node_lookup: dict[str, CFGNode]) -> CFGEdge:
-    """Deserialize CFG edge from dict."""
-    source_id = edge_dict.get("source_id", "")
-    target_id = edge_dict.get("target_id", "")
-    edge_type_str = edge_dict.get("edge_type", "SEQUENTIAL")
-    edge_type = (
-        CFGEdgeType(edge_type_str)
-        if edge_type_str in [et.value for et in CFGEdgeType]
-        else CFGEdgeType.SEQUENTIAL
-    )
-    label = edge_dict.get("label", "")
-
-    source = node_lookup.get(source_id)
-    target = node_lookup.get(target_id)
-
-    if source is None or target is None:
-        raise ValueError(f"Missing node for edge: source_id={source_id}, target_id={target_id}")
-
-    return CFGEdge(source=source, target=target, edge_type=edge_type, label=label)
-
-
-def _deserialize_cfg(cfg_dict: dict[str, Any]) -> ControlFlowGraph:
-    """Deserialize ControlFlowGraph from dict."""
-    entry_node_dict = cfg_dict.get("entry_node", {})
-    exit_node_dict = cfg_dict.get("exit_node", {})
-    nodes_dict = cfg_dict.get("nodes", [])
-    edges_dict = cfg_dict.get("edges", [])
-
-    entry_node_raw = _deserialize_cfg_node(entry_node_dict)
-    exit_node_raw = _deserialize_cfg_node(exit_node_dict)
-
-    # Cast to specific types expected by ControlFlowGraph
-    if not isinstance(entry_node_raw, EntryNode):
-        raise ValueError(f"Expected EntryNode, got {type(entry_node_raw).__name__}")
-    if not isinstance(exit_node_raw, ExitNode):
-        raise ValueError(f"Expected ExitNode, got {type(exit_node_raw).__name__}")
-
-    entry_node = entry_node_raw
-    exit_node = exit_node_raw
-
-    # Build node lookup dictionary
-    node_lookup: dict[str, CFGNode] = {entry_node.node_id: entry_node, exit_node.node_id: exit_node}
-    for node_dict in nodes_dict:
-        node = _deserialize_cfg_node(node_dict)
-        node_lookup[node.node_id] = node
-
-    # Build graph
-    cfg = ControlFlowGraph(entry_node=entry_node, exit_node=exit_node)
-    cfg.add_node(entry_node)
-    cfg.add_node(exit_node)
-
-    # Add all nodes
-    for node_dict in nodes_dict:
-        node = _deserialize_cfg_node(node_dict)
-        cfg.add_node(node)
-
-    # Add all edges
-    for edge_dict in edges_dict:
-        edge = _deserialize_cfg_edge(edge_dict, node_lookup)
-        cfg.add_edge(edge)
-
-    return cfg
-
-
-def _deserialize_dfg(dfg_dict: dict[str, Any]) -> DataFlowGraph:
-    """Deserialize DataFlowGraph from dict.
-
-    Note: This is a simplified deserialization that doesn't reconstruct
-    full statement references. Use for PDG building where we only need
-    the graph structure, not the full statement objects.
-    """
-    nodes_dict = dfg_dict.get("nodes", [])
-    edges_dict = dfg_dict.get("edges", [])
-
-    dfg = DataFlowGraph()
-
-    # Build node lookup dictionary
-    node_lookup: dict[str, DFGNode] = {}
-
-    # Create all nodes
-    for node_dict in nodes_dict:
-        node_type = node_dict.get("node_type", "")
-        node_id = node_dict.get("node_id", "")
-        variable_name = node_dict.get("variable_name", "")
-        location = _deserialize_source_location(node_dict.get("location"))
-
-        node: DFGNode
-        if node_type == "VariableDefNode":
-            node = VariableDefNode(
-                node_id=node_id,
-                variable_name=variable_name,
-                location=location,
-            )
-        elif node_type == "VariableUseNode":
-            node = VariableUseNode(
-                node_id=node_id,
-                variable_name=variable_name,
-                location=location,
-                context=node_dict.get("context", ""),
-            )
-        elif node_type == "DataFlowNode":
-            node = DataFlowNode(
-                node_id=node_id,
-                variable_name=variable_name,
-                location=location,
-                transformation_type=node_dict.get("transformation_type", ""),
-            )
-        else:
-            # Generic DFGNode
-            node = DFGNode(
-                node_id=node_id,
-                variable_name=variable_name,
-                location=location,
-            )
-
-        dfg.add_node(node)
-        node_lookup[node_id] = node
-
-    # Create all edges
-    for edge_dict in edges_dict:
-        source_id = edge_dict.get("source_id", "")
-        target_id = edge_dict.get("target_id", "")
-        edge_type_str = edge_dict.get("edge_type", "DEF_USE")
-        label = edge_dict.get("label", "")
-
-        source = node_lookup.get(source_id)
-        target = node_lookup.get(target_id)
-
-        if source is None or target is None:
-            logger.warning(f"Skipping DFG edge with missing nodes: {source_id} -> {target_id}")
-            continue
-
-        edge_type = DFGEdgeType(edge_type_str) if edge_type_str else DFGEdgeType.DEF_USE
-
-        edge = DFGEdge(
-            source=source,
-            target=target,
-            edge_type=edge_type,
-            label=label,
-        )
-        dfg.add_edge(edge)
-
-    return dfg
-
-
 def _deserialize_parse_node(node_dict: dict[str, Any]) -> ParseNode:
     """Deserialize ParseNode from dict.
 
@@ -493,207 +155,35 @@ def _deserialize_parse_node(node_dict: dict[str, Any]) -> ParseNode:
     Returns:
         ParseNode instance
     """
-    node_type = node_dict.get("node_type", "")
+    # Support both old format (node_type) and new format (type)
+    node_type = node_dict.get("type") or node_dict.get("node_type", "")
     value = node_dict.get("value")
-    line_number = node_dict.get("line_number")
     children = node_dict.get("children", [])
 
     # Recursively deserialize children
-    deserialized_children = []
+    deserialized_children: list[ParseNode] = []
     for child in children:
         if isinstance(child, dict):
             deserialized_children.append(_deserialize_parse_node(child))
-        else:
-            deserialized_children.append(child)
 
-    parse_node = ParseNode(node_type=node_type, children=deserialized_children, value=value)
-    if line_number is not None:
-        parse_node.line_number = line_number
-
-    return parse_node
-
-
-# ============================================================================
-# Serialization helpers for AST/CFG/DFG models
-# ============================================================================
-
-
-def _serialize_source_location(location: SourceLocation | None) -> dict[str, Any] | None:
-    """Serialize SourceLocation to dict."""
-    if location is None:
-        return None
-    return {
-        "line": location.line,
-        "column": location.column,
-        "file_path": location.file_path,
-    }
-
-
-def _serialize_ast_node(node: Any) -> dict[str, Any]:
-    """Serialize AST node to dict."""
-    # Dispatch to type-specific serializers
-    if isinstance(node, ProgramNode):
-        result = {
-            "type": "ProgramNode",
-            "program_name": node.program_name,
-            "divisions": [_serialize_ast_node(div) for div in node.divisions],
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, DivisionNode):
-        result = {
-            "type": "DivisionNode",
-            "division_type": node.division_type.value,
-            "sections": [_serialize_ast_node(sec) for sec in node.sections],
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, SectionNode):
-        result = {
-            "type": "SectionNode",
-            "section_name": node.section_name,
-            "paragraphs": [_serialize_ast_node(para) for para in node.paragraphs],
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, ParagraphNode):
-        result = {
-            "type": "ParagraphNode",
-            "paragraph_name": node.paragraph_name,
-            "statements": [_serialize_ast_node(stmt) for stmt in node.statements],
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, StatementNode):
-        attrs: dict[str, Any] = {}
-        for key, value in node.attributes.items():
-            if isinstance(value, ExpressionNode | VariableNode | LiteralNode):
-                attrs[key] = _serialize_ast_node(value)
-            elif isinstance(value, list):
-                attrs[key] = [
-                    _serialize_ast_node(item)
-                    if isinstance(item, StatementNode | ExpressionNode | VariableNode | LiteralNode)
-                    else item
-                    for item in value
-                ]
-            else:
-                attrs[key] = value
-        result = {
-            "type": "StatementNode",
-            "statement_type": node.statement_type.value,
-            "attributes": attrs,
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, ExpressionNode):
-        result = {
-            "type": "ExpressionNode",
-            "operator": node.operator,
-            "left": _serialize_ast_node(node.left) if node.left else None,
-            "right": _serialize_ast_node(node.right) if node.right else None,
-            "value": node.value,
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, VariableNode):
-        result = {
-            "type": "VariableNode",
-            "variable_name": node.variable_name,
-            "pic_clause": node.pic_clause,
-            "level_number": cast(Any, node.level_number),
-            "location": _serialize_source_location(node.location),
-        }
-    elif isinstance(node, LiteralNode):
-        result = {
-            "type": "LiteralNode",
-            "value": cast(Any, node.value),
-            "literal_type": node.literal_type,
-            "location": _serialize_source_location(node.location),
-        }
-    else:
-        result = {"type": str(type(node).__name__), "data": str(node)}
-    return result
-
-
-def _serialize_cfg_node(node: CFGNode) -> dict[str, Any]:
-    """Serialize CFG node to dict."""
-    base: dict[str, Any] = {
-        "node_id": node.node_id,
-        "label": node.label,
-        "location": _serialize_source_location(node.location),
-    }
-    if isinstance(node, BasicBlock):
-        base["statements"] = [_serialize_ast_node(stmt) for stmt in node.statements]
-        base["node_type"] = "BasicBlock"
-    elif isinstance(node, ControlFlowNode):
-        base["control_type"] = node.control_type
-        base["condition"] = _serialize_ast_node(node.condition) if node.condition else None
-        base["target_paragraph"] = getattr(node, "target_paragraph", None)
-        base["node_type"] = "ControlFlowNode"
-    elif node.node_id == "entry":
-        base["node_type"] = "EntryNode"
-    elif node.node_id == "exit":
-        base["node_type"] = "ExitNode"
-    else:
-        base["node_type"] = "CFGNode"
-    return base
-
-
-def _serialize_cfg_edge(edge: CFGEdge) -> dict[str, Any]:
-    """Serialize CFG edge to dict."""
-    return {
-        "source_id": edge.source.node_id,
-        "target_id": edge.target.node_id,
-        "edge_type": edge.edge_type.value,
-        "label": edge.label,
-    }
-
-
-def _serialize_dfg_node(node: DFGNode) -> dict[str, Any]:
-    """Serialize DFG node to dict."""
-    base = {
-        "node_id": node.node_id,
-        "variable_name": node.variable_name,
-        "location": _serialize_source_location(node.location),
-    }
-    if hasattr(node, "statement"):
-        statement = getattr(node, "statement", None)
-        if statement:
-            base["statement"] = _serialize_ast_node(statement)
-    if hasattr(node, "context"):
-        base["context"] = getattr(node, "context", "")
-    if hasattr(node, "transformation_type"):
-        base["transformation_type"] = getattr(node, "transformation_type", "")
-    base["node_type"] = type(node).__name__
-    return base
-
-
-def _serialize_dfg_edge(edge: DFGEdge) -> dict[str, Any]:
-    """Serialize DFG edge to dict."""
-    return {
-        "source_id": edge.source.node_id,
-        "target_id": edge.target.node_id,
-        "edge_type": edge.edge_type.value,
-        "label": edge.label,
-    }
-
-
-def _serialize_pdg_node(node: PDGNode) -> dict[str, Any]:
-    """Serialize PDG node to dict."""
-    base = {
-        "node_id": node.node_id,
-        "label": node.label,
-        "location": _serialize_source_location(node.location),
-        "cfg_node_id": node.cfg_node_id,
-    }
-    if node.statement:
-        base["statement"] = _serialize_ast_node(node.statement)
-    return base
-
-
-def _serialize_pdg_edge(edge: PDGEdge) -> dict[str, Any]:
-    """Serialize PDG edge to dict."""
-    return {
-        "source_id": edge.source.node_id,
-        "target_id": edge.target.node_id,
-        "edge_type": edge.edge_type.value,
-        "label": edge.label,
-        "variable_name": edge.variable_name,
-    }
+    # Build ParseNode with new Pydantic model structure
+    return ParseNode(
+        type=node_type,
+        children=deserialized_children,
+        value=value,
+        # Support both old and new location fields
+        start_line=node_dict.get("start_line") or node_dict.get("line_number"),
+        start_column=node_dict.get("start_column") or node_dict.get("column_number"),
+        end_line=node_dict.get("end_line"),
+        end_column=node_dict.get("end_column"),
+        # New fields from ProLeap format
+        id=node_dict.get("id"),
+        rule_index=node_dict.get("rule_index"),
+        rule_name=node_dict.get("rule_name"),
+        text=node_dict.get("text"),
+        token_type=node_dict.get("token_type"),
+        token_name=node_dict.get("token_name"),
+    )
 
 
 def _serialize_parse_node(node: ParseNode) -> dict[str, Any]:
@@ -703,16 +193,105 @@ def _serialize_parse_node(node: ParseNode) -> dict[str, Any]:
         node: ParseNode instance to serialize
 
     Returns:
-        Dictionary representation of ParseNode
+        Dictionary representation of ParseNode (uses Pydantic model_dump)
     """
-    return {
-        "node_type": node.node_type,
-        "value": node.value,
-        "line_number": node.line_number,
-        "children": [
-            _serialize_parse_node(child) if isinstance(child, ParseNode) else child
-            for child in node.children
+    # Use Pydantic's model_dump for serialization
+    # exclude_none=True to avoid cluttering output with None values
+    return node.model_dump(exclude_none=True)
+
+
+def _resolve_copybook_paths(
+    *,
+    copybook_directories: Any,
+    file_path: str | None,
+) -> list[Path] | None:
+    """Resolve copybook directories from explicit input or auto-detection.
+
+    Args:
+        copybook_directories: Optional list of directory strings
+        file_path: Optional COBOL file path (used for auto-detection)
+
+    Returns:
+        List of copybook directories as Path objects, or None.
+    """
+    if copybook_directories:
+        return [Path(d) for d in copybook_directories]
+
+    if not file_path:
+        return None
+
+    file_dir = Path(file_path).parent
+    candidates: list[Path] = [file_dir]
+
+    # Check common copybook directory names in same and sibling directories
+    for name in ["copybooks", "copy", "copybook", "COPYBOOKS", "COPY"]:
+        for base in [file_dir, file_dir.parent]:
+            candidate = base / name
+            if candidate.exists():
+                candidates.append(candidate)
+
+    # De-duplicate while preserving order
+    unique_candidates: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        unique_candidates.append(candidate)
+
+    return unique_candidates
+
+
+def _parse_cobol_source_or_file(
+    *,
+    source_code: str | None,
+    file_path: str | None,
+    copybook_paths: list[Path] | None,
+) -> tuple[ParseNode, list[Comment], Any, Any | None]:
+    """Parse COBOL from either file or source, optionally with copybook preprocessing.
+
+    Returns:
+        parsed_tree, comments, id_metadata, preprocessed (or None)
+    """
+    if file_path:
+        if copybook_paths:
+            parsed_tree, comments, id_metadata, preprocessed = parse_cobol_file_with_copybooks(
+                file_path, copybook_paths
+            )
+            return parsed_tree, comments, id_metadata, preprocessed
+
+        parsed_tree, comments, id_metadata = parse_cobol_file(file_path)
+        return parsed_tree, comments, id_metadata, None
+
+    if source_code is None:
+        raise ValueError("Either 'source_code' or 'file_path' must be provided")
+
+    if copybook_paths:
+        parsed_tree, comments, id_metadata, preprocessed = parse_cobol_with_copybooks(
+            source_code, copybook_paths
+        )
+        return parsed_tree, comments, id_metadata, preprocessed
+
+    parsed_tree, comments, id_metadata = parse_cobol(source_code)
+    return parsed_tree, comments, id_metadata, None
+
+
+def _add_copybook_info_to_metadata(metadata: dict[str, Any], preprocessed: Any | None) -> None:
+    """Attach copybook preprocessing info to metadata if available."""
+    if not preprocessed:
+        return
+
+    metadata["copybook_info"] = {
+        "copybooks_found": len(preprocessed.copybook_usages),
+        "copybooks": [
+            {
+                "name": usage.copybook_name,
+                "resolved": usage.is_resolved,
+                "resolved_path": str(usage.resolved_path) if usage.resolved_path else None,
+            }
+            for usage in preprocessed.copybook_usages
         ],
+        "unresolved": preprocessed.unresolved_copybooks,
     }
 
 
@@ -722,16 +301,22 @@ def _serialize_parse_node(node: ParseNode) -> dict[str, Any]:
 
 
 def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Parse COBOL source code into AST.
+    """Parse COBOL source code into AST (Abstract Syntax Tree).
+
+    The ParseNode structure now serves as the AST, matching the ProLeap format.
+    This provides a unified structure for further analysis (ASG, user stories, call graphs).
 
     Args:
-        parameters: Handler parameters containing 'source_code' or 'file_path'
+        parameters: Handler parameters containing:
+            - 'source_code' or 'file_path': The COBOL source to parse
+            - 'copybook_directories': Optional list of directories to search for copybooks
 
     Returns:
-        Dictionary with AST representation
+        Dictionary with AST (ParseNode) representation
     """
     source_code = parameters.get("source_code")
     file_path = parameters.get("file_path")
+    copybook_directories = parameters.get("copybook_directories")
 
     if not source_code and not file_path:
         return {
@@ -740,31 +325,49 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
-        if file_path:
-            parsed_tree, comments = parse_cobol_file(file_path)
-        else:
-            if not isinstance(source_code, str):
-                return {
-                    "success": False,
-                    "error": "'source_code' must be a string",
-                }
-            parsed_tree, comments = parse_cobol(source_code)
+        if source_code is not None and not isinstance(source_code, str):
+            return {
+                "success": False,
+                "error": "'source_code' must be a string",
+            }
 
-        ast = build_ast(parsed_tree, comments)
-        ast_dict = _serialize_ast_node(ast)
+        if file_path is not None and not isinstance(file_path, str):
+            return {
+                "success": False,
+                "error": "'file_path' must be a string",
+            }
 
-        # Extract metadata from AST (minimal implementation)
-        metadata = _extract_metadata_from_ast(ast, file_path)
+        copybook_paths = _resolve_copybook_paths(
+            copybook_directories=copybook_directories,
+            file_path=file_path if isinstance(file_path, str) else None,
+        )
 
-        result = {
+        parsed_tree, _comments, _id_metadata, preprocessed = _parse_cobol_source_or_file(
+            source_code=source_code if isinstance(source_code, str) else None,
+            file_path=file_path if isinstance(file_path, str) else None,
+            copybook_paths=copybook_paths,
+        )
+
+        # ParseNode is now the AST - serialize using Pydantic
+        ast_dict = _serialize_parse_node(parsed_tree)
+
+        # Extract program name from parse tree
+        program_name = _extract_program_name_from_parse_tree(parsed_tree)
+
+        # Extract metadata from parse tree
+        metadata = _extract_metadata_from_parse_tree(parsed_tree, file_path)
+
+        _add_copybook_info_to_metadata(metadata, preprocessed)
+
+        result: dict[str, Any] = {
             "success": True,
             "ast": ast_dict,
-            "program_name": ast.program_name,
-            "metadata": metadata,  # Now includes program_info, size_metrics, dependencies
+            "program_name": program_name,
+            "metadata": metadata,
         }
 
         # Save result to file
-        saved_path = _save_tool_result("parse_cobol", result, ast.program_name)
+        saved_path = _save_tool_result("parse_cobol", result, program_name)
         if saved_path:
             result["saved_to"] = str(saved_path)
 
@@ -800,14 +403,14 @@ def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
     try:
         if file_path:
-            parse_node, _ = parse_cobol_file(file_path)
+            parse_node, _, _ = parse_cobol_file(file_path)
         else:
             if not isinstance(source_code, str):
                 return {
                     "success": False,
                     "error": "'source_code' must be a string",
                 }
-            parse_node, _ = parse_cobol(source_code)
+            parse_node, _, _ = parse_cobol(source_code)
         parse_tree_dict = _serialize_parse_node(parse_node)
 
         result = {
@@ -831,318 +434,112 @@ def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Build Abstract Syntax Tree (AST) from ParseNode.
+def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Build Abstract Semantic Graph (ASG) from COBOL source.
+
+    This handler uses the pure Python ASG builder that works directly with the
+    ANTLR parse tree. No Java or ProLeap required. It produces Pydantic
+    models that capture:
+    - Program structure with all divisions
+    - Data definitions with clause types (PICTURE, USAGE, VALUE, OCCURS, etc.)
+    - Procedure statements with full details
+    - CALL/PERFORM statement targets and parameters
+    - Level 88 conditions
 
     Args:
-        parameters: Handler parameters containing 'parse_tree' (ParseNode as dict)
+        parameters: Handler parameters containing either:
+            - 'file_path': Path to COBOL file
+            - 'source_code': COBOL source code string
 
     Returns:
-        Dictionary with AST representation
+        Dictionary with ASG representation as serialized Pydantic model
     """
-    parse_tree_dict = parameters.get("parse_tree")
-    if not parse_tree_dict:
-        return {
-            "success": False,
-            "error": "Parse tree representation is required",
-        }
+    file_path = parameters.get("file_path")
+    source_code = parameters.get("source_code")
+
+    if not file_path and not source_code:
+        return {"success": False, "error": "Either 'file_path' or 'source_code' is required"}
 
     try:
-        # Accept ParseNode directly or deserialize from dict
-        if isinstance(parse_tree_dict, ParseNode):
-            parse_tree = parse_tree_dict
-        elif isinstance(parse_tree_dict, dict):
-            parse_tree = _deserialize_parse_node(parse_tree_dict)
+        # Build ASG using pure Python builder
+        if file_path:
+            asg = build_asg_from_file(str(file_path))
+            program_name = Path(file_path).stem
         else:
-            return {
-                "success": False,
-                "error": "Parse tree must be a ParseNode instance or a serialized dictionary",
-            }
+            # source_code is guaranteed non-None here due to earlier check
+            assert source_code is not None  # nosec B101
+            asg = build_asg_from_source(source_code)
+            # Extract program name from ASG
+            program_name = "UNNAMED"
+            if asg.compilation_units:
+                cu = asg.compilation_units[0]
+                if cu.program_units:
+                    pu = cu.program_units[0]
+                    if pu.identification_division and pu.identification_division.program_id:
+                        program_name = pu.identification_division.program_id
 
-        ast = build_ast(parse_tree)
-        ast_dict = _serialize_ast_node(ast)
+        # Convert Pydantic model to dict for JSON serialization
+        asg_dict = asg.model_dump(mode="json", exclude_none=True)
 
-        result = {
+        result: dict[str, Any] = {
             "success": True,
-            "ast": ast_dict,
-            "program_name": ast.program_name,
+            "asg": asg_dict,
+            "source_file": asg.source_file,
+            "builder": "python",
+            "compilation_unit_count": len(asg.compilation_units),
+            "external_calls": list(asg.external_calls),
         }
 
-        # Save result to file
-        saved_path = _save_tool_result("build_ast", result, ast.program_name)
-        if saved_path:
-            result["saved_to"] = str(saved_path)
-
-        return result
-    except Exception as e:
-        logger.exception("Failed to build AST")
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Build Control Flow Graph (CFG) from AST.
-
-    Args:
-        parameters: Handler parameters containing 'ast' (AST representation as dict or ProgramNode)
-
-    Returns:
-        Dictionary with CFG representation
-    """
-    ast_dict = parameters.get("ast")
-    if not ast_dict:
-        return {
-            "success": False,
-            "error": "AST representation is required",
-        }
-
-    try:
-        # Log what we received for debugging
-        logger.debug(
-            f"build_cfg_handler received ast_dict type={type(ast_dict).__name__}, "
-            f"keys={list(ast_dict.keys()) if isinstance(ast_dict, dict) else 'N/A'}"
-        )
-
-        # Accept ProgramNode directly or deserialize from dict
-        if isinstance(ast_dict, ProgramNode):
-            ast = ast_dict
-        elif isinstance(ast_dict, dict):
-            ast_raw = _deserialize_ast_node(ast_dict)
-            if not isinstance(ast_raw, ProgramNode):
-                return {
-                    "success": False,
-                    "error": "AST must be a ProgramNode instance",
+        # Add summary information
+        if asg.compilation_units:
+            cu = asg.compilation_units[0]
+            if cu.program_units:
+                pu = cu.program_units[0]
+                result["summary"] = {
+                    "program_id": pu.identification_division.program_id
+                    if pu.identification_division
+                    else None,
+                    "has_data_division": pu.data_division is not None,
+                    "has_procedure_division": pu.procedure_division is not None,
                 }
-            ast = ast_raw
-        else:
-            return {
-                "success": False,
-                "error": "AST must be a ProgramNode instance or a serialized dictionary",
-            }
 
-        cfg = build_cfg(ast)
-        cfg_dict = {
-            "entry_node": _serialize_cfg_node(cfg.entry_node),
-            "exit_node": _serialize_cfg_node(cfg.exit_node),
-            "nodes": [_serialize_cfg_node(node) for node in cfg.nodes],
-            "edges": [_serialize_cfg_edge(edge) for edge in cfg.edges],
-        }
+                if pu.data_division:
+                    dd = pu.data_division
+                    result["summary"]["working_storage_entries"] = (
+                        len(dd.working_storage.entries) if dd.working_storage else 0
+                    )
+                    result["summary"]["linkage_entries"] = (
+                        len(dd.linkage_section.entries) if dd.linkage_section else 0
+                    )
 
-        result = {
-            "success": True,
-            "cfg": cfg_dict,
-            "node_count": len(cfg.nodes),
-            "edge_count": len(cfg.edges),
-        }
+                if pu.procedure_division:
+                    pd = pu.procedure_division
+                    result["summary"]["paragraph_count"] = len(pd.paragraphs)
+                    result["summary"]["call_statement_count"] = len(pd.call_statements)
+                    result["summary"]["using_parameters"] = pd.using_parameters
 
         # Save result to file
-        saved_path = _save_tool_result("build_cfg", result, ast.program_name)
+        saved_path = _save_tool_result("build_asg", result, program_name)
         if saved_path:
             result["saved_to"] = str(saved_path)
 
         return result
+
+    except ASGBuilderError as e:
+        logger.warning(f"ASG build failed: {e}")
+        return {"success": False, "error": str(e)}
+    except SyntaxError as e:
+        logger.warning(f"COBOL syntax error: {e}")
+        return {"success": False, "error": f"COBOL syntax error: {e}"}
     except Exception as e:
-        logger.exception("Failed to build CFG")
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Build Data Flow Graph (DFG) from AST + CFG.
-
-    Args:
-        parameters: Handler parameters containing 'ast' and 'cfg' (as dicts or objects)
-
-    Returns:
-        Dictionary with DFG representation
-    """
-    ast_dict = parameters.get("ast")
-    cfg_dict = parameters.get("cfg")
-
-    if not ast_dict:
-        return {
-            "success": False,
-            "error": "AST representation is required",
-        }
-    if not cfg_dict:
-        return {
-            "success": False,
-            "error": "CFG representation is required",
-        }
-
-    try:
-        # Accept ProgramNode directly or deserialize from dict
-        if isinstance(ast_dict, ProgramNode):
-            ast = ast_dict
-        elif isinstance(ast_dict, dict):
-            ast_raw = _deserialize_ast_node(ast_dict)
-            if not isinstance(ast_raw, ProgramNode):
-                return {
-                    "success": False,
-                    "error": "AST must be a ProgramNode instance",
-                }
-            ast = ast_raw
-        else:
-            return {
-                "success": False,
-                "error": "AST must be a ProgramNode instance or a serialized dictionary",
-            }
-
-        # Accept ControlFlowGraph directly or deserialize from dict
-        if isinstance(cfg_dict, ControlFlowGraph):
-            cfg = cfg_dict
-        elif isinstance(cfg_dict, dict):
-            cfg = _deserialize_cfg(cfg_dict)
-        else:
-            return {
-                "success": False,
-                "error": "CFG must be a ControlFlowGraph instance or a serialized dictionary",
-            }
-
-        dfg = build_dfg(ast, cfg)
-        dfg_dict = {
-            "nodes": [_serialize_dfg_node(node) for node in dfg.nodes],
-            "edges": [_serialize_dfg_edge(edge) for edge in dfg.edges],
-        }
-
-        result = {
-            "success": True,
-            "dfg": dfg_dict,
-            "node_count": len(dfg.nodes),
-            "edge_count": len(dfg.edges),
-        }
-
-        # Save result to file
-        saved_path = _save_tool_result("build_dfg", result, ast.program_name)
-        if saved_path:
-            result["saved_to"] = str(saved_path)
-
-        return result
-    except Exception as e:
-        logger.exception("Failed to build DFG")
-        return {
-            "success": False,
-            "error": str(e),
-        }
-
-
-def _deserialize_ast_for_pdg(ast_dict: Any) -> tuple[bool, ProgramNode | None, str]:
-    """Deserialize AST for PDG building.
-
-    Returns:
-        Tuple of (success, ast_or_none, error_message)
-    """
-    if not ast_dict:
-        return False, None, "AST representation is required"
-    if isinstance(ast_dict, ProgramNode):
-        return True, ast_dict, ""
-    if isinstance(ast_dict, dict):
-        ast_raw = _deserialize_ast_node(ast_dict)
-        if not isinstance(ast_raw, ProgramNode):
-            return False, None, "AST must be a ProgramNode instance"
-        return True, ast_raw, ""
-    return False, None, "AST must be a ProgramNode instance or a serialized dictionary"
-
-
-def _deserialize_cfg_for_pdg(cfg_dict: Any) -> tuple[bool, ControlFlowGraph | None, str]:
-    """Deserialize CFG for PDG building.
-
-    Returns:
-        Tuple of (success, cfg_or_none, error_message)
-    """
-    if not cfg_dict:
-        return False, None, "CFG representation is required"
-    if isinstance(cfg_dict, ControlFlowGraph):
-        return True, cfg_dict, ""
-    if isinstance(cfg_dict, dict):
-        return True, _deserialize_cfg(cfg_dict), ""
-    return False, None, "CFG must be a ControlFlowGraph instance or a serialized dictionary"
-
-
-def _deserialize_dfg_for_pdg(dfg_dict: Any) -> tuple[bool, DataFlowGraph | None, str]:
-    """Deserialize DFG for PDG building.
-
-    Returns:
-        Tuple of (success, dfg_or_none, error_message)
-    """
-    if not dfg_dict:
-        return False, None, "DFG representation is required"
-    if isinstance(dfg_dict, DataFlowGraph):
-        return True, dfg_dict, ""
-    if isinstance(dfg_dict, dict):
-        return True, _deserialize_dfg(dfg_dict), ""
-    return False, None, "DFG must be a DataFlowGraph instance or a serialized dictionary"
-
-
-def build_pdg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Build Program Dependency Graph (PDG) from AST, CFG, and DFG.
-
-    The PDG combines control dependencies (from CFG) and data dependencies
-    (from DFG) into a unified graph showing all dependencies in the program.
-
-    Args:
-        parameters: Handler parameters containing 'ast', 'cfg', and 'dfg'
-                   (as dicts or objects)
-
-    Returns:
-        Dictionary with PDG representation
-    """
-    ast_dict = parameters.get("ast")
-    cfg_dict = parameters.get("cfg")
-    dfg_dict = parameters.get("dfg")
-
-    success, ast, error = _deserialize_ast_for_pdg(ast_dict)
-    if not success:
-        return {"success": False, "error": error}
-    assert ast is not None  # Type narrowing for mypy  # nosec B101
-
-    success, cfg, error = _deserialize_cfg_for_pdg(cfg_dict)
-    if not success:
-        return {"success": False, "error": error}
-    assert cfg is not None  # Type narrowing for mypy  # nosec B101
-
-    success, dfg, error = _deserialize_dfg_for_pdg(dfg_dict)
-    if not success:
-        return {"success": False, "error": error}
-    assert dfg is not None  # Type narrowing for mypy  # nosec B101
-
-    try:
-        pdg = build_pdg(ast, cfg, dfg)
-        pdg_dict = {
-            "nodes": [_serialize_pdg_node(node) for node in pdg.nodes],
-            "edges": [_serialize_pdg_edge(edge) for edge in pdg.edges],
-        }
-
-        # Count edge types
-        control_edges = len([e for e in pdg.edges if e.edge_type == PDGEdgeType.CONTROL])
-        data_edges = len([e for e in pdg.edges if e.edge_type == PDGEdgeType.DATA])
-
-        result = {
-            "success": True,
-            "pdg": pdg_dict,
-            "node_count": len(pdg.nodes),
-            "edge_count": len(pdg.edges),
-            "control_edge_count": control_edges,
-            "data_edge_count": data_edges,
-        }
-
-        # Save result to file
-        saved_path = _save_tool_result("build_pdg", result, ast.program_name)
-        if saved_path:
-            result["saved_to"] = str(saved_path)
-
-        return result
-    except Exception as e:
-        logger.exception("Failed to build PDG")
+        logger.exception("Failed to build ASG")
         return {"success": False, "error": str(e)}
 
 
 def _process_single_cobol_file(cobol_file: Path) -> dict[str, Any]:
-    """Process a single COBOL file through all analysis stages.
+    """Process a single COBOL file through analysis stages.
+
+    Parses the COBOL source into AST (ParseNode) and optionally builds the ASG.
 
     Args:
         cobol_file: Path to the COBOL file to process
@@ -1158,7 +555,7 @@ def _process_single_cobol_file(cobol_file: Path) -> dict[str, Any]:
 
     logger.info(f"Processing {cobol_file}")
 
-    # Stage 1: Parse COBOL to AST
+    # Stage 1: Parse COBOL to AST (ParseNode)
     parse_result = parse_cobol_handler({"file_path": str(cobol_file)})
     file_result["stages"]["parse"] = {
         "success": parse_result.get("success", False),
@@ -1169,55 +566,20 @@ def _process_single_cobol_file(cobol_file: Path) -> dict[str, Any]:
         file_result["error"] = f"Parse failed: {parse_result.get('error', 'Unknown error')}"
         return file_result
 
-    ast = parse_result.get("ast")
     program_name = parse_result.get("program_name", "unknown")
 
-    # Stage 2: Build CFG
-    cfg_result = build_cfg_handler({"ast": ast})
-    file_result["stages"]["cfg"] = {
-        "success": cfg_result.get("success", False),
-        "node_count": cfg_result.get("node_count"),
-        "edge_count": cfg_result.get("edge_count"),
-        "saved_to": cfg_result.get("saved_to"),
+    # Stage 2: Build ASG (semantic analysis)
+    asg_result = build_asg_handler({"file_path": str(cobol_file)})
+    file_result["stages"]["asg"] = {
+        "success": asg_result.get("success", False),
+        "saved_to": asg_result.get("saved_to"),
     }
 
-    if not cfg_result.get("success"):
-        file_result["error"] = f"CFG build failed: {cfg_result.get('error', 'Unknown error')}"
-        return file_result
+    if not asg_result.get("success"):
+        # ASG failure is not fatal - parsing succeeded
+        logger.warning(f"ASG build failed for {cobol_file}: {asg_result.get('error')}")
 
-    cfg = cfg_result.get("cfg")
-
-    # Stage 3: Build DFG
-    dfg_result = build_dfg_handler({"ast": ast, "cfg": cfg})
-    file_result["stages"]["dfg"] = {
-        "success": dfg_result.get("success", False),
-        "node_count": dfg_result.get("node_count"),
-        "edge_count": dfg_result.get("edge_count"),
-        "saved_to": dfg_result.get("saved_to"),
-    }
-
-    if not dfg_result.get("success"):
-        file_result["error"] = f"DFG build failed: {dfg_result.get('error', 'Unknown error')}"
-        return file_result
-
-    dfg = dfg_result.get("dfg")
-
-    # Stage 4: Build PDG
-    pdg_result = build_pdg_handler({"ast": ast, "cfg": cfg, "dfg": dfg})
-    file_result["stages"]["pdg"] = {
-        "success": pdg_result.get("success", False),
-        "node_count": pdg_result.get("node_count"),
-        "edge_count": pdg_result.get("edge_count"),
-        "control_edge_count": pdg_result.get("control_edge_count"),
-        "data_edge_count": pdg_result.get("data_edge_count"),
-        "saved_to": pdg_result.get("saved_to"),
-    }
-
-    if not pdg_result.get("success"):
-        file_result["error"] = f"PDG build failed: {pdg_result.get('error', 'Unknown error')}"
-        return file_result
-
-    # All stages succeeded
+    # All stages succeeded (parsing is the minimum requirement)
     file_result["success"] = True
     file_result["program_name"] = program_name
     return file_result
@@ -1402,7 +764,12 @@ def analyze_program_system_handler(parameters: dict[str, Any]) -> dict[str, Any]
             }
 
         file_extensions = parameters.get("file_extensions", [".cbl", ".cob", ".cobol"])
-        # include_inactive = parameters.get("include_inactive", False)  # Reserved for future use
+        # include_inactive: When implemented, this will control whether to analyze
+        # commented-out code (e.g., CALL statements or COPY dependencies in comment lines).
+        # This is useful for identifying legacy dependencies, temporarily disabled code,
+        # or understanding the historical evolution of program relationships.
+        # Currently not implemented - all analysis ignores commented code.
+        # include_inactive = parameters.get("include_inactive", False)
         max_depth = parameters.get("max_depth")
 
         # Data structures for system analysis
@@ -2706,10 +2073,7 @@ def _find_copybook_file(copybook_name: str, search_dirs: list[Path]) -> Path | N
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "parse_cobol_handler": parse_cobol_handler,
     "parse_cobol_raw_handler": parse_cobol_raw_handler,
-    "build_ast_handler": build_ast_handler,
-    "build_cfg_handler": build_cfg_handler,
-    "build_dfg_handler": build_dfg_handler,
-    "build_pdg_handler": build_pdg_handler,
+    "build_asg_handler": build_asg_handler,
     "batch_analyze_cobol_directory_handler": batch_analyze_cobol_directory_handler,
     "analyze_program_system_handler": analyze_program_system_handler,
     "build_call_graph_handler": build_call_graph_handler,

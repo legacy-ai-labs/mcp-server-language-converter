@@ -193,7 +193,7 @@ def detect_cycles(call_graph: dict[str, list[str]]) -> dict[str, Any]:
     # Find cycles (SCCs with more than one node or self-loops)
     cycles = []
     for scc in sccs:
-        if len(scc) > 1 or len(scc) == 1 and scc[0] in graph.get(scc[0], []):
+        if len(scc) > 1 or (len(scc) == 1 and scc[0] in graph.get(scc[0], [])):
             cycles.append(scc)
 
     return {

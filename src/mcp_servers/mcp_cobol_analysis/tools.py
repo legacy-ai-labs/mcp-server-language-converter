@@ -8,11 +8,8 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     analyze_program_system_handler,
     batch_analyze_cobol_directory_handler,
     batch_resolve_copybooks_handler,
-    build_ast_handler,
+    build_asg_handler,
     build_call_graph_handler,
-    build_cfg_handler,
-    build_dfg_handler,
-    build_pdg_handler,
     parse_cobol_handler,
     parse_cobol_raw_handler,
     prepare_cobol_for_antlr_handler,
@@ -76,93 +73,81 @@ async def parse_cobol_raw(
 
 @register_tool(
     domain="cobol_analysis",
-    tool_name="build_ast",
-    description="Build Abstract Syntax Tree (AST) from ParseNode",
+    tool_name="build_asg",
+    description="Build Abstract Semantic Graph (ASG) using ProLeap COBOL Parser",
 )
-async def build_ast(parse_tree: dict[str, Any]) -> dict[str, Any]:
-    """Build Abstract Syntax Tree (AST) from ParseNode.
-
-    Transforms a raw parse tree into a structured AST representation.
-    The AST provides a higher-level, semantically meaningful representation
-    of the COBOL program structure.
-
-    Args:
-        parse_tree: Raw parse tree data from parse_cobol_raw
-
-    Returns:
-        Dictionary with success status and AST data
-    """
-    return build_ast_handler({"parse_tree": parse_tree})
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="build_cfg",
-    description="Build Control Flow Graph (CFG) from AST",
-)
-async def build_cfg(ast: dict[str, Any]) -> dict[str, Any]:
-    """Build Control Flow Graph (CFG) from AST.
-
-    Generates a control flow graph showing the execution paths through the program.
-    The CFG is essential for understanding program flow, identifying dead code,
-    and analyzing conditional logic.
-
-    Args:
-        ast: Abstract Syntax Tree data from parse_cobol or build_ast
-
-    Returns:
-        Dictionary with success status, CFG nodes, edges, and metadata
-    """
-    return build_cfg_handler({"ast": ast})
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="build_dfg",
-    description="Build Data Flow Graph (DFG) from AST and CFG",
-)
-async def build_dfg(ast: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    """Build Data Flow Graph (DFG) from AST and CFG.
-
-    Analyzes data dependencies and variable usage throughout the program.
-    The DFG tracks how data flows between statements, which is crucial for
-    understanding variable dependencies and potential data-related bugs.
-
-    Args:
-        ast: Abstract Syntax Tree data
-        cfg: Control Flow Graph data from build_cfg
-
-    Returns:
-        Dictionary with success status, DFG edges, and data flow analysis
-    """
-    return build_dfg_handler({"ast": ast, "cfg": cfg})
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="build_pdg",
-    description="Build Program Dependency Graph (PDG) from AST, CFG, and DFG",
-)
-async def build_pdg(
-    ast: dict[str, Any],
-    cfg: dict[str, Any],
-    dfg: dict[str, Any],
+async def build_asg(
+    file_path: str | None = None,
+    source_code: str | None = None,
+    program_name: str | None = None,
+    copybook_dir: str | None = None,
+    include_summary: bool = True,
+    include_call_graph: bool = True,
+    include_data_refs: bool = False,
 ) -> dict[str, Any]:
-    """Build Program Dependency Graph (PDG) from AST, CFG, and DFG.
+    """Build Abstract Semantic Graph (ASG) using ProLeap COBOL Parser.
 
-    Combines control flow and data flow information into a unified dependency graph.
-    The PDG is the most comprehensive representation, showing both control and data
-    dependencies, enabling advanced program analysis like slicing and refactoring.
+    The ASG provides semantic information beyond what the AST offers, including:
+    - Program structure with resolved references
+    - Data definitions with all clause types (PICTURE, USAGE, VALUE, OCCURS, REDEFINES, etc.)
+    - Cross-references showing which statements use each data item
+    - Procedure statements with full details
+    - CALL/PERFORM statement targets and parameters
+
+    This tool uses the ProLeap COBOL Parser (Java) to generate a comprehensive
+    semantic representation of the COBOL program. ProLeap must be set up first
+    by running: uv run python scripts/proleap_full_asg_export.py <any_cobol_file>
 
     Args:
-        ast: Abstract Syntax Tree data
-        cfg: Control Flow Graph data
-        dfg: Data Flow Graph data from build_dfg
+        file_path: Path to COBOL source file (optional if source_code provided)
+        source_code: COBOL source code as string (optional if file_path provided)
+        program_name: Program name when using source_code (default: "UNNAMED")
+        copybook_dir: Optional path to copybook directory for COPY resolution
+        include_summary: Include summary statistics (default: True)
+        include_call_graph: Include call graph extraction (default: True)
+        include_data_refs: Include data item cross-references (default: False)
 
     Returns:
-        Dictionary with success status, PDG structure, and dependency information
+        Dictionary containing:
+        - success: Whether ASG generation succeeded
+        - asg: Full ASG structure with compilation units, divisions, sections
+        - source_file: Source file path
+        - proleap_version: ProLeap parser version used
+        - export_type: Export format type
+        - summary: ASG summary with counts (if include_summary=True)
+        - call_graph: Call graph nodes and edges (if include_call_graph=True)
+        - data_references: Cross-reference data (if include_data_refs=True)
+        - saved_to: Path where result was saved
+
+    Example:
+        # Build ASG from file
+        result = await build_asg(file_path="programs/CUSTOMER-MGMT.cbl")
+
+        if result['success']:
+            print(f"Programs: {len(result['asg']['compilation_units'])}")
+            print(f"Call targets: {result['summary']['compilation_units'][0]['call_targets']}")
+
+        # Build ASG with all analyses
+        result = await build_asg(
+            file_path="programs/MAIN-BATCH.cbl",
+            copybook_dir="copybooks/",
+            include_data_refs=True
+        )
     """
-    return build_pdg_handler({"ast": ast, "cfg": cfg, "dfg": dfg})
+    parameters: dict[str, Any] = {
+        "include_summary": include_summary,
+        "include_call_graph": include_call_graph,
+        "include_data_refs": include_data_refs,
+    }
+    if file_path is not None:
+        parameters["file_path"] = file_path
+    if source_code is not None:
+        parameters["source_code"] = source_code
+    if program_name is not None:
+        parameters["program_name"] = program_name
+    if copybook_dir is not None:
+        parameters["copybook_dir"] = copybook_dir
+    return build_asg_handler(parameters)
 
 
 @register_tool(

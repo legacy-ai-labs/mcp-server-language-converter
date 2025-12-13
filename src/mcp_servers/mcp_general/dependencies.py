@@ -1,16 +1,15 @@
 """Dependency injection for MCP server."""
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
-from src.core.database import get_session
-from src.core.services.common.tool_service_service import ToolService
+from src.core.services.common.tool_service_service import TOOL_HANDLERS
 
 
-async def get_tool_service() -> AsyncGenerator[ToolService, None]:
-    """Get tool service with database session.
+async def get_tool_handlers() -> AsyncGenerator[dict[str, Any], None]:
+    """Get tool handler registry.
 
     Yields:
-        ToolService instance
+        Mapping of handler name -> handler function
     """
-    async for session in get_session():
-        yield ToolService(session)
+    yield TOOL_HANDLERS

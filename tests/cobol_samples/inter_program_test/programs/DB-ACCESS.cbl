@@ -42,8 +42,8 @@
                    MOVE '99' TO WS-DB-STATUS
            END-EVALUATE
 
-           * This creates a circular reference - DB-ACCESS calls AUDIT-LOG
-           * which in turn might call DB-ACCESS for logging
+      * This creates a circular reference - DB-ACCESS calls AUDIT-LOG
+      * which in turn might call DB-ACCESS for logging
            IF WS-DB-STATUS NOT = '00'
               CALL 'AUDIT-LOG' USING
                   BY VALUE 'DB-ERROR'

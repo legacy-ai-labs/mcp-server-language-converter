@@ -57,7 +57,7 @@
                BY REFERENCE WS-PAYMENT-STATUS
            END-CALL.
 
-           * Call utility function for order logging
+      * Call utility function for order logging
            CALL 'UTILITY-FUNCS' USING
                BY VALUE 'LOG-ORDER'
            END-CALL.

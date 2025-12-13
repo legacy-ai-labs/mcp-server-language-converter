@@ -39,7 +39,7 @@
                    GOBACK
            END-EVALUATE
 
-           * Log report generation
+      * Log report generation
            CALL 'UTILITY-FUNCS' USING
                BY VALUE 'LOG-REPORT'
            END-CALL

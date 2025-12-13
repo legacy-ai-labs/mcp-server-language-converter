@@ -13,7 +13,6 @@ from src.core.database import Base
 
 # Import all models to ensure they're registered with Base.metadata
 from src.core.models.tool_execution_model import ToolExecution  # noqa: F401
-from src.core.models.tool_model import Tool  # noqa: F401
 
 
 # this is the Alembic Config object, which provides

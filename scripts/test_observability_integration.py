@@ -10,9 +10,11 @@ This script tests that the ObservabilityMiddleware is working correctly by:
 
 import asyncio
 import sys
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 from fastmcp import FastMCP
+from fastmcp.server.middleware import MiddlewareContext
 
 from src.core.config import get_settings
 from src.core.database import async_session_factory
@@ -70,8 +72,6 @@ async def test_observability() -> None:
 
     # We can't easily call the tool through FastMCP programmatically,
     # so we'll test the middleware directly
-    from types import SimpleNamespace
-
     # Create a mock context that looks like FastMCP's MiddlewareContext
     mock_message = SimpleNamespace(name="test_echo", arguments={"message": "Hello, Observability!"})
 
@@ -90,7 +90,9 @@ async def test_observability() -> None:
 
     # Execute through middleware
     try:
-        result = await obs_middleware.on_call_tool(mock_context, mock_call_next)
+        result = await obs_middleware.on_call_tool(
+            cast(MiddlewareContext[Any], mock_context), mock_call_next
+        )
         print("   ✓ Tool executed successfully")
         print(f"   Result: {result.content}")
     except Exception as e:

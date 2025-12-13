@@ -111,3 +111,66 @@ pkill -f "src.mcp_servers.mcp_general.http_main" || true
 pkill -f "src.mcp_servers.mcp_general.streamable_http_main" || true
 pkill -f "src.mcp_servers.mcp_general" || true
 ```
+
+---
+
+## ProLeap COBOL Parser Scripts
+
+These scripts use the ProLeap COBOL Parser (Java) to export AST and ASG structures to JSON. Useful for validating Python parser implementations.
+
+### Prerequisites
+- Java 17+
+- Maven 3+
+- Git
+
+The scripts will automatically clone and build ProLeap on first run.
+
+### Export AST (Abstract Syntax Tree)
+
+The AST is the raw ANTLR parse tree with every grammar rule and token.
+
+```bash
+uv run python scripts/proleap_ast_export.py <cobol_file>
+```
+
+Example:
+```bash
+uv run python scripts/proleap_ast_export.py tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT.cbl
+```
+
+Output: `output/proleap/<filename>.ast.json`
+
+### Export ASG (Abstract Semantic Graph)
+
+The ASG includes resolved references, symbol tables, and semantic information.
+
+```bash
+uv run python scripts/proleap_asg_export.py <cobol_file>
+```
+
+Example:
+```bash
+uv run python scripts/proleap_asg_export.py tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT.cbl
+```
+
+Output: `output/proleap/<filename>.asg.json`
+
+### What Each Export Provides
+
+| Feature | AST | ASG |
+|---------|-----|-----|
+| Parse tree structure | Yes | No |
+| Token positions (line/column) | Yes | No |
+| Grammar rule names | Yes | No |
+| Program name | No | Yes |
+| Data hierarchy (variables) | No | Yes |
+| Paragraphs & statements | No | Yes |
+| CALL targets (inter-program) | No | Yes |
+
+### Copybook Resolution
+
+Both scripts auto-detect copybook directories in these locations:
+- `../copybooks/` (relative to COBOL file)
+- `./copybooks/`
+- `../copy/`
+- `./copy/`

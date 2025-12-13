@@ -5,8 +5,12 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool
 
 from src.core.database import Base
@@ -21,7 +25,7 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, Any, None]:
 
 
 @pytest.fixture
-async def test_engine() -> AsyncGenerator[Any, None]:
+async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create test database engine with in-memory SQLite."""
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -38,11 +42,10 @@ async def test_engine() -> AsyncGenerator[Any, None]:
 
 
 @pytest.fixture
-async def test_session(test_engine: Any) -> AsyncGenerator[AsyncSession, None]:
+async def test_session(test_engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
     """Create test database session."""
-    async_session = sessionmaker(
+    async_session = async_sessionmaker(
         test_engine,
-        class_=AsyncSession,
         expire_on_commit=False,
     )
 

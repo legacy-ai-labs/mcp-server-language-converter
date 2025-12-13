@@ -29,7 +29,7 @@
 
            PERFORM BUILD-AUDIT-RECORD
 
-           * Only write to DB if not a DB-ERROR to avoid infinite loop
+      * Only write to DB if not a DB-ERROR to avoid infinite loop
            IF LS-AUDIT-TYPE NOT = 'DB-ERROR'
               PERFORM WRITE-TO-DATABASE
            END-IF
@@ -47,7 +47,7 @@
            MOVE 99999 TO WS-AUDIT-ID
            MOVE 'INSERT' TO WS-DB-OPERATION
 
-           * This creates circular dependency: AUDIT-LOG -> DB-ACCESS -> AUDIT-LOG
+      * This creates circular dependency: AUDIT-LOG -> DB-ACCESS -> AUDIT-LOG
            CALL 'DB-ACCESS' USING
                BY VALUE WS-DB-OPERATION
                BY VALUE WS-AUDIT-ID

@@ -97,7 +97,9 @@ class TestHTTPStreamingServer:
         assert len(handlers) > 0
 
         # Check that handler writes to stderr
-        stderr_handlers = [h for h in handlers if hasattr(h, "stream") and h.stream == sys.stderr]
+        stderr_handlers = [
+            h for h in handlers if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr
+        ]
         assert len(stderr_handlers) > 0
 
     @pytest.mark.asyncio

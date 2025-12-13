@@ -4,24 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from src.core.models.cobol_analysis_model import (
-    ControlFlowGraph,
-    EntryNode,
-    ExitNode,
-)
-from src.core.services.cobol_analysis.ast_builder_service import build_ast
-from src.core.services.cobol_analysis.cfg_builder_service import build_cfg
-
 # Merged handler lists for testing
 from src.core.services.cobol_analysis.tool_handlers_service import (
     TOOL_HANDLERS as COBOL_HANDLERS,
 )
 from src.core.services.cobol_analysis.tool_handlers_service import (
-    _serialize_ast_node,
-    _serialize_cfg_edge,
-    _serialize_cfg_node,
-    build_cfg_handler,
-    build_dfg_handler,
+    build_asg_handler,
     parse_cobol_handler,
 )
 from src.core.services.common.tool_service_service import get_handler
@@ -32,7 +20,6 @@ from src.core.services.general.tool_handlers_service import (
     calculator_add_handler,
     echo_handler,
 )
-from tests.core.test_ast_builder import _create_sample_program_parse_tree
 
 
 ALL_HANDLERS = {**GENERAL_HANDLERS, **COBOL_HANDLERS}
@@ -126,8 +113,7 @@ def test_list_handlers() -> None:
     assert "echo_handler" in handlers
     assert "calculator_add_handler" in handlers
     assert "parse_cobol_handler" in handlers
-    assert "build_cfg_handler" in handlers
-    assert "build_dfg_handler" in handlers
+    assert "build_asg_handler" in handlers
     assert len(handlers) >= 5
 
 
@@ -147,7 +133,8 @@ def test_parse_cobol_handler_with_source_code() -> None:
     if result["success"]:
         assert "ast" in result
         assert "program_name" in result
-        assert result["ast"]["type"] == "ProgramNode"
+        # ParseNode-serialized AST
+        assert result["ast"]["node_type"] == "PROGRAM"
     else:
         # If parsing fails, should have error message
         assert "error" in result
@@ -170,113 +157,11 @@ def test_parse_cobol_handler_invalid_syntax() -> None:
     assert "error" in result
 
 
-def test_build_cfg_handler_with_ast() -> None:
-    """Test build_cfg_handler with ProgramNode."""
-    # Use helper function to create a parse tree, then build AST
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-
-    result = build_cfg_handler({"ast": ast})
-
-    assert result["success"] is True
-    assert "cfg" in result
-    assert result["node_count"] > 0
-    assert result["edge_count"] > 0
-    assert "entry_node" in result["cfg"]
-    assert "exit_node" in result["cfg"]
-
-
-def test_build_cfg_handler_missing_ast() -> None:
-    """Test build_cfg_handler with missing AST."""
-    result = build_cfg_handler({})
-
+def test_build_asg_handler_missing_parameters() -> None:
+    """Test build_asg_handler with missing parameters."""
+    result = build_asg_handler({})
     assert result["success"] is False
     assert "error" in result
-
-
-def test_build_cfg_handler_invalid_ast() -> None:
-    """Test build_cfg_handler with invalid AST type."""
-    result = build_cfg_handler({"ast": {"invalid": "data"}})
-
-    assert result["success"] is False
-    assert "error" in result
-
-
-def test_build_dfg_handler_with_ast_and_cfg() -> None:
-    """Test build_dfg_handler with ProgramNode and ControlFlowGraph."""
-    # Use helper function to create a parse tree, then build AST and CFG
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-    cfg = build_cfg(ast)
-
-    result = build_dfg_handler({"ast": ast, "cfg": cfg})
-
-    assert result["success"] is True
-    assert "dfg" in result
-    assert result["node_count"] >= 0
-    assert result["edge_count"] >= 0
-
-
-def test_build_dfg_handler_missing_ast() -> None:
-    """Test build_dfg_handler with missing AST."""
-    cfg = ControlFlowGraph(entry_node=EntryNode(), exit_node=ExitNode())
-    result = build_dfg_handler({"cfg": cfg})
-
-    assert result["success"] is False
-    assert "error" in result
-
-
-def test_build_dfg_handler_missing_cfg() -> None:
-    """Test build_dfg_handler with missing CFG."""
-    # Use helper function to create a parse tree, then build AST
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-
-    result = build_dfg_handler({"ast": ast})
-
-    assert result["success"] is False
-    assert "error" in result
-
-
-def test_build_cfg_handler_with_serialized_ast() -> None:
-    """Test build_cfg_handler with serialized AST dictionary."""
-    # Use helper function to create a parse tree, then build AST and serialize it
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-    ast_dict = _serialize_ast_node(ast)
-
-    result = build_cfg_handler({"ast": ast_dict})
-
-    assert result["success"] is True
-    assert "cfg" in result
-    assert result["node_count"] > 0
-    assert result["edge_count"] > 0
-    assert "entry_node" in result["cfg"]
-    assert "exit_node" in result["cfg"]
-
-
-def test_build_dfg_handler_with_serialized_ast_and_cfg() -> None:
-    """Test build_dfg_handler with serialized AST and CFG dictionaries."""
-    # Use helper function to create a parse tree, then build AST and CFG
-    parse_tree = _create_sample_program_parse_tree()
-    ast = build_ast(parse_tree)
-    cfg = build_cfg(ast)
-
-    # Serialize AST and CFG
-    ast_dict = _serialize_ast_node(ast)
-    cfg_dict = {
-        "entry_node": _serialize_cfg_node(cfg.entry_node),
-        "exit_node": _serialize_cfg_node(cfg.exit_node),
-        "nodes": [_serialize_cfg_node(node) for node in cfg.nodes],
-        "edges": [_serialize_cfg_edge(edge) for edge in cfg.edges],
-    }
-
-    result = build_dfg_handler({"ast": ast_dict, "cfg": cfg_dict})
-
-    assert result["success"] is True
-    assert "dfg" in result
-    assert result["node_count"] >= 0
-    assert result["edge_count"] >= 0
 
 
 def test_get_handler_cobol_handlers() -> None:
@@ -285,10 +170,10 @@ def test_get_handler_cobol_handlers() -> None:
     assert handler is not None
     assert callable(handler)
 
-    handler = get_handler("build_cfg_handler")
+    handler = get_handler("build_asg_handler")
     assert handler is not None
     assert callable(handler)
 
-    handler = get_handler("build_dfg_handler")
+    handler = get_handler("parse_cobol_raw_handler")
     assert handler is not None
     assert callable(handler)

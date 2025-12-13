@@ -1,132 +1,213 @@
 """Tests for repository layer."""
 
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.repositories.tool_repository import ToolRepository
+from src.core.repositories.tool_execution_repository import ToolExecutionRepository
 
 
 @pytest.mark.asyncio
-async def test_create_tool(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test creating a tool."""
-    repository = ToolRepository(test_session)
-    tool = await repository.create(sample_tool_data)
+async def test_create_tool_execution(test_session: AsyncSession) -> None:
+    """Test creating a tool execution record."""
+    repository = ToolExecutionRepository(test_session)
+    started_at = datetime.now(UTC)
+    execution = await repository.create(
+        {
+            "tool_name": "test_tool",
+            "correlation_id": "corr-1",
+            "session_id": None,
+            "started_at": started_at,
+            "completed_at": started_at + timedelta(milliseconds=10),
+            "duration_ms": 10.0,
+            "status": "success",
+            "error_type": None,
+            "error_message": None,
+            "input_params": {"x": 1},
+            "output_data": {"ok": True},
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
 
-    assert tool.id is not None
-    assert tool.name == sample_tool_data["name"]
-    assert tool.description == sample_tool_data["description"]
-    assert tool.handler_name == sample_tool_data["handler_name"]
-    assert tool.is_active is True
+    assert execution.id is not None
+    assert execution.tool_name == "test_tool"
+    assert execution.correlation_id == "corr-1"
+    assert execution.status == "success"
 
 
 @pytest.mark.asyncio
-async def test_get_by_id(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test getting a tool by ID."""
-    repository = ToolRepository(test_session)
-    created_tool = await repository.create(sample_tool_data)
+async def test_get_by_id(test_session: AsyncSession) -> None:
+    """Test getting a tool execution by ID."""
+    repository = ToolExecutionRepository(test_session)
+    started_at = datetime.now(UTC)
+    created = await repository.create(
+        {
+            "tool_name": "test_tool",
+            "correlation_id": "corr-2",
+            "session_id": None,
+            "started_at": started_at,
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "success",
+            "error_type": None,
+            "error_message": None,
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
 
-    tool = await repository.get_by_id(created_tool.id)
+    execution = await repository.get_by_id(created.id)
 
-    assert tool is not None
-    assert tool.id == created_tool.id
-    assert tool.name == sample_tool_data["name"]
+    assert execution is not None
+    assert execution.id == created.id
+    assert execution.correlation_id == "corr-2"
 
 
 @pytest.mark.asyncio
 async def test_get_by_id_not_found(test_session: AsyncSession) -> None:
-    """Test getting a non-existent tool."""
-    repository = ToolRepository(test_session)
-    tool = await repository.get_by_id(999)
+    """Test getting a non-existent execution."""
+    repository = ToolExecutionRepository(test_session)
+    execution = await repository.get_by_id(999)
 
-    assert tool is None
-
-
-@pytest.mark.asyncio
-async def test_get_by_name(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test getting a tool by name."""
-    repository = ToolRepository(test_session)
-    await repository.create(sample_tool_data)
-
-    tool = await repository.get_by_name(sample_tool_data["name"])
-
-    assert tool is not None
-    assert tool.name == sample_tool_data["name"]
+    assert execution is None
 
 
 @pytest.mark.asyncio
-async def test_get_by_name_not_found(test_session: AsyncSession) -> None:
-    """Test getting a non-existent tool by name."""
-    repository = ToolRepository(test_session)
-    tool = await repository.get_by_name("nonexistent_tool")
+async def test_get_by_correlation_id(test_session: AsyncSession) -> None:
+    """Test getting executions by correlation ID."""
+    repository = ToolExecutionRepository(test_session)
+    started_at = datetime.now(UTC)
 
-    assert tool is None
+    await repository.create(
+        {
+            "tool_name": "test_tool",
+            "correlation_id": "corr-3",
+            "session_id": None,
+            "started_at": started_at,
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "success",
+            "error_type": None,
+            "error_message": None,
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
+    await repository.create(
+        {
+            "tool_name": "test_tool",
+            "correlation_id": "corr-3",
+            "session_id": None,
+            "started_at": started_at + timedelta(seconds=1),
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "error",
+            "error_type": "ValueError",
+            "error_message": "boom",
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
 
-
-@pytest.mark.asyncio
-async def test_list_active(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test listing active tools."""
-    repository = ToolRepository(test_session)
-
-    # Create active tool
-    await repository.create(sample_tool_data)
-
-    # Create inactive tool
-    inactive_data = sample_tool_data.copy()
-    inactive_data["name"] = "inactive_tool"
-    inactive_data["is_active"] = False
-    await repository.create(inactive_data)
-
-    # List active tools
-    active_tools = await repository.list_active()
-
-    assert len(active_tools) == 1
-    assert active_tools[0].name == sample_tool_data["name"]
-    assert active_tools[0].is_active is True
-
-
-@pytest.mark.asyncio
-async def test_update_tool(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test updating a tool."""
-    repository = ToolRepository(test_session)
-    tool = await repository.create(sample_tool_data)
-
-    updated_tool = await repository.update(tool.id, {"description": "Updated description"})
-
-    assert updated_tool is not None
-    assert updated_tool.id == tool.id
-    assert updated_tool.description == "Updated description"
-
-
-@pytest.mark.asyncio
-async def test_soft_delete(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test soft deleting a tool."""
-    repository = ToolRepository(test_session)
-    tool = await repository.create(sample_tool_data)
-
-    success = await repository.soft_delete(tool.id)
-
-    assert success is True
-
-    # Verify tool is inactive
-    tool = await repository.get_by_id(tool.id)
-    assert tool is not None
-    assert tool.is_active is False
+    executions = await repository.get_by_correlation_id("corr-3")
+    assert len(executions) == 2
 
 
 @pytest.mark.asyncio
-async def test_activate(test_session: AsyncSession, sample_tool_data: dict[str, Any]) -> None:
-    """Test activating a tool."""
-    repository = ToolRepository(test_session)
-    sample_tool_data["is_active"] = False
-    tool = await repository.create(sample_tool_data)
+async def test_get_recent_by_tool(test_session: AsyncSession) -> None:
+    """Test getting recent executions by tool name."""
+    repository = ToolExecutionRepository(test_session)
+    base_time = datetime.now(UTC)
 
-    success = await repository.activate(tool.id)
+    await repository.create(
+        {
+            "tool_name": "recent_tool",
+            "correlation_id": "corr-4a",
+            "session_id": None,
+            "started_at": base_time,
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "success",
+            "error_type": None,
+            "error_message": None,
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
+    await repository.create(
+        {
+            "tool_name": "recent_tool",
+            "correlation_id": "corr-4b",
+            "session_id": None,
+            "started_at": base_time + timedelta(seconds=10),
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "success",
+            "error_type": None,
+            "error_message": None,
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
 
-    assert success is True
+    recent = await repository.get_recent_by_tool("recent_tool", limit=1)
+    assert len(recent) == 1
+    assert recent[0].correlation_id == "corr-4b"
 
-    # Verify tool is active
-    tool = await repository.get_by_id(tool.id)
-    assert tool is not None
-    assert tool.is_active is True
+
+@pytest.mark.asyncio
+async def test_count_by_status(test_session: AsyncSession) -> None:
+    """Test counting executions by status."""
+    repository = ToolExecutionRepository(test_session)
+    base_time = datetime.now(UTC)
+
+    await repository.create(
+        {
+            "tool_name": "count_tool",
+            "correlation_id": "corr-5a",
+            "session_id": None,
+            "started_at": base_time,
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "success",
+            "error_type": None,
+            "error_message": None,
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
+    await repository.create(
+        {
+            "tool_name": "count_tool",
+            "correlation_id": "corr-5b",
+            "session_id": None,
+            "started_at": base_time + timedelta(seconds=1),
+            "completed_at": None,
+            "duration_ms": None,
+            "status": "error",
+            "error_type": "ValueError",
+            "error_message": "boom",
+            "input_params": None,
+            "output_data": None,
+            "transport": "stdio",
+            "domain": "testing",
+        }
+    )
+
+    counts = await repository.count_by_status(tool_name="count_tool")
+    assert counts.get("success") == 1
+    assert counts.get("error") == 1

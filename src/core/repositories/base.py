@@ -1,8 +1,8 @@
 """Base repository with common CRUD operations."""
 
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import Base
@@ -11,7 +11,7 @@ from src.core.database import Base
 ModelType = TypeVar("ModelType", bound=Base)
 
 
-class BaseRepository(Generic[ModelType]):
+class BaseRepository:
     """Base repository for common database operations."""
 
     def __init__(self, model: type[ModelType], session: AsyncSession) -> None:
@@ -48,7 +48,13 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             Model instance or None if not found
         """
-        result = await self.session.execute(select(self.model).where(self.model.id == id_))
+        primary_keys = inspect(self.model).primary_key
+        if not primary_keys:
+            raise ValueError(f"Model {self.model.__name__} has no primary key")
+
+        # Use first PK column (common case); avoids assuming an `.id` attribute exists.
+        pk_column = primary_keys[0]
+        result = await self.session.execute(select(self.model).where(pk_column == id_))
         return result.scalar_one_or_none()  # type: ignore[no-any-return]
 
     async def list_all(self) -> list[ModelType]:
@@ -70,7 +76,7 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             Updated model instance or None if not found
         """
-        instance = await self.get_by_id(id_)
+        instance = await self.get_by_id(id_)  # type: ignore[func-returns-value]
         if not instance:
             return None
 
@@ -91,7 +97,7 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             True if deleted, False if not found
         """
-        instance = await self.get_by_id(id_)
+        instance = await self.get_by_id(id_)  # type: ignore[func-returns-value]
         if not instance:
             return False
 

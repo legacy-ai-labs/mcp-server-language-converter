@@ -28,7 +28,7 @@
        INVENTORY-MAIN.
            DISPLAY "Checking Inventory for: " LS-ITEM-CODE
 
-           * Access database to check stock
+      * Access database to check stock
            MOVE 'SELECT' TO WS-DB-OPERATION
            CALL 'DB-ACCESS' USING
                BY VALUE WS-DB-OPERATION

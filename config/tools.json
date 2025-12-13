@@ -37,30 +37,9 @@
           "is_active": true
         },
         {
-          "name": "build_ast",
-          "description": "Build Abstract Syntax Tree (AST) from ParseNode",
-          "handler_name": "build_ast_handler",
-          "category": "analysis",
-          "is_active": true
-        },
-        {
-          "name": "build_cfg",
-          "description": "Build Control Flow Graph (CFG) from AST",
-          "handler_name": "build_cfg_handler",
-          "category": "analysis",
-          "is_active": true
-        },
-        {
-          "name": "build_dfg",
-          "description": "Build Data Flow Graph (DFG) from AST and CFG",
-          "handler_name": "build_dfg_handler",
-          "category": "analysis",
-          "is_active": true
-        },
-        {
-          "name": "build_pdg",
-          "description": "Build Program Dependency Graph (PDG) from AST, CFG, and DFG",
-          "handler_name": "build_pdg_handler",
+          "name": "build_asg",
+          "description": "Build Abstract Semantic Graph (ASG) with semantic analysis, symbol tables, and cross-references",
+          "handler_name": "build_asg_handler",
           "category": "analysis",
           "is_active": true
         },

@@ -1,7 +1,7 @@
 """Database configuration and session management."""
 
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import Any
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.ext.asyncio import (
@@ -72,8 +72,7 @@ class Base(DeclarativeBase):  # type: ignore[misc]
     @declared_attr.directive  # type: ignore[misc]
     def __tablename__(cls) -> str:
         """Generate table name from class name."""
-        class_name = cast(str, cls.__name__)
-        return class_name.lower() + "s"
+        return cls.__name__.lower() + "s"  # type: ignore[no-any-return]
 
     def dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""
