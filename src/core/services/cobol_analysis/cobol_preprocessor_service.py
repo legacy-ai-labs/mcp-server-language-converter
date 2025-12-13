@@ -1,7 +1,7 @@
 """
-COBOL Preprocessor Service - ProLeap-compatible implementation.
+COBOL Preprocessor Service.
 
-This service provides COBOL preprocessing capabilities with full ProLeap parity:
+This service provides COBOL preprocessing capabilities:
 - Line-by-line parsing with source format support (FIXED, TANDEM, VARIABLE)
 - Indicator processing (comment *, /, debug D/d, continuation -, compiler $)
 - Comment transformation to *> format for ANTLR compatibility
@@ -13,7 +13,7 @@ This service provides COBOL preprocessing capabilities with full ProLeap parity:
 - Continuation line handling
 - Source location tracking
 
-Architecture mirrors ProLeap's pipeline:
+Preprocessing pipeline:
 1. CobolLineReader - Parse lines into structured CobolLine objects
 2. CobolLineIndicatorProcessor - Process line indicators
 3. CobolInlineCommentEntriesNormalizer - Normalize inline comments
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Constants (matching ProLeap's CobolPreprocessor interface)
+# Constants
 # =============================================================================
 
 CHAR_ASTERISK = "*"
@@ -73,7 +73,7 @@ NEWLINE = "\n"
 
 
 # =============================================================================
-# Source Format Definitions (matching ProLeap)
+# Source Format Definitions
 # =============================================================================
 
 
@@ -86,10 +86,10 @@ class SourceFormat(str, Enum):
     VARIABLE = "VARIABLE"  # Variable: 1-6 seq, 7 indicator, 8-12 area A, 13-* area B
 
 
-# Indicator field pattern (matches ProLeap's INDICATOR_FIELD)
+# Indicator field pattern
 INDICATOR_FIELD = r"([ABCdD$\t\-/*# ])"
 
-# Regex patterns for each source format (matching ProLeap)
+# Regex patterns for each source format
 SOURCE_FORMAT_PATTERNS = {
     SourceFormat.FIXED: re.compile(
         r"(.{0,6})(?:" + INDICATOR_FIELD + r"(.{0,4})(.{0,61})(.*))?", re.DOTALL
@@ -113,7 +113,7 @@ FORMAT_COMMENT_ENTRY_MULTILINE = {
 
 
 # =============================================================================
-# Line Type Enumeration (matching ProLeap's CobolLineTypeEnum)
+# Line Type Enumeration
 # =============================================================================
 
 
@@ -138,7 +138,7 @@ class CobolLine:
     """
     Represents a parsed COBOL source line with all areas.
 
-    Mirrors ProLeap's CobolLine class with:
+    Structure:
     - Sequence area (columns 1-6)
     - Indicator area (column 7)
     - Content area A (columns 8-12)
@@ -162,7 +162,7 @@ class CobolLine:
     content_area_b_original: str = ""
     comment_area_original: str = ""
 
-    # Linked list navigation (like ProLeap)
+    # Linked list navigation for continuation line handling
     predecessor: CobolLine | None = None
     successor: CobolLine | None = None
 
@@ -466,7 +466,8 @@ class CobolLineReader:
     """
     Reads COBOL source and parses into CobolLine objects.
 
-    Mirrors ProLeap's CobolLineReaderImpl.
+    Parses each line according to the source format (FIXED, TANDEM, VARIABLE)
+    and extracts sequence area, indicator, content areas, and comments.
     """
 
     def determine_type(self, indicator_area: str) -> CobolLineType:
@@ -551,7 +552,7 @@ class CobolLineIndicatorProcessor:
     """
     Processes line indicators and transforms content.
 
-    Mirrors ProLeap's CobolLineIndicatorProcessorImpl.
+    Responsibilities:
     - Removes sequence numbers
     - Transforms comment lines to *> format
     - Handles continuation lines
@@ -680,7 +681,6 @@ class CobolInlineCommentEntriesNormalizer:
     Normalizes inline comment entries.
 
     Ensures *> has a space after it (e.g., *>comment becomes *> comment).
-    Mirrors ProLeap's CobolInlineCommentEntriesNormalizerImpl.
     """
 
     # Pattern to find denormalized inline comments (no space after *>)
@@ -709,8 +709,8 @@ class CobolCommentEntriesMarker:
     """
     Marks special comment entries (AUTHOR., DATE-WRITTEN., etc.).
 
-    These paragraphs contain free-form text that needs special handling.
-    Mirrors ProLeap's CobolCommentEntriesMarkerImpl.
+    These paragraphs contain free-form text that needs special handling
+    to avoid ANTLR parsing errors.
     """
 
     def __init__(self) -> None:
@@ -814,9 +814,9 @@ class CobolPreprocessorError(Exception):
 
 class CobolPreprocessor:
     """
-    COBOL Preprocessor with full ProLeap parity.
+    COBOL Preprocessor for preparing source code for ANTLR parsing.
 
-    Implements the same preprocessing pipeline as ProLeap:
+    Preprocessing pipeline:
     1. Line reading and parsing
     2. Line indicator processing
     3. Inline comment normalization

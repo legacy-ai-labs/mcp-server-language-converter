@@ -2,12 +2,12 @@
 
 This module provides COBOL parsing capabilities using ANTLR4 with the official
 Cobol85 grammar from antlr/grammars-v4. The parser converts ANTLR parse trees
-to our ParseNode format which is compatible with ProLeap's AST output.
+to our ParseNode format for ASG (Abstract Semantic Graph) construction.
 
-The ParseNode structure matches ProLeap's AST JSON format exactly, enabling:
-- Direct comparison with ProLeap output for validation
-- JSON serialization that produces identical output to proleap_ast_export.py
-- Future CFG/DFG/PDG analysis from the same structure
+The ParseNode structure enables:
+- JSON serialization for debugging and analysis
+- ASG construction via asg_builder_service.py
+- CFG/DFG/PDG analysis from the same structure
 
 Includes preprocessing to handle:
 - AUTHOR, DATE-WRITTEN, INSTALLATION, SECURITY, REMARKS paragraphs
@@ -95,23 +95,21 @@ class Comment(BaseModel):
 
 
 # =============================================================================
-# ParseNode - AST structure matching ProLeap output
+# ParseNode - AST structure for COBOL parsing
 # =============================================================================
 
 
 class ParseNode(BaseModel):
-    """Parse tree node compatible with ProLeap's AST JSON output.
+    """Parse tree node representing COBOL AST structure.
 
-    This structure matches the output of proleap_ast_export.py exactly, enabling:
-    - Direct comparison with ProLeap output for validation
-    - JSON serialization that produces identical output
-    - Future CFG/DFG/PDG analysis from the same structure
+    This structure is used by the ASG builder to construct the Abstract Semantic
+    Graph. It supports JSON serialization for debugging and analysis.
 
     The node can represent either:
     - A rule node (internal node with children)
     - A terminal node (leaf node with token value)
 
-    Attributes match ProLeap's JSON structure:
+    Attributes:
     - id: Unique node identifier
     - type: ANTLR class name (e.g., "StartRule", "TerminalNodeImpl")
     - rule_index: ANTLR rule index (for rule nodes)
@@ -394,18 +392,17 @@ def _extract_value_from_children(children: list[ParseNode]) -> str | None:
 
 
 def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
-    """Convert ANTLR parse tree to ParseNode format matching ProLeap AST structure.
+    """Convert ANTLR parse tree to ParseNode format.
 
-    Creates ParseNode objects with all fields populated to match ProLeap's
-    AST JSON output exactly. This enables direct comparison and identical
-    JSON serialization.
+    Creates ParseNode objects with all fields populated for ASG construction
+    and JSON serialization.
 
     Args:
         tree: ANTLR parse tree node (RuleContext or TerminalNode)
         parser: Cobol85Parser instance for accessing rule names
 
     Returns:
-        ParseNode with full ProLeap-compatible structure
+        ParseNode with complete structure for ASG building
     """
     # Terminal node (leaf) - has token value
     if isinstance(tree, TerminalNode):
@@ -422,7 +419,7 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
             else None
         )
 
-        # Create terminal node matching ProLeap structure
+        # Create terminal node
         return ParseNode(
             id=_get_next_node_id(),
             type="TerminalNodeImpl",
@@ -448,7 +445,7 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
         [_antlr_to_parse_node(child, parser) for child in tree.children] if tree.children else []
     )
 
-    # Get type name (capitalized rule name, matching ProLeap style)
+    # Get type name (capitalized rule name)
     type_name = rule_name[0].upper() + rule_name[1:] if rule_name else "Unknown"
 
     # Special handling for some nodes to extract semantic values
@@ -457,7 +454,7 @@ def _antlr_to_parse_node(tree: Any, parser: Cobol85Parser) -> ParseNode:
         # Extract identifier value from children (recursively if needed)
         value = _extract_value_from_children(children)
 
-    # Create rule node matching ProLeap structure
+    # Create rule node
     return ParseNode(
         id=_get_next_node_id(),
         type=type_name,
@@ -667,7 +664,7 @@ def _extract_program_node(parse_tree: ParseNode) -> ParseNode:
         SyntaxError: If expected structure is not found
     """
     # Navigate: StartRule -> CompilationUnit -> ProgramUnit
-    # Handle both capitalized (ProLeap style) and uppercase (legacy) names
+    # Handle both capitalized and uppercase node type names
     root_type = parse_tree.type
     if root_type not in ("StartRule", "STARTRULE", "startRule"):
         raise SyntaxError(f"Expected StartRule root, got {root_type}")

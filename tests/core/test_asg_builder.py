@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.core.models.cobol_asg import (
+from src.core.models.cobol_asg_model import (
     DataDescriptionEntryType,
     ParameterType,
     StatementType,

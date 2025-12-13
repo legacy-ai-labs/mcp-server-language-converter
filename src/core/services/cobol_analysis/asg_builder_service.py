@@ -1,8 +1,8 @@
 """
 ASG Builder Service - Builds Abstract Semantic Graph from ANTLR parse tree.
 
-This service creates a full ASG using the cobol_asg.py Pydantic models from
-the ANTLR parse tree. Pure Python implementation - no Java/ProLeap required.
+This service creates a full ASG using the cobol_asg_model.py Pydantic models from
+the ANTLR parse tree. Pure Python implementation.
 
 The ASG captures:
 - Program structure with resolved references
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         PreprocessedSource,
     )
 
-from src.core.models.cobol_asg import (
+from src.core.models.cobol_asg_model import (
     BlankWhenZeroClause,
     CallGivingPhrase,
     CallParameter,
@@ -91,6 +91,12 @@ from src.core.models.cobol_asg import (
 from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
     IdentificationMetadata,
     ParseNode,
+    parse_cobol,
+    parse_cobol_file,
+)
+from src.core.services.cobol_analysis.cobol_preprocessor_service import (
+    CobolPreprocessor,
+    PreprocessorConfig,
 )
 
 
@@ -1966,11 +1972,6 @@ def build_asg_from_source(
     Returns:
         Program object containing the full ASG
     """
-    # Import here to avoid circular import
-    from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
-        parse_cobol,
-    )
-
     parse_tree, _comments, id_metadata = parse_cobol(source_code)
     return build_asg(parse_tree, source_file, id_metadata)
 
@@ -1984,11 +1985,6 @@ def build_asg_from_file(file_path: str) -> Program:
     Returns:
         Program object containing the full ASG
     """
-    # Import here to avoid circular import
-    from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
-        parse_cobol_file,
-    )
-
     path = Path(file_path)
     if not path.exists():
         raise ASGBuilderError(f"File not found: {file_path}")
@@ -2030,15 +2026,6 @@ def build_asg_with_preprocessing(
         >>> for usage in preprocessed.copybook_usages:
         ...     print(f"  COPY {usage.copybook_name}: {usage.resolved_path}")
     """
-    # Import here to avoid circular import
-    from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
-        parse_cobol,
-    )
-    from src.core.services.cobol_analysis.cobol_preprocessor_service import (
-        CobolPreprocessor,
-        PreprocessorConfig,
-    )
-
     path = Path(file_path)
     if not path.exists():
         raise ASGBuilderError(f"File not found: {file_path}")
@@ -2099,15 +2086,6 @@ def build_asg_from_source_with_preprocessing(
     Returns:
         Tuple of (Program, PreprocessedSource)
     """
-    # Import here to avoid circular import
-    from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
-        parse_cobol,
-    )
-    from src.core.services.cobol_analysis.cobol_preprocessor_service import (
-        CobolPreprocessor,
-        PreprocessorConfig,
-    )
-
     # Configure preprocessor
     copy_dirs = [Path(d) for d in (copybook_directories or [])]
     config = PreprocessorConfig(

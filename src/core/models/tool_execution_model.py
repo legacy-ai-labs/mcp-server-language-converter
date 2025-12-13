@@ -21,7 +21,7 @@ class ToolExecution(Base):
     - Audit trail for compliance
     """
 
-    @declared_attr.directive  # type: ignore[misc]
+    @declared_attr.directive
     def __tablename__(cls) -> str:
         return "tool_executions"
 

@@ -9,10 +9,34 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from src.core.models.cobol_asg_model import (
+    Program,
+    ReferenceResolver,
+    ResolutionStatus,
+    SymbolTable,
+)
+from src.core.models.complexity_metrics_model import (
+    AnalysisLevel,
+    ASGMetrics,
+    CFGMetrics,
+    ComplexityMetrics,
+    ControlFlowMetrics,
+    DataMetrics,
+    DependencyMetrics,
+    DFGMetrics,
+    LineMetrics,
+    StructuralMetrics,
+)
 from src.core.services.cobol_analysis.asg_builder_service import (
     ASGBuilderError,
     build_asg_from_file,
     build_asg_from_source,
+)
+from src.core.services.cobol_analysis.cfg_builder_service import (
+    CFGBuilderError,
+    ControlFlowGraph,
+    build_cfg_from_ast,
+    serialize_cfg,
 )
 from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
     Comment,
@@ -21,6 +45,12 @@ from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
     parse_cobol_file,
     parse_cobol_file_with_copybooks,
     parse_cobol_with_copybooks,
+)
+from src.core.services.cobol_analysis.dfg_builder_service import (
+    DataFlowGraph,
+    DFGBuilderError,
+    build_dfg_from_ast,
+    serialize_dfg,
 )
 
 
@@ -176,7 +206,7 @@ def _deserialize_parse_node(node_dict: dict[str, Any]) -> ParseNode:
         start_column=node_dict.get("start_column") or node_dict.get("column_number"),
         end_line=node_dict.get("end_line"),
         end_column=node_dict.get("end_column"),
-        # New fields from ProLeap format
+        # Extended fields for full AST representation
         id=node_dict.get("id"),
         rule_index=node_dict.get("rule_index"),
         rule_name=node_dict.get("rule_name"),
@@ -303,7 +333,7 @@ def _add_copybook_info_to_metadata(metadata: dict[str, Any], preprocessed: Any |
 def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Parse COBOL source code into AST (Abstract Syntax Tree).
 
-    The ParseNode structure now serves as the AST, matching the ProLeap format.
+    The ParseNode structure serves as the AST for COBOL analysis.
     This provides a unified structure for further analysis (ASG, user stories, call graphs).
 
     Args:
@@ -438,8 +468,7 @@ def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build Abstract Semantic Graph (ASG) from COBOL source.
 
     This handler uses the pure Python ASG builder that works directly with the
-    ANTLR parse tree. No Java or ProLeap required. It produces Pydantic
-    models that capture:
+    ANTLR parse tree. It produces Pydantic models that capture:
     - Program structure with all divisions
     - Data definitions with clause types (PICTURE, USAGE, VALUE, OCCURS, etc.)
     - Procedure statements with full details
@@ -534,6 +563,168 @@ def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         logger.exception("Failed to build ASG")
         return {"success": False, "error": str(e)}
+
+
+def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
+    """Build Abstract Syntax Tree (AST) from COBOL source code.
+
+    This handler parses COBOL source code and returns a structured AST
+    representation using ParseNode. The AST captures the syntactic structure
+    of the COBOL program including:
+    - Program divisions (IDENTIFICATION, ENVIRONMENT, DATA, PROCEDURE)
+    - Sections and paragraphs
+    - Statements and expressions
+    - Data definitions with levels and clauses
+    - Source location information for each node
+
+    The AST is suitable for:
+    - Code analysis and transformation
+    - Documentation generation
+    - Migration planning
+    - Further semantic analysis (ASG building)
+
+    Args:
+        parameters: Handler parameters containing:
+            - 'source_code': COBOL source code as string (optional if file_path provided)
+            - 'file_path': Path to COBOL source file (optional if source_code provided)
+            - 'include_comments': Include extracted comments (default: True)
+            - 'include_metadata': Include identification metadata (default: True)
+            - 'copybook_directories': Optional list of directories to search for copybooks
+
+    Returns:
+        Dictionary with AST representation including:
+        - success: Whether parsing succeeded
+        - ast: Complete AST structure as nested dictionary
+        - program_name: Extracted program name
+        - comments: List of extracted comments (if include_comments=True)
+        - metadata: Identification metadata like AUTHOR, DATE-WRITTEN (if include_metadata=True)
+        - node_count: Total number of nodes in the AST
+        - saved_to: Path where result was saved
+    """
+    source_code = parameters.get("source_code")
+    file_path = parameters.get("file_path")
+    include_comments = parameters.get("include_comments", True)
+    include_metadata = parameters.get("include_metadata", True)
+    copybook_directories = parameters.get("copybook_directories")
+
+    if not source_code and not file_path:
+        return {
+            "success": False,
+            "error": "Either 'source_code' or 'file_path' must be provided",
+        }
+
+    try:
+        # Validate inputs
+        if source_code is not None and not isinstance(source_code, str):
+            return {
+                "success": False,
+                "error": "'source_code' must be a string",
+            }
+
+        if file_path is not None and not isinstance(file_path, str):
+            return {
+                "success": False,
+                "error": "'file_path' must be a string",
+            }
+
+        # Resolve copybook paths if needed
+        copybook_paths = _resolve_copybook_paths(
+            copybook_directories=copybook_directories,
+            file_path=file_path if isinstance(file_path, str) else None,
+        )
+
+        # Parse COBOL source
+        parsed_tree, comments, id_metadata, preprocessed = _parse_cobol_source_or_file(
+            source_code=source_code if isinstance(source_code, str) else None,
+            file_path=file_path if isinstance(file_path, str) else None,
+            copybook_paths=copybook_paths,
+        )
+
+        # Serialize AST using Pydantic
+        ast_dict = _serialize_parse_node(parsed_tree)
+
+        # Extract program name
+        program_name = _extract_program_name_from_parse_tree(parsed_tree)
+
+        # Count nodes in the AST
+        def count_nodes(node: dict[str, Any]) -> int:
+            count = 1
+            for child in node.get("children", []):
+                count += count_nodes(child)
+            return count
+
+        node_count = count_nodes(ast_dict)
+
+        # Build result
+        result: dict[str, Any] = {
+            "success": True,
+            "ast": ast_dict,
+            "program_name": program_name,
+            "node_count": node_count,
+            "root_type": parsed_tree.type,
+        }
+
+        # Include comments if requested
+        if include_comments and comments:
+            result["comments"] = [
+                {
+                    "text": comment.text,
+                    "line": comment.location.line,
+                    "type": comment.comment_type.value,
+                }
+                for comment in comments
+            ]
+            result["comment_count"] = len(comments)
+
+        # Include metadata if requested
+        if include_metadata:
+            metadata_dict: dict[str, Any] = {}
+            if id_metadata.author:
+                metadata_dict["author"] = id_metadata.author
+            if id_metadata.installation:
+                metadata_dict["installation"] = id_metadata.installation
+            if id_metadata.date_written:
+                metadata_dict["date_written"] = id_metadata.date_written
+            if id_metadata.date_compiled:
+                metadata_dict["date_compiled"] = id_metadata.date_compiled
+            if id_metadata.security:
+                metadata_dict["security"] = id_metadata.security
+            if id_metadata.remarks:
+                metadata_dict["remarks"] = id_metadata.remarks
+            if metadata_dict:
+                result["identification_metadata"] = metadata_dict
+
+        # Add copybook info if available
+        _add_copybook_info_to_metadata(result, preprocessed)
+
+        # Add source file info
+        if file_path:
+            result["source_file"] = file_path
+
+        # Save result to file
+        saved_path = _save_tool_result("build_ast", result, program_name or "unknown")
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
+
+    except SyntaxError as e:
+        logger.warning(f"COBOL syntax error: {e}")
+        return {
+            "success": False,
+            "error": f"COBOL syntax error: {e}",
+        }
+    except FileNotFoundError as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+    except Exception as e:
+        logger.exception("Failed to build AST")
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 def _process_single_cobol_file(cobol_file: Path) -> dict[str, Any]:
@@ -2069,11 +2260,679 @@ def _find_copybook_file(copybook_name: str, search_dirs: list[Path]) -> Path | N
     return None
 
 
+# ============================================================================
+# Complexity Analysis and Graph Building Handlers
+# ============================================================================
+
+
+def analyze_complexity_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912, PLR0915
+    """Analyze complexity of COBOL source code.
+
+    This handler computes complexity metrics from the AST including:
+    - Line metrics (LOC, comments, blank lines)
+    - Structural metrics (divisions, sections, paragraphs, statements)
+    - Control flow metrics (IF, EVALUATE, PERFORM, GO TO counts)
+    - Data metrics (data items, levels, REDEFINES)
+    - Overall complexity rating (LOW, MEDIUM, HIGH, VERY_HIGH)
+
+    Optionally builds ASG, CFG, and/or DFG to enhance metrics with:
+    - Symbol tables and cross-references (from ASG)
+    - Accurate cyclomatic complexity (from CFG)
+    - Unreachable code detection (from CFG)
+    - Dead variable detection (from DFG)
+    - Uninitialized read detection (from DFG)
+
+    Args:
+        parameters: Handler parameters containing:
+            - 'source_code': COBOL source code string
+            - 'file_path': Path to COBOL file
+            - 'ast': Pre-built AST (dict or ParseNode) to avoid re-parsing
+            - 'include_recommendations': Generate analysis recommendations (default: True)
+            - 'build_asg': Build ASG for semantic analysis and cross-references (default: False)
+            - 'build_cfg': Build CFG for accurate cyclomatic complexity (default: False)
+            - 'build_dfg': Build DFG for dead/uninitialized variable detection (default: False)
+            - 'auto_enhance': Auto-build ASG/CFG/DFG based on complexity (default: False)
+
+    Returns:
+        Dictionary with complexity metrics and rating
+    """
+    source_code = parameters.get("source_code")
+    file_path = parameters.get("file_path")
+    ast_input = parameters.get("ast")
+    include_recommendations = parameters.get("include_recommendations", True)
+    should_build_asg = parameters.get("build_asg", False)
+    should_build_cfg = parameters.get("build_cfg", False)
+    should_build_dfg = parameters.get("build_dfg", False)
+    auto_enhance = parameters.get("auto_enhance", False)
+
+    if not source_code and not file_path and not ast_input:
+        return {
+            "success": False,
+            "error": "Either 'source_code', 'file_path', or 'ast' must be provided",
+        }
+
+    try:
+        # Get or build AST
+        if ast_input:
+            ast = _deserialize_parse_node(ast_input) if isinstance(ast_input, dict) else ast_input
+            source_lines: list[str] = []
+        # Parse source to get AST
+        elif file_path:
+            ast, _comments, _ = parse_cobol_file(file_path)
+            with Path(file_path).open() as f:
+                source_lines = f.readlines()
+        else:
+            assert source_code is not None  # nosec B101
+            ast, _comments, _ = parse_cobol(source_code)
+            source_lines = source_code.splitlines()
+
+        # Initialize complexity metrics
+        metrics = ComplexityMetrics(
+            program_name=_extract_program_name_from_parse_tree(ast),
+            source_file=file_path,
+            analysis_level=AnalysisLevel.AST,
+        )
+
+        # Compute line metrics from source
+        if source_lines:
+            metrics.line_metrics = _compute_line_metrics(source_lines)
+
+        # Compute structural metrics from AST
+        metrics.structural_metrics = _compute_structural_metrics(ast)
+
+        # Compute control flow metrics from AST
+        metrics.control_flow_metrics = _compute_control_flow_metrics(ast)
+
+        # Compute data metrics from AST
+        metrics.data_metrics = _compute_data_metrics(ast)
+
+        # Compute dependency metrics from AST
+        metrics.dependency_metrics = _compute_dependency_metrics(ast)
+
+        # Compute initial rating (before CFG/DFG enhancement)
+        metrics.compute_complexity_rating()
+
+        # Auto-enhance based on complexity:
+        # - MEDIUM+: Build ASG for semantic analysis
+        # - HIGH+: Also build CFG/DFG for control/data flow analysis
+        if auto_enhance:
+            if metrics.complexity_rating.value in ("MEDIUM", "HIGH", "VERY_HIGH"):
+                should_build_asg = True
+            if metrics.complexity_rating.value in ("HIGH", "VERY_HIGH"):
+                should_build_cfg = True
+                should_build_dfg = True
+
+        # Build ASG if requested (provides semantic analysis, symbol tables, cross-references)
+        if should_build_asg:
+            try:
+                if file_path:
+                    asg_program = build_asg_from_file(file_path)
+                elif source_code:
+                    asg_program = build_asg_from_source(source_code)
+                else:
+                    # If only AST provided, we can't build ASG (need source)
+                    logger.warning("Cannot build ASG without source_code or file_path")
+                    asg_program = None
+
+                if asg_program:
+                    metrics.asg_metrics = _compute_asg_metrics(asg_program)
+                    metrics.analysis_level = AnalysisLevel.ASG
+                    logger.info(
+                        f"Enhanced with ASG: {metrics.asg_metrics.symbol_count} symbols, "
+                        f"{metrics.asg_metrics.resolved_references} resolved refs"
+                    )
+            except ASGBuilderError as e:
+                logger.warning(f"ASG build failed during complexity analysis: {e}")
+
+        # Serialize AST for CFG/DFG builders
+        ast_dict = _serialize_parse_node(ast) if should_build_cfg or should_build_dfg else None
+
+        # Build CFG if requested
+        if should_build_cfg and ast_dict:
+            try:
+                cfg = build_cfg_from_ast(ast_dict, metrics.program_name)
+                metrics.cfg_metrics = CFGMetrics(
+                    node_count=cfg.node_count,
+                    edge_count=cfg.edge_count,
+                    unreachable_paragraphs=cfg.unreachable_nodes,
+                    entry_points=[cfg.entry_node] if cfg.entry_node else [],
+                    exit_points=cfg.exit_nodes,
+                )
+                # Update with accurate cyclomatic complexity
+                metrics.control_flow_metrics.cyclomatic_complexity_accurate = (
+                    cfg.cyclomatic_complexity
+                )
+                metrics.analysis_level = AnalysisLevel.CFG
+                logger.info(f"Enhanced with CFG: CC={cfg.cyclomatic_complexity}")
+            except CFGBuilderError as e:
+                logger.warning(f"CFG build failed during complexity analysis: {e}")
+
+        # Build DFG if requested
+        if should_build_dfg and ast_dict:
+            try:
+                dfg = build_dfg_from_ast(ast_dict, metrics.program_name)
+                metrics.dfg_metrics = DFGMetrics(
+                    node_count=dfg.node_count,
+                    edge_count=dfg.edge_count,
+                    dead_variables=dfg.dead_variables,
+                    uninitialized_reads=dfg.uninitialized_reads,
+                    data_dependencies=dfg.data_dependencies,
+                )
+                metrics.analysis_level = AnalysisLevel.DFG
+                logger.info(
+                    f"Enhanced with DFG: {len(dfg.dead_variables)} dead vars, "
+                    f"{len(dfg.uninitialized_reads)} uninitialized reads"
+                )
+            except DFGBuilderError as e:
+                logger.warning(f"DFG build failed during complexity analysis: {e}")
+
+        # Re-compute rating with enhanced metrics
+        if should_build_asg or should_build_cfg or should_build_dfg:
+            metrics.compute_complexity_rating()
+
+        # Build result
+        result: dict[str, Any] = {
+            "success": True,
+            "program_name": metrics.program_name,
+            "complexity_rating": metrics.complexity_rating.value,
+            "complexity_score": metrics.complexity_score,
+            "analysis_level": metrics.analysis_level.value,
+            "metrics": metrics.model_dump(mode="json", exclude_none=True),
+        }
+
+        # Add ASG-specific results if built
+        if metrics.asg_metrics:
+            result["symbol_count"] = metrics.asg_metrics.symbol_count
+            result["resolved_references"] = metrics.asg_metrics.resolved_references
+            result["unresolved_references"] = metrics.asg_metrics.unresolved_references
+            result["external_calls"] = metrics.asg_metrics.external_calls
+
+        # Add CFG-specific results if built
+        if metrics.cfg_metrics:
+            result[
+                "cyclomatic_complexity_accurate"
+            ] = metrics.control_flow_metrics.cyclomatic_complexity_accurate
+            result["unreachable_code"] = metrics.cfg_metrics.unreachable_paragraphs
+
+        # Add DFG-specific results if built
+        if metrics.dfg_metrics:
+            result["dead_variables"] = metrics.dfg_metrics.dead_variables
+            result["uninitialized_reads"] = metrics.dfg_metrics.uninitialized_reads
+
+        if include_recommendations:
+            result["recommended_analysis"] = metrics.recommended_analysis
+            result["warnings"] = metrics.quality_indicators.warnings
+            result["recommendations"] = metrics.quality_indicators.recommendations
+
+        # Save result
+        saved_path = _save_tool_result(
+            "analyze_complexity", result, metrics.program_name or "unknown"
+        )
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
+
+    except Exception as e:
+        logger.exception("Failed to analyze complexity")
+        return {"success": False, "error": str(e)}
+
+
+def _compute_line_metrics(source_lines: list[str]) -> LineMetrics:
+    """Compute line-based metrics from source code."""
+    total = len(source_lines)
+    code = 0
+    comments = 0
+    blank = 0
+
+    for line in source_lines:
+        stripped = line.strip()
+        if not stripped:
+            blank += 1
+        elif stripped.startswith("*") or stripped.startswith("*>"):
+            comments += 1
+        elif len(line) >= 7 and line[6] == "*":
+            # Column 7 asterisk is a comment in fixed format
+            comments += 1
+        else:
+            code += 1
+
+    return LineMetrics(
+        total_lines=total,
+        code_lines=code,
+        comment_lines=comments,
+        blank_lines=blank,
+        comment_ratio=comments / code if code > 0 else 0.0,
+    )
+
+
+def _compute_structural_metrics(ast: ParseNode) -> StructuralMetrics:
+    """Compute structural metrics from AST."""
+    metrics = StructuralMetrics()
+
+    # Count divisions
+    divisions = _find_all_nodes(
+        ast, ["IdentificationDivision", "EnvironmentDivision", "DataDivision", "ProcedureDivision"]
+    )
+    metrics.division_count = len(divisions)
+
+    # Count sections
+    sections = _find_all_nodes(ast, ["Section", "section", "procedureSection"])
+    metrics.section_count = len(sections)
+
+    # Count paragraphs
+    paragraphs = _find_all_nodes(ast, ["Paragraph", "paragraph"])
+    metrics.paragraph_count = len(paragraphs)
+
+    # Count statements
+    statements = _find_all_nodes(ast, ["Statement", "statement"])
+    metrics.statement_count = len(statements)
+
+    # Count data items
+    data_entries = _find_all_nodes(
+        ast, ["DataDescriptionEntry", "dataDescriptionEntry", "dataDescriptionEntryFormat1"]
+    )
+    metrics.data_item_count = len(data_entries)
+
+    # Count level 88 conditions
+    level_88 = _find_all_nodes(ast, ["DataDescriptionEntryFormat2", "conditionNameEntry"])
+    metrics.level_88_count = len(level_88)
+
+    # Count copybooks
+    copy_stmts = _find_all_nodes(ast, ["CopyStatement", "copyStatement"])
+    metrics.copybook_count = len(copy_stmts)
+
+    return metrics
+
+
+def _compute_control_flow_metrics(ast: ParseNode) -> ControlFlowMetrics:
+    """Compute control flow metrics from AST."""
+    metrics = ControlFlowMetrics()
+
+    # Count IF statements
+    if_stmts = _find_all_nodes(ast, ["IfStatement", "ifStatement"])
+    metrics.if_count = len(if_stmts)
+
+    # Count EVALUATE statements
+    eval_stmts = _find_all_nodes(ast, ["EvaluateStatement", "evaluateStatement"])
+    metrics.evaluate_count = len(eval_stmts)
+
+    # Count PERFORM statements
+    perform_stmts = _find_all_nodes(ast, ["PerformStatement", "performStatement"])
+    metrics.perform_count = len(perform_stmts)
+
+    # Count GO TO statements (bad practice)
+    goto_stmts = _find_all_nodes(ast, ["GoToStatement", "gotoStatement", "goToStatement"])
+    metrics.goto_count = len(goto_stmts)
+
+    # Count ALTER statements (very bad practice)
+    alter_stmts = _find_all_nodes(ast, ["AlterStatement", "alterStatement"])
+    metrics.alter_count = len(alter_stmts)
+
+    # Count CALL statements
+    call_stmts = _find_all_nodes(ast, ["CallStatement", "callStatement"])
+    metrics.call_count = len(call_stmts)
+
+    # Approximate cyclomatic complexity from decision points
+    # CC = 1 + IF + EVALUATE*when_count + PERFORM_UNTIL
+    when_clauses = _find_all_nodes(ast, ["WhenPhrase", "whenPhrase"])
+    metrics.cyclomatic_complexity = (
+        1 + metrics.if_count + len(when_clauses) + metrics.evaluate_count
+    )
+
+    # Calculate max nesting depth
+    metrics.max_nesting_depth = _calculate_max_nesting(ast)
+
+    return metrics
+
+
+def _calculate_max_nesting(node: ParseNode, current_depth: int = 0) -> int:
+    """Calculate maximum nesting depth of control structures."""
+    max_depth = current_depth
+
+    # Check if this is a nesting construct
+    if node.type and any(keyword in node.type.upper() for keyword in ["IF", "EVALUATE", "PERFORM"]):
+        current_depth += 1
+        max_depth = current_depth
+
+    # Recurse into children
+    for child in node.children:
+        child_depth = _calculate_max_nesting(child, current_depth)
+        max_depth = max(max_depth, child_depth)
+
+    return max_depth
+
+
+def _compute_data_metrics(ast: ParseNode) -> DataMetrics:
+    """Compute data-related metrics from AST."""
+    metrics = DataMetrics()
+
+    # Find DATA DIVISION
+    data_div = _find_node(ast, ["DataDivision", "dataDivision"])
+    if not data_div:
+        return metrics
+
+    # Count WORKING-STORAGE items
+    ws_section = _find_node(data_div, ["WorkingStorageSection", "workingStorageSection"])
+    if ws_section:
+        ws_entries = _find_all_nodes(ws_section, ["DataDescriptionEntry", "dataDescriptionEntry"])
+        metrics.working_storage_items = len(ws_entries)
+
+    # Count LINKAGE items
+    linkage = _find_node(data_div, ["LinkageSection", "linkageSection"])
+    if linkage:
+        link_entries = _find_all_nodes(linkage, ["DataDescriptionEntry", "dataDescriptionEntry"])
+        metrics.linkage_items = len(link_entries)
+
+    # Count FILE SECTION items
+    file_section = _find_node(data_div, ["FileSection", "fileSection"])
+    if file_section:
+        file_entries = _find_all_nodes(
+            file_section, ["DataDescriptionEntry", "dataDescriptionEntry"]
+        )
+        metrics.file_section_items = len(file_entries)
+
+    # Count REDEFINES
+    redefines = _find_all_nodes(data_div, ["RedefinesClause", "redefinesClause"])
+    metrics.redefines_count = len(redefines)
+
+    # Count OCCURS
+    occurs = _find_all_nodes(data_div, ["OccursClause", "occursClause"])
+    metrics.occurs_count = len(occurs)
+
+    # Count PICTURE clauses
+    pictures = _find_all_nodes(data_div, ["PictureClause", "pictureClause"])
+    metrics.picture_clauses = len(pictures)
+
+    return metrics
+
+
+def _compute_dependency_metrics(ast: ParseNode) -> DependencyMetrics:
+    """Compute dependency metrics from AST."""
+    metrics = DependencyMetrics()
+
+    # Extract external calls
+    call_stmts = _find_all_nodes(ast, ["CallStatement", "callStatement"])
+    for call in call_stmts:
+        target = _extract_call_target_from_node(call)
+        if target and target not in metrics.external_calls:
+            metrics.external_calls.append(target)
+
+    metrics.fan_out = len(metrics.external_calls)
+
+    # Extract copybooks
+    copy_stmts = _find_all_nodes(ast, ["CopyStatement", "copyStatement"])
+    for copy in copy_stmts:
+        copybook = _extract_copybook_name_from_node(copy)
+        if copybook and copybook not in metrics.copybooks_used:
+            metrics.copybooks_used.append(copybook)
+
+    return metrics
+
+
+def _extract_call_target_from_node(node: ParseNode) -> str | None:
+    """Extract call target from a CALL statement node."""
+    for child in node.children:
+        if child.type and "Literal" in child.type and child.text:
+            return child.text.strip("'\"")
+        if child.type and "Identifier" in child.type:
+            if child.value:
+                return str(child.value)
+            if child.text:
+                return child.text
+    return None
+
+
+def _extract_copybook_name_from_node(node: ParseNode) -> str | None:
+    """Extract copybook name from a COPY statement node."""
+    for child in node.children:
+        if child.type and ("copySource" in child.type or "cobolWord" in child.type):
+            if child.text:
+                return child.text
+            for sub in child.children:
+                if sub.text:
+                    return sub.text
+    return None
+
+
+def _find_node(node: ParseNode, type_names: list[str]) -> ParseNode | None:
+    """Find a node by type name."""
+    if node.type in type_names or (node.rule_name and node.rule_name in type_names):
+        return node
+    for child in node.children:
+        result = _find_node(child, type_names)
+        if result:
+            return result
+    return None
+
+
+def _find_all_nodes(node: ParseNode, type_names: list[str]) -> list[ParseNode]:
+    """Find all nodes matching type names."""
+    results: list[ParseNode] = []
+    if node.type in type_names or (node.rule_name and node.rule_name in type_names):
+        results.append(node)
+    for child in node.children:
+        results.extend(_find_all_nodes(child, type_names))
+    return results
+
+
+def _compute_asg_metrics(program: Program) -> ASGMetrics:  # noqa: PLR0912
+    """Compute ASG metrics from a Program object.
+
+    Extracts semantic analysis metrics including:
+    - Symbol counts (data items, paragraphs, sections)
+    - Reference resolution statistics
+    - External calls and internal procedure calls
+    - Copybook usage
+    """
+    metrics = ASGMetrics()
+
+    # Get first compilation unit (usually only one per file)
+    if not program.compilation_units:
+        return metrics
+
+    comp_unit = program.compilation_units[0]
+    if not comp_unit.program_units:
+        return metrics
+
+    program_unit = comp_unit.program_units[0]
+
+    # Count symbols using SymbolTable
+    try:
+        symbol_table = SymbolTable.from_program_unit(program_unit)
+        metrics.symbol_count = len(symbol_table.symbols)
+
+        # Count by type
+        for symbol in symbol_table.symbols.values():
+            if symbol.symbol_type.value == "DATA_ITEM":
+                metrics.data_item_count += 1
+            elif symbol.symbol_type.value == "PARAGRAPH":
+                metrics.paragraph_count += 1
+            elif symbol.symbol_type.value == "SECTION":
+                metrics.section_count += 1
+
+        # Resolve references and count
+        resolver = ReferenceResolver.from_program_unit(program_unit, symbol_table)
+
+        # Count resolved vs unresolved
+        for ref in resolver.resolved_references:
+            if ref.status == ResolutionStatus.RESOLVED:
+                metrics.resolved_references += 1
+            elif ref.status == ResolutionStatus.NOT_FOUND:
+                metrics.unresolved_references += 1
+            elif (
+                ref.status == ResolutionStatus.AMBIGUOUS
+                and ref.name not in metrics.ambiguous_references
+            ):
+                metrics.ambiguous_references.append(ref.name)
+
+        # External calls
+        metrics.external_calls = list(resolver.external_calls.keys())
+
+        # Internal calls (PERFORM targets)
+        for ref in resolver.resolved_references:
+            if (
+                ref.reference_type.value == "PARAGRAPH"
+                and ref.status == ResolutionStatus.RESOLVED
+                and ref.resolved_symbol
+                and ref.resolved_symbol not in metrics.internal_calls
+            ):
+                metrics.internal_calls.append(ref.resolved_symbol)
+
+    except Exception as e:
+        logger.warning(f"Error computing ASG metrics from symbol table: {e}")
+
+    # Copybooks from program
+    metrics.copybooks_used = list(program.external_copybooks)
+
+    # Files from data division
+    if program_unit.data_division and program_unit.data_division.file_section:
+        for fd in program_unit.data_division.file_section.file_descriptions:
+            if fd.name:
+                metrics.files_defined.append(fd.name)
+
+    # Entry points
+    if program_unit.identification_division:
+        entry_name = program_unit.identification_division.program_name
+        if entry_name:
+            metrics.entry_points.append(entry_name)
+
+    return metrics
+
+
+def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Build Control Flow Graph (CFG) from COBOL AST.
+
+    The CFG represents all possible execution paths through the program.
+    It requires an AST as input (from build_ast tool) to avoid re-parsing.
+
+    This enables:
+    - Accurate cyclomatic complexity calculation
+    - Unreachable code detection
+    - Control flow analysis for migration planning
+
+    Args:
+        parameters: Handler parameters containing:
+            - 'ast': AST from build_ast tool (required)
+            - 'program_name': Optional program name
+
+    Returns:
+        Dictionary with CFG structure and metrics
+    """
+    ast_input = parameters.get("ast")
+    program_name = parameters.get("program_name")
+
+    if not ast_input:
+        return {
+            "success": False,
+            "error": "'ast' parameter is required. Use build_ast first to get the AST.",
+        }
+
+    try:
+        # Build CFG from AST
+        cfg: ControlFlowGraph = build_cfg_from_ast(ast_input, program_name)
+
+        # Serialize CFG
+        cfg_dict = serialize_cfg(cfg)
+
+        result: dict[str, Any] = {
+            "success": True,
+            "cfg": cfg_dict,
+            "program_name": cfg.program_name,
+            "cyclomatic_complexity": cfg.cyclomatic_complexity,
+            "node_count": cfg.node_count,
+            "edge_count": cfg.edge_count,
+            "unreachable_nodes": cfg.unreachable_nodes,
+            "entry_node": cfg.entry_node,
+            "exit_nodes": cfg.exit_nodes,
+        }
+
+        # Save result
+        saved_path = _save_tool_result("build_cfg", result, program_name or "unknown")
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
+
+    except CFGBuilderError as e:
+        logger.warning(f"CFG build failed: {e}")
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        logger.exception("Failed to build CFG")
+        return {"success": False, "error": str(e)}
+
+
+def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Build Data Flow Graph (DFG) from COBOL AST.
+
+    The DFG tracks how data flows through the program.
+    It requires an AST as input (from build_ast tool) to avoid re-parsing.
+
+    This enables:
+    - Dead variable detection (assigned but never read)
+    - Uninitialized variable detection (read before assignment)
+    - Data dependency analysis for refactoring
+
+    Args:
+        parameters: Handler parameters containing:
+            - 'ast': AST from build_ast tool (required)
+            - 'program_name': Optional program name
+
+    Returns:
+        Dictionary with DFG structure and analysis results
+    """
+    ast_input = parameters.get("ast")
+    program_name = parameters.get("program_name")
+
+    if not ast_input:
+        return {
+            "success": False,
+            "error": "'ast' parameter is required. Use build_ast first to get the AST.",
+        }
+
+    try:
+        # Build DFG from AST
+        dfg: DataFlowGraph = build_dfg_from_ast(ast_input, program_name)
+
+        # Serialize DFG
+        dfg_dict = serialize_dfg(dfg)
+
+        result: dict[str, Any] = {
+            "success": True,
+            "dfg": dfg_dict,
+            "program_name": dfg.program_name,
+            "node_count": dfg.node_count,
+            "edge_count": dfg.edge_count,
+            "dead_variables": dfg.dead_variables,
+            "uninitialized_reads": dfg.uninitialized_reads,
+            "data_dependencies": dfg.data_dependencies,
+            "variable_count": len(dfg.variables),
+        }
+
+        # Save result
+        saved_path = _save_tool_result("build_dfg", result, program_name or "unknown")
+        if saved_path:
+            result["saved_to"] = str(saved_path)
+
+        return result
+
+    except DFGBuilderError as e:
+        logger.warning(f"DFG build failed: {e}")
+        return {"success": False, "error": str(e)}
+    except Exception as e:
+        logger.exception("Failed to build DFG")
+        return {"success": False, "error": str(e)}
+
+
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "parse_cobol_handler": parse_cobol_handler,
     "parse_cobol_raw_handler": parse_cobol_raw_handler,
+    "build_ast_handler": build_ast_handler,
     "build_asg_handler": build_asg_handler,
+    "analyze_complexity_handler": analyze_complexity_handler,
+    "build_cfg_handler": build_cfg_handler,
+    "build_dfg_handler": build_dfg_handler,
     "batch_analyze_cobol_directory_handler": batch_analyze_cobol_directory_handler,
     "analyze_program_system_handler": analyze_program_system_handler,
     "build_call_graph_handler": build_call_graph_handler,

@@ -64,15 +64,15 @@ convention = {
 metadata = MetaData(naming_convention=convention)
 
 
-class Base(DeclarativeBase):  # type: ignore[misc]
+class Base(DeclarativeBase):
     """Base class for all database models."""
 
     metadata = metadata
 
-    @declared_attr.directive  # type: ignore[misc]
+    @declared_attr.directive
     def __tablename__(cls) -> str:
         """Generate table name from class name."""
-        return cls.__name__.lower() + "s"  # type: ignore[no-any-return]
+        return cls.__name__.lower() + "s"
 
     def dict(self) -> dict[str, Any]:
         """Convert model to dictionary."""

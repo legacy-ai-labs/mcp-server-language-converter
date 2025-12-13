@@ -1,6 +1,6 @@
 """Base repository with common CRUD operations."""
 
-from typing import Any, TypeVar
+from typing import Any
 
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,10 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import Base
 
 
-ModelType = TypeVar("ModelType", bound=Base)
-
-
-class BaseRepository:
+class BaseRepository[ModelType: Base]:
     """Base repository for common database operations."""
 
     def __init__(self, model: type[ModelType], session: AsyncSession) -> None:
@@ -21,8 +18,8 @@ class BaseRepository:
             model: SQLAlchemy model class
             session: Database session
         """
-        self.model = model
-        self.session = session
+        self.model: type[ModelType] = model
+        self.session: AsyncSession = session
 
     async def create(self, data: dict[str, Any]) -> ModelType:
         """Create a new record.
@@ -33,7 +30,8 @@ class BaseRepository:
         Returns:
             Created model instance
         """
-        instance = self.model(**data)
+        # SQLAlchemy models are dynamically constructed; help mypy with type annotation.
+        instance: ModelType = self.model(**data)
         self.session.add(instance)
         await self.session.commit()
         await self.session.refresh(instance)
@@ -55,7 +53,7 @@ class BaseRepository:
         # Use first PK column (common case); avoids assuming an `.id` attribute exists.
         pk_column = primary_keys[0]
         result = await self.session.execute(select(self.model).where(pk_column == id_))
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def list_all(self) -> list[ModelType]:
         """List all records.
@@ -76,7 +74,7 @@ class BaseRepository:
         Returns:
             Updated model instance or None if not found
         """
-        instance = await self.get_by_id(id_)  # type: ignore[func-returns-value]
+        instance = await self.get_by_id(id_)
         if not instance:
             return None
 
@@ -97,7 +95,7 @@ class BaseRepository:
         Returns:
             True if deleted, False if not found
         """
-        instance = await self.get_by_id(id_)  # type: ignore[func-returns-value]
+        instance = await self.get_by_id(id_)
         if not instance:
             return False
 

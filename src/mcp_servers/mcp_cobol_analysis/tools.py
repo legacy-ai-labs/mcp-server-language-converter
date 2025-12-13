@@ -3,13 +3,17 @@
 from typing import Any
 
 from src.core.services.cobol_analysis.tool_handlers_service import (
+    analyze_complexity_handler,
     analyze_copybook_usage_handler,
     analyze_data_flow_handler,
     analyze_program_system_handler,
     batch_analyze_cobol_directory_handler,
     batch_resolve_copybooks_handler,
     build_asg_handler,
+    build_ast_handler,
     build_call_graph_handler,
+    build_cfg_handler,
+    build_dfg_handler,
     parse_cobol_handler,
     parse_cobol_raw_handler,
     prepare_cobol_for_antlr_handler,
@@ -73,8 +77,77 @@ async def parse_cobol_raw(
 
 @register_tool(
     domain="cobol_analysis",
+    tool_name="build_ast",
+    description="Build Abstract Syntax Tree (AST) from COBOL source code",
+)
+async def build_ast(
+    source_code: str | None = None,
+    file_path: str | None = None,
+    include_comments: bool = True,
+    include_metadata: bool = True,
+    copybook_directories: list[str] | None = None,
+) -> dict[str, Any]:
+    """Build Abstract Syntax Tree (AST) from COBOL source code.
+
+    Parses COBOL source code and returns a structured AST representation.
+    The AST captures the syntactic structure of the COBOL program including
+    divisions, sections, paragraphs, statements, and data definitions.
+
+    The AST is suitable for:
+    - Code analysis and transformation
+    - Documentation generation
+    - Migration planning
+    - Further semantic analysis (ASG building)
+
+    Args:
+        source_code: COBOL source code as string (optional if file_path provided)
+        file_path: Path to COBOL source file (optional if source_code provided)
+        include_comments: Include extracted comments in output (default: True)
+        include_metadata: Include IDENTIFICATION DIVISION metadata (default: True)
+        copybook_directories: Optional list of directories to search for copybooks
+
+    Returns:
+        Dictionary containing:
+        - success: Whether parsing succeeded
+        - ast: Complete AST structure as nested dictionary
+        - program_name: Extracted program name
+        - node_count: Total number of nodes in the AST
+        - comments: List of extracted comments (if include_comments=True)
+        - identification_metadata: AUTHOR, DATE-WRITTEN, etc. (if include_metadata=True)
+        - saved_to: Path where result was saved
+
+    Example:
+        # Build AST from file
+        result = await build_ast(file_path="programs/CUSTOMER-MGMT.cbl")
+
+        if result['success']:
+            print(f"AST has {result['node_count']} nodes")
+            print(f"Program: {result['program_name']}")
+
+        # Build AST from source with copybook resolution
+        result = await build_ast(
+            source_code=cobol_source,
+            include_comments=True,
+            copybook_directories=["copybooks/"]
+        )
+    """
+    parameters: dict[str, Any] = {
+        "include_comments": include_comments,
+        "include_metadata": include_metadata,
+    }
+    if source_code is not None:
+        parameters["source_code"] = source_code
+    if file_path is not None:
+        parameters["file_path"] = file_path
+    if copybook_directories is not None:
+        parameters["copybook_directories"] = copybook_directories
+    return build_ast_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
     tool_name="build_asg",
-    description="Build Abstract Semantic Graph (ASG) using ProLeap COBOL Parser",
+    description="Build Abstract Semantic Graph (ASG) from COBOL source code",
 )
 async def build_asg(
     file_path: str | None = None,
@@ -85,7 +158,7 @@ async def build_asg(
     include_call_graph: bool = True,
     include_data_refs: bool = False,
 ) -> dict[str, Any]:
-    """Build Abstract Semantic Graph (ASG) using ProLeap COBOL Parser.
+    """Build Abstract Semantic Graph (ASG) from COBOL source code.
 
     The ASG provides semantic information beyond what the AST offers, including:
     - Program structure with resolved references
@@ -94,9 +167,8 @@ async def build_asg(
     - Procedure statements with full details
     - CALL/PERFORM statement targets and parameters
 
-    This tool uses the ProLeap COBOL Parser (Java) to generate a comprehensive
-    semantic representation of the COBOL program. ProLeap must be set up first
-    by running: uv run python scripts/proleap_full_asg_export.py <any_cobol_file>
+    This tool uses a pure Python ASG builder that works directly with the ANTLR
+    parse tree to generate a comprehensive semantic representation of the COBOL program.
 
     Args:
         file_path: Path to COBOL source file (optional if source_code provided)
@@ -112,7 +184,7 @@ async def build_asg(
         - success: Whether ASG generation succeeded
         - asg: Full ASG structure with compilation units, divisions, sections
         - source_file: Source file path
-        - proleap_version: ProLeap parser version used
+        - parser_version: Parser version used
         - export_type: Export format type
         - summary: ASG summary with counts (if include_summary=True)
         - call_graph: Call graph nodes and edges (if include_call_graph=True)
@@ -148,6 +220,219 @@ async def build_asg(
     if copybook_dir is not None:
         parameters["copybook_dir"] = copybook_dir
     return build_asg_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="analyze_complexity",
+    description="Analyze complexity of COBOL source code and compute metrics",
+)
+async def analyze_complexity(
+    source_code: str | None = None,
+    file_path: str | None = None,
+    ast: dict[str, Any] | None = None,
+    include_recommendations: bool = True,
+    build_asg: bool = False,
+    build_cfg: bool = False,
+    build_dfg: bool = False,
+    auto_enhance: bool = False,
+) -> dict[str, Any]:
+    """Analyze complexity of COBOL source code and compute comprehensive metrics.
+
+    This tool computes complexity metrics from the AST including:
+    - Line metrics (LOC, comments, blank lines)
+    - Structural metrics (divisions, sections, paragraphs, statements)
+    - Control flow metrics (IF, EVALUATE, PERFORM, GO TO counts)
+    - Data metrics (data items, REDEFINES, OCCURS)
+    - Overall complexity rating (LOW, MEDIUM, HIGH, VERY_HIGH)
+
+    Optionally builds ASG, CFG, and/or DFG to enhance metrics with:
+    - Symbol tables and cross-references (from ASG)
+    - Accurate cyclomatic complexity (from CFG)
+    - Unreachable code detection (from CFG)
+    - Dead variable detection (from DFG)
+    - Uninitialized read detection (from DFG)
+
+    Args:
+        source_code: COBOL source code string (optional if file_path or ast provided)
+        file_path: Path to COBOL file (optional if source_code or ast provided)
+        ast: Pre-built AST dict (optional, avoids re-parsing if already available)
+        include_recommendations: Generate analysis recommendations (default: True)
+        build_asg: Build ASG for semantic analysis and cross-references (default: False)
+        build_cfg: Build CFG for accurate cyclomatic complexity (default: False)
+        build_dfg: Build DFG for dead/uninitialized variable detection (default: False)
+        auto_enhance: Auto-build ASG/CFG/DFG based on complexity (default: False)
+
+    Returns:
+        Dictionary containing:
+        - success: Whether analysis succeeded
+        - complexity_rating: Overall rating (LOW, MEDIUM, HIGH, VERY_HIGH)
+        - complexity_score: Numeric score 0-100
+        - analysis_level: Depth of analysis ("ast", "asg", "cfg", "dfg")
+        - metrics: Detailed metrics breakdown
+        - symbol_count: Number of symbols (if build_asg=True)
+        - resolved_references: References resolved (if build_asg=True)
+        - cyclomatic_complexity_accurate: Accurate CC from CFG (if build_cfg=True)
+        - unreachable_code: Dead code detected (if build_cfg=True)
+        - dead_variables: Unused variables (if build_dfg=True)
+        - uninitialized_reads: Variables read before assignment (if build_dfg=True)
+        - recommended_analysis: Suggested next analyses
+        - warnings: Quality issues detected
+        - recommendations: Improvement suggestions
+
+    Example:
+        # Basic complexity analysis
+        result = await analyze_complexity(file_path="programs/MAIN-BATCH.cbl")
+
+        # Full analysis with ASG, CFG and DFG
+        result = await analyze_complexity(
+            file_path="programs/MAIN-BATCH.cbl",
+            build_asg=True,
+            build_cfg=True,
+            build_dfg=True
+        )
+
+        # Auto-enhance based on complexity (recommended for agents)
+        result = await analyze_complexity(
+            file_path="programs/MAIN-BATCH.cbl",
+            auto_enhance=True  # Builds ASG for MEDIUM+, CFG/DFG for HIGH+
+        )
+    """
+    parameters: dict[str, Any] = {
+        "include_recommendations": include_recommendations,
+        "build_asg": build_asg,
+        "build_cfg": build_cfg,
+        "build_dfg": build_dfg,
+        "auto_enhance": auto_enhance,
+    }
+    if source_code is not None:
+        parameters["source_code"] = source_code
+    if file_path is not None:
+        parameters["file_path"] = file_path
+    if ast is not None:
+        parameters["ast"] = ast
+    return analyze_complexity_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="build_cfg",
+    description="Build Control Flow Graph (CFG) from COBOL AST for accurate cyclomatic complexity",
+)
+async def build_cfg(
+    ast: dict[str, Any],
+    program_name: str | None = None,
+) -> dict[str, Any]:
+    """Build Control Flow Graph (CFG) from COBOL AST.
+
+    The CFG represents all possible execution paths through the program.
+    It requires an AST as input (from build_ast tool) to avoid re-parsing.
+
+    This enables:
+    - Accurate cyclomatic complexity calculation (E - N + 2P)
+    - Unreachable code detection
+    - Control flow analysis for migration planning
+    - Identification of dead paragraphs
+
+    Note: This tool requires the AST from build_ast. The workflow is:
+    1. Call build_ast to get AST
+    2. Call build_cfg with the AST
+
+    Args:
+        ast: AST dictionary from build_ast tool (required)
+        program_name: Optional program name for labeling
+
+    Returns:
+        Dictionary containing:
+        - success: Whether CFG construction succeeded
+        - cfg: Complete CFG structure with nodes and edges
+        - cyclomatic_complexity: Accurate complexity (from graph theory)
+        - node_count: Number of CFG nodes
+        - edge_count: Number of CFG edges
+        - unreachable_nodes: Nodes that cannot be reached from entry
+        - entry_node: Program entry point
+        - exit_nodes: Program exit points
+
+    Example:
+        # First build AST
+        ast_result = await build_ast(file_path="programs/PROCESS-ORDER.cbl")
+
+        if ast_result['success']:
+            # Then build CFG from AST
+            cfg_result = await build_cfg(
+                ast=ast_result['ast'],
+                program_name=ast_result['program_name']
+            )
+
+            print(f"Cyclomatic complexity: {cfg_result['cyclomatic_complexity']}")
+            if cfg_result['unreachable_nodes']:
+                print(f"Dead code found: {cfg_result['unreachable_nodes']}")
+    """
+    parameters: dict[str, Any] = {"ast": ast}
+    if program_name is not None:
+        parameters["program_name"] = program_name
+    return build_cfg_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="build_dfg",
+    description="Build Data Flow Graph (DFG) from COBOL AST for data dependency analysis",
+)
+async def build_dfg(
+    ast: dict[str, Any],
+    program_name: str | None = None,
+) -> dict[str, Any]:
+    """Build Data Flow Graph (DFG) from COBOL AST.
+
+    The DFG tracks how data flows through the program via MOVE, COMPUTE,
+    and other data manipulation statements.
+
+    This enables:
+    - Dead variable detection (assigned but never read)
+    - Uninitialized variable detection (read before assignment)
+    - Data dependency analysis for refactoring
+    - Understanding data transformations
+
+    Note: This tool requires the AST from build_ast. The workflow is:
+    1. Call build_ast to get AST
+    2. Call build_dfg with the AST
+
+    Args:
+        ast: AST dictionary from build_ast tool (required)
+        program_name: Optional program name for labeling
+
+    Returns:
+        Dictionary containing:
+        - success: Whether DFG construction succeeded
+        - dfg: Complete DFG structure with nodes and edges
+        - dead_variables: Variables assigned but never read
+        - uninitialized_reads: Variables read before assignment
+        - data_dependencies: Number of data dependency edges
+        - variable_count: Total variables tracked
+        - node_count: Number of DFG nodes
+        - edge_count: Number of DFG edges
+
+    Example:
+        # First build AST
+        ast_result = await build_ast(file_path="programs/CALCULATE-TAX.cbl")
+
+        if ast_result['success']:
+            # Then build DFG from AST
+            dfg_result = await build_dfg(
+                ast=ast_result['ast'],
+                program_name=ast_result['program_name']
+            )
+
+            if dfg_result['dead_variables']:
+                print(f"Dead variables: {dfg_result['dead_variables']}")
+            if dfg_result['uninitialized_reads']:
+                print(f"Warning - uninitialized: {dfg_result['uninitialized_reads']}")
+    """
+    parameters: dict[str, Any] = {"ast": ast}
+    if program_name is not None:
+        parameters["program_name"] = program_name
+    return build_dfg_handler(parameters)
 
 
 @register_tool(

@@ -2,7 +2,7 @@
 COBOL Abstract Semantic Graph (ASG) Data Model
 
 This module defines the Python data model for COBOL ASG, designed to be compatible
-with ProLeap's ASG structure while being Python-native and suitable for JSON serialization.
+with common COBOL ASG structures while being Python-native and suitable for JSON serialization.
 
 The ASG captures semantic information about COBOL programs including:
 - Program structure (divisions, sections, paragraphs)
@@ -11,11 +11,8 @@ The ASG captures semantic information about COBOL programs including:
 - Inter-program relationships (CALL targets)
 - Symbol tables and cross-references
 
-Based on ProLeap COBOL Parser metamodel:
-https://github.com/uwol/proleap-cobol-parser
-
 Usage:
-    from src.core.models.cobol_asg import Program, CompilationUnit, DataDescriptionEntry
+    from src.core.models.cobol_asg_model import Program, CompilationUnit, DataDescriptionEntry
 
     # Build ASG from parsed COBOL
     program = Program(
@@ -106,7 +103,7 @@ class StatementType(str, Enum):
 
 
 class UsageType(str, Enum):
-    """COBOL USAGE clause types - aligned with ProLeap's UsageClauseType."""
+    """COBOL USAGE clause types."""
 
     BINARY = "BINARY"
     BINARY_CHAR = "BINARY_CHAR"
@@ -149,7 +146,7 @@ class UsageType(str, Enum):
 
 class CallType(str, Enum):
     """
-    Types of calls/references in COBOL - aligned with ProLeap's CallType.
+    Types of calls/references in COBOL.
 
     Used for cross-reference tracking to identify what kind of element is being referenced.
     """
@@ -171,7 +168,7 @@ class CallType(str, Enum):
 
 
 class PerformType(str, Enum):
-    """COBOL PERFORM types - aligned with ProLeap."""
+    """COBOL PERFORM types."""
 
     SIMPLE = "SIMPLE"  # Plain PERFORM
     TIMES = "TIMES"  # PERFORM n TIMES
@@ -180,7 +177,7 @@ class PerformType(str, Enum):
 
 
 class ValueStmtType(str, Enum):
-    """Types of value statements/expressions - aligned with ProLeap's ValueStmt hierarchy."""
+    """Types of value statements/expressions."""
 
     LITERAL = "LITERAL"
     INTEGER_LITERAL = "INTEGER_LITERAL"
@@ -277,13 +274,13 @@ class ASGElement(BaseModel):
 
 
 # =============================================================================
-# Call/Reference Model - aligned with ProLeap's Call interface hierarchy
+# Call/Reference Model
 # =============================================================================
 
 
 class Call(BaseModel):
     """
-    A reference/call to another element in COBOL code - aligned with ProLeap's Call interface.
+    A reference/call to another element in COBOL code.
 
     This represents any reference from one part of the code to another,
     enabling bidirectional cross-reference tracking.
@@ -302,7 +299,7 @@ class Call(BaseModel):
 
 
 class DataDescriptionEntryCall(Call):
-    """Reference to a data description entry (variable) - aligned with ProLeap."""
+    """Reference to a data description entry (variable)."""
 
     call_type: CallType = Field(default=CallType.DATA_DESCRIPTION_ENTRY_CALL)
     is_read: bool = Field(default=True, description="Whether this is a read access")
@@ -311,39 +308,39 @@ class DataDescriptionEntryCall(Call):
 
 
 class ProcedureCall(Call):
-    """Reference to a paragraph - aligned with ProLeap."""
+    """Reference to a paragraph."""
 
     call_type: CallType = Field(default=CallType.PROCEDURE_CALL)
     paragraph_name: str | None = Field(default=None)
 
 
 class SectionCall(Call):
-    """Reference to a section - aligned with ProLeap."""
+    """Reference to a section."""
 
     call_type: CallType = Field(default=CallType.SECTION_CALL)
     section_name: str | None = Field(default=None)
 
 
 class FileControlEntryCall(Call):
-    """Reference to a file - aligned with ProLeap."""
+    """Reference to a file."""
 
     call_type: CallType = Field(default=CallType.FILE_CONTROL_ENTRY_CALL)
 
 
 class IndexCall(Call):
-    """Reference to an index - aligned with ProLeap."""
+    """Reference to an index."""
 
     call_type: CallType = Field(default=CallType.INDEX_CALL)
 
 
 # =============================================================================
-# ValueStmt Hierarchy - aligned with ProLeap's ValueStmt interface hierarchy
+# ValueStmt Hierarchy
 # =============================================================================
 
 
 class ValueStmt(BaseModel):
     """
-    Base class for value statements/expressions - aligned with ProLeap's ValueStmt.
+    Base class for value statements/expressions.
 
     Represents any expression or value in COBOL code.
     """
@@ -356,7 +353,7 @@ class ValueStmt(BaseModel):
 
 
 class LiteralValueStmt(ValueStmt):
-    """Literal value - aligned with ProLeap's LiteralValueStmt."""
+    """Literal value."""
 
     value_stmt_type: ValueStmtType = Field(default=ValueStmtType.LITERAL)
     value: Any = Field(description="The literal value")
@@ -364,14 +361,14 @@ class LiteralValueStmt(ValueStmt):
 
 
 class IntegerLiteralValueStmt(ValueStmt):
-    """Integer literal - aligned with ProLeap."""
+    """Integer literal."""
 
     value_stmt_type: ValueStmtType = Field(default=ValueStmtType.INTEGER_LITERAL)
     value: int = Field(description="Integer value")
 
 
 class BooleanLiteralValueStmt(ValueStmt):
-    """Boolean literal (TRUE/FALSE) - aligned with ProLeap."""
+    """Boolean literal (TRUE/FALSE)."""
 
     value_stmt_type: ValueStmtType = Field(default=ValueStmtType.BOOLEAN_LITERAL)
     value: bool = Field(description="Boolean value")
@@ -379,7 +376,7 @@ class BooleanLiteralValueStmt(ValueStmt):
 
 class CallValueStmt(ValueStmt):
     """
-    Reference to a data item as a value - aligned with ProLeap's CallValueStmt.
+    Reference to a data item as a value.
 
     Used when a variable is used in an expression.
     """
@@ -389,7 +386,7 @@ class CallValueStmt(ValueStmt):
 
 
 class ArithmeticValueStmt(ValueStmt):
-    """Arithmetic expression - aligned with ProLeap."""
+    """Arithmetic expression."""
 
     value_stmt_type: ValueStmtType = Field(default=ValueStmtType.ARITHMETIC)
     operator: str | None = Field(default=None, description="Operator (+, -, *, /, **)")
@@ -398,14 +395,14 @@ class ArithmeticValueStmt(ValueStmt):
 
 
 class ConditionValueStmt(ValueStmt):
-    """Conditional expression - aligned with ProLeap."""
+    """Conditional expression."""
 
     value_stmt_type: ValueStmtType = Field(default=ValueStmtType.CONDITION)
     condition_type: str | None = Field(default=None, description="AND, OR, NOT, etc.")
 
 
 class RelationConditionValueStmt(ValueStmt):
-    """Relational condition - aligned with ProLeap."""
+    """Relational condition."""
 
     value_stmt_type: ValueStmtType = Field(default=ValueStmtType.RELATION_CONDITION)
     operator: str | None = Field(default=None, description="=, <, >, <=, >=, NOT =")
@@ -414,12 +411,12 @@ class RelationConditionValueStmt(ValueStmt):
 
 
 # =============================================================================
-# Data Division Elements - Enhanced with all ProLeap clauses
+# Data Division Elements
 # =============================================================================
 
 
 class PictureClause(BaseModel):
-    """COBOL PICTURE clause information - aligned with ProLeap."""
+    """COBOL PICTURE clause information."""
 
     picture_string: str = Field(description="The PICTURE string (e.g., '9(5)V99')")
     category: str | None = Field(
@@ -436,7 +433,7 @@ class PictureClause(BaseModel):
 
 
 class ValueClause(BaseModel):
-    """COBOL VALUE clause information - aligned with ProLeap."""
+    """COBOL VALUE clause information."""
 
     value: Any = Field(description="The value (literal, figurative constant, etc.)")
     value_type: str = Field(default="LITERAL", description="Type of value")
@@ -445,7 +442,7 @@ class ValueClause(BaseModel):
 
 
 class OccursSortKey(BaseModel):
-    """OCCURS sort key specification - aligned with ProLeap."""
+    """OCCURS sort key specification."""
 
     key_call: Call | None = Field(default=None, description="Reference to the key field")
     key_name: str | None = Field(default=None, description="Key field name")
@@ -454,7 +451,7 @@ class OccursSortKey(BaseModel):
 
 class OccursClause(BaseModel):
     """
-    COBOL OCCURS clause information - fully aligned with ProLeap's OccursClause.
+    COBOL OCCURS clause information.
 
     Supports:
     - OCCURS n TIMES
@@ -496,82 +493,82 @@ class OccursClause(BaseModel):
 
 
 class RedefinesClause(BaseModel):
-    """COBOL REDEFINES clause information - aligned with ProLeap."""
+    """COBOL REDEFINES clause information."""
 
     redefines_call: Call | None = Field(default=None, description="Reference to redefined entry")
     redefines_name: str = Field(description="Name of the redefined item")
 
 
 class SynchronizedClause(BaseModel):
-    """COBOL SYNCHRONIZED clause - aligned with ProLeap."""
+    """COBOL SYNCHRONIZED clause."""
 
     synchronized_type: SynchronizedType | None = Field(default=None, description="LEFT or RIGHT")
 
 
 class SignClause(BaseModel):
-    """COBOL SIGN clause - aligned with ProLeap."""
+    """COBOL SIGN clause."""
 
     sign_type: SignType = Field(description="Sign position type")
     is_separate: bool = Field(default=False, description="SEPARATE CHARACTER")
 
 
 class ExternalClause(BaseModel):
-    """COBOL EXTERNAL clause - aligned with ProLeap."""
+    """COBOL EXTERNAL clause."""
 
     is_external: bool = Field(default=True)
     external_name: str | None = Field(default=None, description="External name if specified")
 
 
 class GlobalClause(BaseModel):
-    """COBOL GLOBAL clause - aligned with ProLeap."""
+    """COBOL GLOBAL clause."""
 
     is_global: bool = Field(default=True)
 
 
 class JustifiedClause(BaseModel):
-    """COBOL JUSTIFIED clause - aligned with ProLeap."""
+    """COBOL JUSTIFIED clause."""
 
     is_right: bool = Field(default=True, description="JUSTIFIED RIGHT")
 
 
 class BlankWhenZeroClause(BaseModel):
-    """COBOL BLANK WHEN ZERO clause - aligned with ProLeap."""
+    """COBOL BLANK WHEN ZERO clause."""
 
     is_blank_when_zero: bool = Field(default=True)
 
 
 class AlignedClause(BaseModel):
-    """COBOL ALIGNED clause - aligned with ProLeap."""
+    """COBOL ALIGNED clause."""
 
     aligned_type: AlignedType = Field(default=AlignedType.ALIGNED)
 
 
 class CommonOwnLocalClause(BaseModel):
-    """COBOL COMMON/OWN/LOCAL clause - aligned with ProLeap."""
+    """COBOL COMMON/OWN/LOCAL clause."""
 
     clause_type: CommonOwnLocalType = Field(description="COMMON, OWN, or LOCAL")
 
 
 class ThreadLocalClause(BaseModel):
-    """COBOL THREAD-LOCAL clause - aligned with ProLeap."""
+    """COBOL THREAD-LOCAL clause."""
 
     is_thread_local: bool = Field(default=True)
 
 
 class TypeClause(BaseModel):
-    """COBOL TYPE clause - aligned with ProLeap."""
+    """COBOL TYPE clause."""
 
     type_name: str = Field(description="Referenced type name")
 
 
 class TypeDefClause(BaseModel):
-    """COBOL TYPEDEF clause - aligned with ProLeap."""
+    """COBOL TYPEDEF clause."""
 
     is_strong: bool = Field(default=False, description="STRONG TYPEDEF")
 
 
 class UsingClause(BaseModel):
-    """COBOL USING clause (data division context) - aligned with ProLeap."""
+    """COBOL USING clause (data division context)."""
 
     using_type: str | None = Field(default=None)
     convention: str | None = Field(default=None)
@@ -579,17 +576,17 @@ class UsingClause(BaseModel):
 
 class DataDescriptionEntry(ASGElement):
     """
-    COBOL data description entry (variable definition) - fully aligned with ProLeap.
+    COBOL data description entry (variable definition).
 
-    Corresponds to ProLeap's DataDescriptionEntry/DataDescriptionEntryGroup interfaces.
-    Supports all 34 clause types defined in ProLeap.
+    This model is intended to be comprehensive and JSON-friendly while supporting
+    common COBOL clauses used for semantic analysis and cross-referencing.
     """
 
     level: int = Field(description="Level number (01-49, 66, 77, 88)")
     entry_type: DataDescriptionEntryType = Field(description="Entry type classification")
 
     # =========================================================================
-    # All ProLeap-supported clauses (34 clause types)
+    # Clause data (a superset of common COBOL data description clauses)
     # =========================================================================
 
     # Basic data definition clauses
@@ -629,7 +626,7 @@ class DataDescriptionEntry(ASGElement):
     is_blank_when_zero: bool = Field(default=False, description="BLANK WHEN ZERO")
     sign_type: SignType | None = Field(default=None, description="SIGN clause (legacy)")
 
-    # Filler tracking (like ProLeap)
+    # Filler tracking (sequential filler counter for disambiguation)
     filler_number: int | None = Field(default=None, description="Sequential filler counter")
 
     # =========================================================================
@@ -640,7 +637,7 @@ class DataDescriptionEntry(ASGElement):
         default_factory=list, description="Subordinate entries (for GROUP items)"
     )
 
-    # Navigation (like ProLeap's predecessor/successor)
+    # Navigation (declaration order)
     predecessor_name: str | None = Field(
         default=None, description="Previous entry in declaration order"
     )
@@ -650,13 +647,13 @@ class DataDescriptionEntry(ASGElement):
         default=None, description="Fully qualified name (e.g., 'CUST-ID OF CUSTOMER-RECORD')"
     )
 
-    # Container info (like ProLeap's DataDescriptionEntryContainer)
+    # Container info (where the entry is defined)
     container_type: str | None = Field(
         default=None, description="Container: FILE_SECTION, WORKING_STORAGE, LINKAGE_SECTION, etc."
     )
 
     # =========================================================================
-    # Cross-references (like ProLeap's getCalls())
+    # Cross-references (incoming references: who uses this data item)
     # =========================================================================
 
     calls: list[DataDescriptionEntryCall] = Field(
@@ -683,8 +680,6 @@ class DataDescriptionEntry(ASGElement):
 class FileDescriptionEntry(ASGElement):
     """
     COBOL file description entry (FD/SD).
-
-    Corresponds to ProLeap's FileDescriptionEntry.
     """
 
     file_type: str = Field(default="FD", description="FD or SD")
@@ -790,15 +785,15 @@ class DataDivision(ASGElement):
 
 
 # =============================================================================
-# Procedure Division Elements - Fully aligned with ProLeap
+# Procedure Division Elements
 # =============================================================================
 
 
 class CallParameter(BaseModel):
     """
-    Parameter in a CALL statement - aligned with ProLeap's UsingPhrase/GivingPhrase.
+    Parameter in a CALL statement.
 
-    Supports BY REFERENCE, BY CONTENT, BY VALUE semantics.
+    Supports BY REFERENCE, BY CONTENT, BY VALUE semantics, plus OMITTED.
     """
 
     name: str | None = Field(default=None, description="Variable name")
@@ -806,7 +801,7 @@ class CallParameter(BaseModel):
     parameter_type: ParameterType = Field(default=ParameterType.BY_REFERENCE)
     is_omitted: bool = Field(default=False, description="OMITTED keyword used")
 
-    # ProLeap alignment - Call reference to the data item
+    # Optional resolved reference to the data item
     call: DataDescriptionEntryCall | None = Field(
         default=None, description="Reference to parameter"
     )
@@ -816,13 +811,13 @@ class CallParameter(BaseModel):
 
 
 class CallUsingPhrase(BaseModel):
-    """CALL USING phrase - aligned with ProLeap."""
+    """CALL USING phrase."""
 
     parameters: list[CallParameter] = Field(default_factory=list)
 
 
 class CallGivingPhrase(BaseModel):
-    """CALL GIVING/RETURNING phrase - aligned with ProLeap."""
+    """CALL GIVING/RETURNING phrase."""
 
     giving_call: Call | None = Field(default=None, description="Reference to GIVING variable")
     giving_name: str | None = Field(default=None, description="GIVING variable name")
@@ -830,15 +825,15 @@ class CallGivingPhrase(BaseModel):
 
 class CallStatement(ASGElement):
     """
-    COBOL CALL statement - fully aligned with ProLeap's CallStatement.
+    COBOL CALL statement.
 
     Critical for inter-program analysis and call graphs.
     """
 
-    # Target program - ProLeap uses ValueStmt for this
+    # Target program
     target_program: str = Field(description="Called program name")
     program_value_stmt: ValueStmt | None = Field(
-        default=None, description="Program name as ValueStmt (like ProLeap)"
+        default=None, description="Program name as ValueStmt"
     )
     target_is_literal: bool = Field(
         default=True, description="True if target is literal, False if variable"
@@ -869,7 +864,7 @@ class CallStatement(ASGElement):
 
 
 class PerformVarying(BaseModel):
-    """PERFORM VARYING clause - aligned with ProLeap."""
+    """PERFORM VARYING clause."""
 
     varying_call: Call | None = Field(default=None, description="Reference to VARYING variable")
     varying_name: str | None = Field(default=None, description="VARYING variable name")
@@ -885,14 +880,14 @@ class PerformVarying(BaseModel):
 
 
 class PerformTimes(BaseModel):
-    """PERFORM TIMES clause - aligned with ProLeap."""
+    """PERFORM TIMES clause."""
 
     times_value_stmt: ValueStmt | None = Field(default=None, description="TIMES value expression")
     times_value: int | None = Field(default=None, description="TIMES value (convenience)")
 
 
 class PerformUntil(BaseModel):
-    """PERFORM UNTIL clause - aligned with ProLeap."""
+    """PERFORM UNTIL clause."""
 
     condition: ConditionValueStmt | None = Field(default=None, description="UNTIL condition")
     condition_text: str | None = Field(default=None, description="UNTIL condition as text")
@@ -900,7 +895,7 @@ class PerformUntil(BaseModel):
 
 
 class PerformInlineStatement(BaseModel):
-    """Inline PERFORM - aligned with ProLeap."""
+    """Inline PERFORM."""
 
     perform_type: PerformType = Field(default=PerformType.SIMPLE)
     times: PerformTimes | None = Field(default=None)
@@ -910,9 +905,9 @@ class PerformInlineStatement(BaseModel):
 
 
 class PerformProcedureStatement(BaseModel):
-    """Procedure PERFORM (PERFORM para THRU para) - aligned with ProLeap."""
+    """Procedure PERFORM (PERFORM para THRU para)."""
 
-    # Procedure calls (like ProLeap's getCalls())
+    # Procedure calls (resolved paragraph/section targets)
     procedure_calls: list[ProcedureCall] = Field(
         default_factory=list, description="Paragraph/section calls"
     )
@@ -929,14 +924,14 @@ class PerformProcedureStatement(BaseModel):
 
 class PerformStatement(ASGElement):
     """
-    COBOL PERFORM statement - fully aligned with ProLeap's PerformStatement.
+    COBOL PERFORM statement.
 
-    ProLeap distinguishes between:
-    - PerformInlineStatement: PERFORM ... END-PERFORM
-    - PerformProcedureStatement: PERFORM para [THRU para]
+    Captures both:
+    - Inline PERFORM (PERFORM ... END-PERFORM)
+    - Procedure PERFORM (PERFORM para [THRU para])
     """
 
-    # ProLeap-style structure
+    # Structured representation
     perform_type: PerformType = Field(default=PerformType.SIMPLE)
     inline_statement: PerformInlineStatement | None = Field(default=None)
     procedure_statement: PerformProcedureStatement | None = Field(default=None)
@@ -954,7 +949,7 @@ class PerformStatement(ASGElement):
 
 
 class MoveStatement(ASGElement):
-    """COBOL MOVE statement - aligned with ProLeap."""
+    """COBOL MOVE statement."""
 
     source: str = Field(description="Source variable or literal")
     source_is_literal: bool = Field(default=False)
@@ -969,7 +964,7 @@ class MoveStatement(ASGElement):
 
 
 class ComputeStatement(ASGElement):
-    """COBOL COMPUTE statement - aligned with ProLeap."""
+    """COBOL COMPUTE statement."""
 
     targets: list[str] = Field(description="Target variables")
     target_calls: list[DataDescriptionEntryCall] = Field(
@@ -988,7 +983,7 @@ class ComputeStatement(ASGElement):
 
 
 class IfStatement(ASGElement):
-    """COBOL IF statement - aligned with ProLeap."""
+    """COBOL IF statement."""
 
     condition: str = Field(description="Condition expression (as text)")
     condition_value_stmt: ConditionValueStmt | None = Field(
@@ -1001,7 +996,7 @@ class IfStatement(ASGElement):
 
 
 class EvaluateWhen(BaseModel):
-    """EVALUATE WHEN clause - aligned with ProLeap."""
+    """EVALUATE WHEN clause."""
 
     conditions: list[ValueStmt] = Field(default_factory=list, description="WHEN conditions")
     condition_texts: list[str] = Field(default_factory=list, description="Conditions as text")
@@ -1009,7 +1004,7 @@ class EvaluateWhen(BaseModel):
 
 
 class EvaluateStatement(ASGElement):
-    """COBOL EVALUATE statement (case/switch) - aligned with ProLeap."""
+    """COBOL EVALUATE statement (case/switch)."""
 
     subjects: list[str] = Field(description="EVALUATE subjects")
     subject_value_stmts: list[ValueStmt] = Field(
@@ -1063,13 +1058,13 @@ class Statement(ASGElement):
 
 class Paragraph(ASGElement):
     """
-    COBOL paragraph - fully aligned with ProLeap's Paragraph interface.
+    COBOL paragraph.
 
     A named block of statements within the PROCEDURE DIVISION.
     """
 
-    # ProLeap-style: paragraphName.getName()
-    paragraph_name: str | None = Field(default=None, description="Paragraph name (like ProLeap)")
+    # Explicit paragraph name field (useful when the BaseModel 'name' is used differently)
+    paragraph_name: str | None = Field(default=None, description="Paragraph name")
 
     statements: list[Statement] = Field(default_factory=list)
     section_name: str | None = Field(default=None, description="Parent section name if any")
@@ -1078,8 +1073,7 @@ class Paragraph(ASGElement):
     statement_count: int = Field(default=0)
     statement_types: list[StatementType] = Field(default_factory=list)
 
-    # Cross-references - like ProLeap's getCalls()
-    # These are INCOMING calls (who performs this paragraph)
+    # Cross-references (incoming calls: who performs this paragraph)
     calls: list[ProcedureCall] = Field(
         default_factory=list, description="All PERFORM calls TO this paragraph (who calls me)"
     )
@@ -1096,14 +1090,14 @@ class Paragraph(ASGElement):
 
 class Section(ASGElement):
     """
-    COBOL section - fully aligned with ProLeap's Section interface.
+    COBOL section.
 
     A named group of paragraphs within the PROCEDURE DIVISION.
     """
 
     paragraphs: list[Paragraph] = Field(default_factory=list)
 
-    # Cross-references - like ProLeap's getCalls()
+    # Cross-references (incoming calls to this section)
     calls: list[SectionCall] = Field(
         default_factory=list, description="All PERFORM calls TO this section"
     )
@@ -1120,7 +1114,7 @@ class Section(ASGElement):
 
 class Declaratives(ASGElement):
     """
-    COBOL DECLARATIVES section - aligned with ProLeap.
+    COBOL DECLARATIVES section.
 
     Contains USE AFTER EXCEPTION/ERROR procedures.
     """
@@ -1129,7 +1123,7 @@ class Declaratives(ASGElement):
 
 
 class ProcedureDivisionUsingClause(BaseModel):
-    """PROCEDURE DIVISION USING clause - aligned with ProLeap."""
+    """PROCEDURE DIVISION USING clause."""
 
     parameters: list[Call] = Field(default_factory=list, description="Parameter references")
     parameter_names: list[str] = Field(
@@ -1138,7 +1132,7 @@ class ProcedureDivisionUsingClause(BaseModel):
 
 
 class ProcedureDivisionGivingClause(BaseModel):
-    """PROCEDURE DIVISION GIVING/RETURNING clause - aligned with ProLeap."""
+    """PROCEDURE DIVISION GIVING/RETURNING clause."""
 
     giving_call: Call | None = Field(default=None, description="GIVING/RETURNING reference")
     giving_name: str | None = Field(default=None, description="GIVING/RETURNING name")
@@ -1146,7 +1140,7 @@ class ProcedureDivisionGivingClause(BaseModel):
 
 class ProcedureDivision(ASGElement):
     """
-    COBOL PROCEDURE DIVISION - fully aligned with ProLeap's ProcedureDivision interface.
+    COBOL PROCEDURE DIVISION.
 
     Contains all executable code organized by sections and paragraphs.
     """
@@ -1154,24 +1148,24 @@ class ProcedureDivision(ASGElement):
     # Sections
     sections: list[Section] = Field(default_factory=list)
 
-    # Root paragraphs (not in sections) - like ProLeap's getRootParagraphs()
+    # Root paragraphs (not in sections)
     paragraphs: list[Paragraph] = Field(
         default_factory=list, description="Root paragraphs (not in sections)"
     )
 
-    # USING clause (program parameters) - like ProLeap's getUsingClause()
+    # USING clause (program parameters)
     using_clause: ProcedureDivisionUsingClause | None = Field(default=None)
     using_parameters: list[str] = Field(
         default_factory=list, description="USING parameter names (convenience)"
     )
 
-    # GIVING clause - like ProLeap's getGivingClause()
+    # GIVING clause
     giving_clause: ProcedureDivisionGivingClause | None = Field(default=None)
     returning_parameter: str | None = Field(
         default=None, description="RETURNING parameter name (convenience)"
     )
 
-    # Declaratives - like ProLeap's getDeclaratives()
+    # Declaratives
     declaratives: Declaratives | None = Field(default=None, description="DECLARATIVES section")
     has_declaratives: bool = Field(default=False)
 
@@ -1180,7 +1174,7 @@ class ProcedureDivision(ASGElement):
         default_factory=list, description="All CALL statements for inter-program analysis"
     )
 
-    # All paragraphs including nested in sections (like ProLeap's getParagraphs())
+    # All paragraphs including those nested in sections
     all_paragraphs: list[Paragraph] = Field(
         default_factory=list, description="All paragraphs (including those in sections)"
     )
@@ -1264,7 +1258,6 @@ class ProgramUnit(ASGElement):
     COBOL program unit.
 
     A complete COBOL program with all four divisions.
-    Corresponds to ProLeap's ProgramUnit interface.
     """
 
     identification_division: IdentificationDivision = Field(description="IDENTIFICATION DIVISION")
@@ -1281,7 +1274,6 @@ class CompilationUnit(ASGElement):
     COBOL compilation unit.
 
     Contains one or more program units from a single source file.
-    Corresponds to ProLeap's CompilationUnit interface.
     """
 
     program_units: list[ProgramUnit] = Field(default_factory=list)
@@ -1305,7 +1297,6 @@ class Program(BaseModel):
     COBOL Program ASG root.
 
     Top-level container for the entire Abstract Semantic Graph.
-    Corresponds to ProLeap's Program interface.
     """
 
     # Metadata

@@ -37,9 +37,37 @@
           "is_active": true
         },
         {
+          "name": "build_ast",
+          "description": "Build Abstract Syntax Tree (AST) from COBOL source code with comments and metadata",
+          "handler_name": "build_ast_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
           "name": "build_asg",
           "description": "Build Abstract Semantic Graph (ASG) with semantic analysis, symbol tables, and cross-references",
           "handler_name": "build_asg_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "analyze_complexity",
+          "description": "Analyze complexity of COBOL source code and compute metrics (LOC, cyclomatic, nesting, etc.)",
+          "handler_name": "analyze_complexity_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "build_cfg",
+          "description": "Build Control Flow Graph (CFG) from COBOL AST for accurate cyclomatic complexity and unreachable code detection",
+          "handler_name": "build_cfg_handler",
+          "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "build_dfg",
+          "description": "Build Data Flow Graph (DFG) from COBOL AST for dead variable and uninitialized read detection",
+          "handler_name": "build_dfg_handler",
           "category": "analysis",
           "is_active": true
         },
