@@ -123,7 +123,17 @@ Services in `src/core/services/cobol_analysis/`:
 - `cobol_parser_antlr_service.py` - ANTLR-based parsing
 - `tool_handlers_service.py` - COBOL tool handlers
 
-Key tools: `parse_cobol`, `build_asg`, `resolve_copybooks`, `batch_analyze_cobol_directory`, `analyze_program_system`, `build_call_graph`
+Key tools:
+- `parse_cobol` - Parse COBOL source to AST
+- `build_asg` - Build Abstract Semantic Graph with semantic analysis
+- `analyze_complexity` - Complexity metrics with optional `build_asg`, `build_cfg`, `build_dfg`, `auto_enhance` parameters
+- `resolve_copybooks` - Resolve COPY statements
+- `batch_analyze_cobol_directory` - Analyze entire directory of COBOL programs
+- `analyze_program_system` - Inter-program relationship analysis
+- `build_call_graph` - Generate program call graph
+
+Models in `src/core/models/`:
+- `complexity_metrics_model.py` - ComplexityMetrics with ASGMetrics, CFGMetrics, DFGMetrics for progressive analysis
 
 ## Code Patterns
 
@@ -165,4 +175,5 @@ Python 3.12+, UV, PostgreSQL 14+, FastMCP 2.0, FastAPI, SQLAlchemy 2.0 + asyncpg
 - `docs/ARCHITECTURE.md` - Hexagonal architecture details
 - `docs/HTTP_STREAMING.md` - HTTP streaming guide
 - `docs/TESTING_QUICKSTART.md` - Test all transport types
+- `docs/LANGGRAPH_ARCHITECTURE.md` - Multi-agent LangGraph workflow for COBOL reverse engineering
 - `docs/cobol/` - COBOL implementation details

@@ -8,32 +8,31 @@ This document outlines the architecture for implementing a LangGraph-based multi
 
 ### High-Level Design
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    MCP Server (cobol_analysis)                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  LangGraph Execution Tool (MCP Tool)                     │  │
-│  │  - Exposes LangGraph workflows as callable tools         │  │
-│  │  - Manages workflow state and execution                  │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                              │                                  │
-│                              ▼                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  LangGraph State Machine                                 │  │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐│  │
-│  │  │ Scanner  │→│ Analyzer │→│ Relation │→│ Generator││  │
-│  │  │  Agent   │  │  Agents  │  │  Builder │  │  Agent   ││  │
-│  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘│  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                              │                                  │
-│                              ▼                                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Existing MCP Tools (Callable by Agents)                 │  │
-│  │  - parse_cobol, build_ast, build_asg, build_cfg,         │  │
-│  │    build_dfg, analyze_complexity, build_call_graph,      │  │
-│  │    analyze_program_system, resolve_copybooks, etc.       │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph MCP["MCP Server (cobol_analysis)"]
+        subgraph LGTool["LangGraph Execution Tool (MCP Tool)"]
+            LGDesc["• Exposes LangGraph workflows as callable tools<br/>• Manages workflow state and execution"]
+        end
+
+        subgraph LGState["LangGraph State Machine"]
+            Scanner["Scanner<br/>Agent"] --> Analyzer["Analyzer<br/>Agents"]
+            Analyzer --> RelBuilder["Relationship<br/>Builder"]
+            RelBuilder --> Generator["Graph<br/>Generator"]
+        end
+
+        subgraph MCPTools["Existing MCP Tools (Callable by Agents)"]
+            Tools["parse_cobol, build_ast, build_asg, build_cfg,<br/>build_dfg, analyze_complexity, build_call_graph,<br/>analyze_program_system, resolve_copybooks, etc."]
+        end
+
+        LGTool --> LGState
+        LGState --> MCPTools
+    end
+
+    style MCP fill:#0d0d0d,stroke:#fff,stroke-width:2px,color:#fff
+    style LGTool fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style LGState fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style MCPTools fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ## Design Decisions
@@ -664,61 +663,56 @@ asg_summaries = {
 
 ### Refined Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    MCP Server (cobol_analysis)                               │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  reverse_engineer_cobol_system (MCP Tool Entry Point)                  │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                         │
-│                                    ▼                                         │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │                    LangGraph Workflow                                   │ │
-│  │                                                                         │ │
-│  │    ┌─────────────┐                                                     │ │
-│  │    │  SUPERVISOR │ ◄──────── (Optional: for error recovery)            │ │
-│  │    └──────┬──────┘                                                     │ │
-│  │           │                                                             │ │
-│  │           ▼                                                             │ │
-│  │    ┌─────────────┐     Pure Python                                     │ │
-│  │    │   SCANNER   │ ─── (No LLM, just filesystem)                       │ │
-│  │    └──────┬──────┘                                                     │ │
-│  │           │                                                             │ │
-│  │           ▼  Fan-out (parallel)                                        │ │
-│  │    ┌─────────────────────────────────────────┐                         │ │
-│  │    │  ANALYZER (×N programs in parallel)     │                         │ │
-│  │    │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐       │                         │ │
-│  │    │  │Prog1│ │Prog2│ │Prog3│ │...  │       │  Pure Python +          │ │
-│  │    │  └─────┘ └─────┘ └─────┘ └─────┘       │  MCP Tool calls         │ │
-│  │    └─────────────────────────────────────────┘                         │ │
-│  │           │                                                             │ │
-│  │           ▼  Fan-in (collect results)                                  │ │
-│  │    ┌─────────────┐                                                     │ │
-│  │    │  COLLECTOR  │ ─── Merge parallel results                          │ │
-│  │    └──────┬──────┘                                                     │ │
-│  │           │                                                             │ │
-│  │           ▼                                                             │ │
-│  │    ┌─────────────┐     Pure Python                                     │ │
-│  │    │ RELATIONSHIP│ ─── (Uses MCP tools: build_call_graph,              │ │
-│  │    │   BUILDER   │      analyze_program_system)                        │ │
-│  │    └──────┬──────┘                                                     │ │
-│  │           │                                                             │ │
-│  │           ▼                                                             │ │
-│  │    ┌─────────────┐     LLM (Claude) for summaries                      │ │
-│  │    │    GRAPH    │ ─── Pure Python for graph generation                │ │
-│  │    │  GENERATOR  │                                                     │ │
-│  │    └─────────────┘                                                     │ │
-│  │                                                                         │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                         │
-│                                    ▼                                         │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  Existing MCP Tools (Called by agents)                                 │ │
-│  │  parse_cobol, build_ast, build_asg, build_cfg, build_dfg,             │ │
-│  │  analyze_complexity, build_call_graph, analyze_program_system,         │ │
-│  │  analyze_copybook_usage, resolve_copybooks                             │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph MCP["MCP Server (cobol_analysis)"]
+        EntryPoint["reverse_engineer_cobol_system<br/>(MCP Tool Entry Point)"]
+
+        subgraph Workflow["LangGraph Workflow"]
+            Supervisor["SUPERVISOR<br/><i>(Optional: error recovery)</i>"]
+
+            Scanner["SCANNER<br/><b>Pure Python</b><br/>(No LLM, just filesystem)"]
+
+            subgraph Parallel["Fan-out (parallel)"]
+                direction LR
+                AnalyzerHeader["ANALYZER (×N programs)"]
+                Prog1["Prog1"]
+                Prog2["Prog2"]
+                Prog3["Prog3"]
+                ProgN["..."]
+            end
+            ParallelNote["Pure Python + MCP Tool calls"]
+
+            Collector["COLLECTOR<br/>Merge parallel results<br/><i>Fan-in</i>"]
+
+            RelBuilder["RELATIONSHIP BUILDER<br/><b>Pure Python</b><br/>(Uses: build_call_graph,<br/>analyze_program_system)"]
+
+            GraphGen["GRAPH GENERATOR<br/><b>LLM (Claude)</b> for summaries<br/><b>Pure Python</b> for graph generation"]
+        end
+
+        subgraph MCPTools["Existing MCP Tools (Called by agents)"]
+            ToolList["parse_cobol, build_ast, build_asg, build_cfg, build_dfg,<br/>analyze_complexity, build_call_graph, analyze_program_system,<br/>analyze_copybook_usage, resolve_copybooks"]
+        end
+    end
+
+    EntryPoint --> Supervisor
+    Supervisor --> Scanner
+    Scanner --> Parallel
+    Parallel --> Collector
+    Collector --> RelBuilder
+    RelBuilder --> GraphGen
+    Workflow --> MCPTools
+
+    style MCP fill:#0d0d0d,stroke:#fff,stroke-width:2px,color:#fff
+    style EntryPoint fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style Workflow fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style Supervisor fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff,stroke-dasharray: 5 5
+    style Scanner fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style Parallel fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style Collector fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style RelBuilder fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style GraphGen fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style MCPTools fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ### Refined Prompt Strategy
