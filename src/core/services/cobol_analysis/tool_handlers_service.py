@@ -325,28 +325,65 @@ def _add_copybook_info_to_metadata(metadata: dict[str, Any], preprocessed: Any |
     }
 
 
+def _add_copybook_info_to_result(result: dict[str, Any], preprocessed: Any | None) -> None:
+    """Attach copybook preprocessing info directly to result if available."""
+    if not preprocessed:
+        return
+
+    result["copybook_info"] = {
+        "copybooks_found": len(preprocessed.copybook_usages),
+        "copybooks": [
+            {
+                "name": usage.copybook_name,
+                "resolved": usage.is_resolved,
+                "resolved_path": str(usage.resolved_path) if usage.resolved_path else None,
+            }
+            for usage in preprocessed.copybook_usages
+        ],
+        "unresolved": preprocessed.unresolved_copybooks,
+    }
+
+
 # ============================================================================
 # COBOL Analysis Tool Handlers
 # ============================================================================
 
 
-def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
-    """Parse COBOL source code into AST (Abstract Syntax Tree).
+def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
+    """Build Abstract Syntax Tree (AST) from COBOL source code.
 
     The ParseNode structure serves as the AST for COBOL analysis.
-    This provides a unified structure for further analysis (ASG, user stories, call graphs).
+    This provides a unified structure for further analysis (ASG, CFG, DFG, call graphs).
+
+    This is the primary tool for building COBOL ASTs with optional comment
+    extraction and metadata.
 
     Args:
         parameters: Handler parameters containing:
             - 'source_code' or 'file_path': The COBOL source to parse
             - 'copybook_directories': Optional list of directories to search for copybooks
+            - 'include_comments': Include extracted comments (default: True)
+            - 'include_metadata': Include IDENTIFICATION DIVISION metadata (default: True)
 
     Returns:
-        Dictionary with AST (ParseNode) representation
+        Dictionary with AST (ParseNode) representation including:
+        - success: Whether parsing succeeded
+        - ast: Complete AST structure as nested dictionary
+        - program_name: Extracted program name
+        - node_count: Total number of nodes in the AST
+        - root_type: Type of the root AST node
+        - metadata: Dependencies (calls, copybooks, files)
+        - comments: List of extracted comments (if include_comments=True)
+        - comment_count: Number of comments (if include_comments=True)
+        - identification_metadata: AUTHOR, DATE-WRITTEN, etc. (if include_metadata=True)
+        - copybook_info: Copybook resolution details
+        - source_file: Path to source file (if file_path provided)
     """
     source_code = parameters.get("source_code")
     file_path = parameters.get("file_path")
     copybook_directories = parameters.get("copybook_directories")
+    include_comments = parameters.get("include_comments", True)
+    include_metadata = parameters.get("include_metadata", True)
 
     if not source_code and not file_path:
         return {
@@ -372,7 +409,7 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
             file_path=file_path if isinstance(file_path, str) else None,
         )
 
-        parsed_tree, _comments, _id_metadata, preprocessed = _parse_cobol_source_or_file(
+        parsed_tree, comments, id_metadata, preprocessed = _parse_cobol_source_or_file(
             source_code=source_code if isinstance(source_code, str) else None,
             file_path=file_path if isinstance(file_path, str) else None,
             copybook_paths=copybook_paths,
@@ -384,24 +421,87 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         # Extract program name from parse tree
         program_name = _extract_program_name_from_parse_tree(parsed_tree)
 
-        # Extract metadata from parse tree
+        # Extract metadata from parse tree (dependencies: calls, copybooks, files)
         metadata = _extract_metadata_from_parse_tree(parsed_tree, file_path)
 
+        # Add copybook info to metadata
         _add_copybook_info_to_metadata(metadata, preprocessed)
 
+        # Count nodes in the AST
+        def count_nodes(node: dict[str, Any]) -> int:
+            count = 1
+            for child in node.get("children", []):
+                count += count_nodes(child)
+            return count
+
+        node_count = count_nodes(ast_dict)
+
+        # Build result
         result: dict[str, Any] = {
             "success": True,
             "ast": ast_dict,
             "program_name": program_name,
+            "node_count": node_count,
+            "root_type": parsed_tree.type,
             "metadata": metadata,
         }
 
+        # Include comments if requested
+        if include_comments and comments:
+            result["comments"] = [
+                {
+                    "text": comment.text,
+                    "line": comment.location.line,
+                    "type": comment.comment_type.value,
+                }
+                for comment in comments
+            ]
+            result["comment_count"] = len(comments)
+
+        # Include identification metadata if requested (AUTHOR, DATE-WRITTEN, etc.)
+        if include_metadata and id_metadata:
+            id_metadata_dict: dict[str, Any] = {}
+            if id_metadata.author:
+                id_metadata_dict["author"] = id_metadata.author
+            if id_metadata.installation:
+                id_metadata_dict["installation"] = id_metadata.installation
+            if id_metadata.date_written:
+                id_metadata_dict["date_written"] = id_metadata.date_written
+            if id_metadata.date_compiled:
+                id_metadata_dict["date_compiled"] = id_metadata.date_compiled
+            if id_metadata.security:
+                id_metadata_dict["security"] = id_metadata.security
+            if id_metadata.remarks:
+                id_metadata_dict["remarks"] = id_metadata.remarks
+            if id_metadata_dict:
+                result["identification_metadata"] = id_metadata_dict
+
+        # Add copybook info at top level for easy access
+        if preprocessed:
+            _add_copybook_info_to_result(result, preprocessed)
+
+        # Add source file info
+        if file_path:
+            result["source_file"] = file_path
+
         # Save result to file
-        saved_path = _save_tool_result("parse_cobol", result, program_name)
+        saved_path = _save_tool_result("build_ast", result, program_name)
         if saved_path:
             result["saved_to"] = str(saved_path)
 
         return result
+
+    except SyntaxError as e:
+        logger.warning(f"COBOL syntax error: {e}")
+        return {
+            "success": False,
+            "error": f"COBOL syntax error: {e}",
+        }
+    except FileNotFoundError as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
     except Exception as e:
         logger.exception("Failed to parse COBOL")
         return {
@@ -410,11 +510,16 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
+def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Parse COBOL source code into raw ParseNode (parse tree).
 
-    This tool returns the raw parse tree without building the AST.
-    Use this when you want to inspect the parse tree or build the AST separately.
+    This tool returns the raw parse tree from ANTLR without additional processing.
+    Use this for low-level parsing when you need the raw parse tree structure.
+
+    For most use cases, use build_ast_handler instead which provides:
+    - Full AST with metadata
+    - Comment extraction
+    - Copybook resolution
 
     Args:
         parameters: Handler parameters containing 'source_code' or 'file_path'
@@ -451,7 +556,7 @@ def parse_cobol_raw_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
         # Save result to file
         identifier = Path(file_path).stem if file_path else "source_code"
-        saved_path = _save_tool_result("parse_cobol_raw", result, identifier)
+        saved_path = _save_tool_result("parse_cobol", result, identifier)
         if saved_path:
             result["saved_to"] = str(saved_path)
 
@@ -563,168 +668,6 @@ def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         logger.exception("Failed to build ASG")
         return {"success": False, "error": str(e)}
-
-
-def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
-    """Build Abstract Syntax Tree (AST) from COBOL source code.
-
-    This handler parses COBOL source code and returns a structured AST
-    representation using ParseNode. The AST captures the syntactic structure
-    of the COBOL program including:
-    - Program divisions (IDENTIFICATION, ENVIRONMENT, DATA, PROCEDURE)
-    - Sections and paragraphs
-    - Statements and expressions
-    - Data definitions with levels and clauses
-    - Source location information for each node
-
-    The AST is suitable for:
-    - Code analysis and transformation
-    - Documentation generation
-    - Migration planning
-    - Further semantic analysis (ASG building)
-
-    Args:
-        parameters: Handler parameters containing:
-            - 'source_code': COBOL source code as string (optional if file_path provided)
-            - 'file_path': Path to COBOL source file (optional if source_code provided)
-            - 'include_comments': Include extracted comments (default: True)
-            - 'include_metadata': Include identification metadata (default: True)
-            - 'copybook_directories': Optional list of directories to search for copybooks
-
-    Returns:
-        Dictionary with AST representation including:
-        - success: Whether parsing succeeded
-        - ast: Complete AST structure as nested dictionary
-        - program_name: Extracted program name
-        - comments: List of extracted comments (if include_comments=True)
-        - metadata: Identification metadata like AUTHOR, DATE-WRITTEN (if include_metadata=True)
-        - node_count: Total number of nodes in the AST
-        - saved_to: Path where result was saved
-    """
-    source_code = parameters.get("source_code")
-    file_path = parameters.get("file_path")
-    include_comments = parameters.get("include_comments", True)
-    include_metadata = parameters.get("include_metadata", True)
-    copybook_directories = parameters.get("copybook_directories")
-
-    if not source_code and not file_path:
-        return {
-            "success": False,
-            "error": "Either 'source_code' or 'file_path' must be provided",
-        }
-
-    try:
-        # Validate inputs
-        if source_code is not None and not isinstance(source_code, str):
-            return {
-                "success": False,
-                "error": "'source_code' must be a string",
-            }
-
-        if file_path is not None and not isinstance(file_path, str):
-            return {
-                "success": False,
-                "error": "'file_path' must be a string",
-            }
-
-        # Resolve copybook paths if needed
-        copybook_paths = _resolve_copybook_paths(
-            copybook_directories=copybook_directories,
-            file_path=file_path if isinstance(file_path, str) else None,
-        )
-
-        # Parse COBOL source
-        parsed_tree, comments, id_metadata, preprocessed = _parse_cobol_source_or_file(
-            source_code=source_code if isinstance(source_code, str) else None,
-            file_path=file_path if isinstance(file_path, str) else None,
-            copybook_paths=copybook_paths,
-        )
-
-        # Serialize AST using Pydantic
-        ast_dict = _serialize_parse_node(parsed_tree)
-
-        # Extract program name
-        program_name = _extract_program_name_from_parse_tree(parsed_tree)
-
-        # Count nodes in the AST
-        def count_nodes(node: dict[str, Any]) -> int:
-            count = 1
-            for child in node.get("children", []):
-                count += count_nodes(child)
-            return count
-
-        node_count = count_nodes(ast_dict)
-
-        # Build result
-        result: dict[str, Any] = {
-            "success": True,
-            "ast": ast_dict,
-            "program_name": program_name,
-            "node_count": node_count,
-            "root_type": parsed_tree.type,
-        }
-
-        # Include comments if requested
-        if include_comments and comments:
-            result["comments"] = [
-                {
-                    "text": comment.text,
-                    "line": comment.location.line,
-                    "type": comment.comment_type.value,
-                }
-                for comment in comments
-            ]
-            result["comment_count"] = len(comments)
-
-        # Include metadata if requested
-        if include_metadata:
-            metadata_dict: dict[str, Any] = {}
-            if id_metadata.author:
-                metadata_dict["author"] = id_metadata.author
-            if id_metadata.installation:
-                metadata_dict["installation"] = id_metadata.installation
-            if id_metadata.date_written:
-                metadata_dict["date_written"] = id_metadata.date_written
-            if id_metadata.date_compiled:
-                metadata_dict["date_compiled"] = id_metadata.date_compiled
-            if id_metadata.security:
-                metadata_dict["security"] = id_metadata.security
-            if id_metadata.remarks:
-                metadata_dict["remarks"] = id_metadata.remarks
-            if metadata_dict:
-                result["identification_metadata"] = metadata_dict
-
-        # Add copybook info if available
-        _add_copybook_info_to_metadata(result, preprocessed)
-
-        # Add source file info
-        if file_path:
-            result["source_file"] = file_path
-
-        # Save result to file
-        saved_path = _save_tool_result("build_ast", result, program_name or "unknown")
-        if saved_path:
-            result["saved_to"] = str(saved_path)
-
-        return result
-
-    except SyntaxError as e:
-        logger.warning(f"COBOL syntax error: {e}")
-        return {
-            "success": False,
-            "error": f"COBOL syntax error: {e}",
-        }
-    except FileNotFoundError as e:
-        return {
-            "success": False,
-            "error": str(e),
-        }
-    except Exception as e:
-        logger.exception("Failed to build AST")
-        return {
-            "success": False,
-            "error": str(e),
-        }
 
 
 def _process_single_cobol_file(cobol_file: Path) -> dict[str, Any]:
@@ -2926,9 +2869,8 @@ def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
-    "parse_cobol_handler": parse_cobol_handler,
-    "parse_cobol_raw_handler": parse_cobol_raw_handler,
     "build_ast_handler": build_ast_handler,
+    "parse_cobol_handler": parse_cobol_handler,
     "build_asg_handler": build_asg_handler,
     "analyze_complexity_handler": analyze_complexity_handler,
     "build_cfg_handler": build_cfg_handler,

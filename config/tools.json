@@ -23,24 +23,17 @@
     "cobol_analysis": {
       "tools": [
         {
-          "name": "parse_cobol",
-          "description": "Parse COBOL source code into Abstract Syntax Tree (AST)",
-          "handler_name": "parse_cobol_handler",
-          "category": "parsing",
-          "is_active": true
-        },
-        {
-          "name": "parse_cobol_raw",
-          "description": "Parse COBOL source code into raw ParseNode (parse tree)",
-          "handler_name": "parse_cobol_raw_handler",
-          "category": "parsing",
-          "is_active": true
-        },
-        {
           "name": "build_ast",
           "description": "Build Abstract Syntax Tree (AST) from COBOL source code with comments and metadata",
           "handler_name": "build_ast_handler",
           "category": "analysis",
+          "is_active": true
+        },
+        {
+          "name": "parse_cobol",
+          "description": "Parse COBOL source code into raw ParseNode (parse tree)",
+          "handler_name": "parse_cobol_handler",
+          "category": "parsing",
           "is_active": true
         },
         {

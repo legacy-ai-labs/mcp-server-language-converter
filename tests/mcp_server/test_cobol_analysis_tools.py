@@ -6,34 +6,34 @@ import pytest
 
 from src.core.services.cobol_analysis.tool_handlers_service import (
     build_asg_handler,
+    build_ast_handler,
     parse_cobol_handler,
-    parse_cobol_raw_handler,
 )
 
 
 @pytest.mark.integration
-def test_parse_cobol_with_sample_file() -> None:
-    """Test parsing a real sample COBOL file via handler."""
+def test_build_ast_with_sample_file() -> None:
+    """Test building AST from a real sample COBOL file via handler."""
     file_path = Path(__file__).parent / ".." / "cobol_samples" / "CUSTOMER-ACCOUNT-MAIN.cbl"
 
     if not file_path.exists():
         pytest.skip(f"Sample file not found: {file_path}")
 
-    parse_result = parse_cobol_handler({"file_path": str(file_path)})
-    if not parse_result["success"]:
+    result = build_ast_handler({"file_path": str(file_path)})
+    if not result["success"]:
         # Parser may not support all COBOL constructs in sample files yet
         pytest.skip(
-            f"Parser doesn't support all constructs in sample file: {parse_result.get('error', 'Unknown error')}"
+            f"Parser doesn't support all constructs in sample file: {result.get('error', 'Unknown error')}"
         )
 
-    assert "ast" in parse_result
-    ast_dict = parse_result["ast"]
-    assert ast_dict["node_type"] == "PROGRAM"
+    assert "ast" in result
+    ast_dict = result["ast"]
+    assert ast_dict["type"] == "PROGRAM"
     assert "children" in ast_dict
 
 
 @pytest.mark.integration
-def test_parse_cobol_raw_with_source() -> None:
+def test_parse_cobol_with_source() -> None:
     """Test raw parse tree output."""
     source_code = (
         "IDENTIFICATION DIVISION.\n"
@@ -42,19 +42,19 @@ def test_parse_cobol_raw_with_source() -> None:
         "MAIN.\n"
         "    STOP RUN.\n"
     )
-    result = parse_cobol_raw_handler({"source_code": source_code})
+    result = parse_cobol_handler({"source_code": source_code})
     if not result["success"]:
         pytest.skip(f"Parser limitation: {result.get('error', 'Unknown error')}")
 
     assert result["node_type"] == "PROGRAM"
     assert "parse_tree" in result
-    assert result["parse_tree"]["node_type"] == "PROGRAM"
+    assert result["parse_tree"]["type"] == "PROGRAM"
 
 
 @pytest.mark.integration
 def test_error_handling_invalid_cobol() -> None:
     """Test error handling with invalid COBOL syntax."""
-    result = parse_cobol_handler({"source_code": "INVALID COBOL CODE WITHOUT STRUCTURE"})
+    result = build_ast_handler({"source_code": "INVALID COBOL CODE WITHOUT STRUCTURE"})
 
     # Should handle gracefully
     assert "success" in result

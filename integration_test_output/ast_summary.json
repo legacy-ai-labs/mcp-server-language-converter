@@ -1,9 +1,0 @@
-{
-  "program_name": "PROGRAM-ID",
-  "divisions": [
-    "DivisionType.IDENTIFICATION",
-    "DivisionType.DATA",
-    "DivisionType.PROCEDURE"
-  ],
-  "division_count": 3
-}

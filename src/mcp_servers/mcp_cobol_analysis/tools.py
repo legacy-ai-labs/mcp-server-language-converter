@@ -15,7 +15,6 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     build_cfg_handler,
     build_dfg_handler,
     parse_cobol_handler,
-    parse_cobol_raw_handler,
     prepare_cobol_for_antlr_handler,
     resolve_copybooks_handler,
 )
@@ -29,56 +28,8 @@ mcp = create_mcp_server(domain="cobol_analysis")
 
 @register_tool(
     domain="cobol_analysis",
-    tool_name="parse_cobol",
-    description="Parse COBOL source code into Abstract Syntax Tree (AST)",
-)
-async def parse_cobol(
-    source_code: str | None = None,
-    file_path: str | None = None,
-) -> dict[str, Any]:
-    """Parse COBOL source code into Abstract Syntax Tree (AST).
-
-    Parses COBOL source code and builds an AST representation suitable for analysis.
-    Supports both direct source code input and file path references.
-
-    Args:
-        source_code: COBOL source code as a string (optional if file_path provided)
-        file_path: Path to COBOL source file (optional if source_code provided)
-
-    Returns:
-        Dictionary with success status, AST data, and metadata
-    """
-    return parse_cobol_handler({"source_code": source_code, "file_path": file_path})
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="parse_cobol_raw",
-    description="Parse COBOL source code into raw ParseNode (parse tree)",
-)
-async def parse_cobol_raw(
-    source_code: str | None = None,
-    file_path: str | None = None,
-) -> dict[str, Any]:
-    """Parse COBOL source code into raw ParseNode (parse tree) without building AST.
-
-    Returns the raw parse tree structure from the COBOL parser without AST transformation.
-    Useful for low-level analysis or debugging parser issues.
-
-    Args:
-        source_code: COBOL source code as a string (optional if file_path provided)
-        file_path: Path to COBOL source file (optional if source_code provided)
-
-    Returns:
-        Dictionary with success status and raw parse tree data
-    """
-    return parse_cobol_raw_handler({"source_code": source_code, "file_path": file_path})
-
-
-@register_tool(
-    domain="cobol_analysis",
     tool_name="build_ast",
-    description="Build Abstract Syntax Tree (AST) from COBOL source code",
+    description="Build Abstract Syntax Tree (AST) from COBOL source code with comments and metadata",
 )
 async def build_ast(
     source_code: str | None = None,
@@ -89,21 +40,21 @@ async def build_ast(
 ) -> dict[str, Any]:
     """Build Abstract Syntax Tree (AST) from COBOL source code.
 
-    Parses COBOL source code and returns a structured AST representation.
-    The AST captures the syntactic structure of the COBOL program including
-    divisions, sections, paragraphs, statements, and data definitions.
+    This is the primary tool for building COBOL ASTs. It parses the source
+    and builds a complete AST representation with optional comments and metadata.
 
     The AST is suitable for:
     - Code analysis and transformation
     - Documentation generation
     - Migration planning
-    - Further semantic analysis (ASG building)
+    - Further semantic analysis (ASG, CFG, DFG building)
 
     Args:
-        source_code: COBOL source code as string (optional if file_path provided)
+        source_code: COBOL source code as a string (optional if file_path provided)
         file_path: Path to COBOL source file (optional if source_code provided)
         include_comments: Include extracted comments in output (default: True)
-        include_metadata: Include IDENTIFICATION DIVISION metadata (default: True)
+        include_metadata: Include IDENTIFICATION DIVISION metadata like AUTHOR,
+                         DATE-WRITTEN, etc. (default: True)
         copybook_directories: Optional list of directories to search for copybooks
 
     Returns:
@@ -112,23 +63,34 @@ async def build_ast(
         - ast: Complete AST structure as nested dictionary
         - program_name: Extracted program name
         - node_count: Total number of nodes in the AST
+        - root_type: Type of the root AST node
+        - metadata: Dependencies (calls, copybooks, files)
         - comments: List of extracted comments (if include_comments=True)
+        - comment_count: Number of comments (if include_comments=True)
         - identification_metadata: AUTHOR, DATE-WRITTEN, etc. (if include_metadata=True)
+        - copybook_info: Copybook resolution details
+        - source_file: Path to source file (if file_path provided)
         - saved_to: Path where result was saved
 
     Example:
-        # Build AST from file
+        # Build AST from file with all features
         result = await build_ast(file_path="programs/CUSTOMER-MGMT.cbl")
 
         if result['success']:
             print(f"AST has {result['node_count']} nodes")
             print(f"Program: {result['program_name']}")
+            print(f"Comments: {result.get('comment_count', 0)}")
 
         # Build AST from source with copybook resolution
         result = await build_ast(
             source_code=cobol_source,
-            include_comments=True,
             copybook_directories=["copybooks/"]
+        )
+
+        # Build AST without comments (smaller output)
+        result = await build_ast(
+            file_path="programs/MAIN-BATCH.cbl",
+            include_comments=False
         )
     """
     parameters: dict[str, Any] = {
@@ -142,6 +104,35 @@ async def build_ast(
     if copybook_directories is not None:
         parameters["copybook_directories"] = copybook_directories
     return build_ast_handler(parameters)
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="parse_cobol",
+    description="Parse COBOL source code into raw ParseNode (parse tree)",
+)
+async def parse_cobol(
+    source_code: str | None = None,
+    file_path: str | None = None,
+) -> dict[str, Any]:
+    """Parse COBOL source code into raw ParseNode (parse tree).
+
+    Returns the raw parse tree structure from the ANTLR parser without additional
+    processing. Use this for low-level parsing when you need the raw parse tree.
+
+    For most use cases, use build_ast instead which provides:
+    - Full AST with metadata
+    - Comment extraction
+    - Copybook resolution
+
+    Args:
+        source_code: COBOL source code as a string (optional if file_path provided)
+        file_path: Path to COBOL source file (optional if source_code provided)
+
+    Returns:
+        Dictionary with success status and raw parse tree data
+    """
+    return parse_cobol_handler({"source_code": source_code, "file_path": file_path})
 
 
 @register_tool(

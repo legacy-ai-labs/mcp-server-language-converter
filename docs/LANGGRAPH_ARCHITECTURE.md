@@ -22,7 +22,7 @@ flowchart TB
         end
 
         subgraph MCPTools["Existing MCP Tools (Callable by Agents)"]
-            Tools["parse_cobol, build_ast, build_asg, build_cfg,<br/>build_dfg, analyze_complexity, build_call_graph,<br/>analyze_program_system, resolve_copybooks, etc."]
+            Tools["build_ast, parse_cobol, build_asg, build_cfg, build_dfg,<br/>analyze_complexity, build_call_graph, analyze_program_system,<br/>analyze_copybook_usage, analyze_data_flow, resolve_copybooks,<br/>batch_resolve_copybooks, prepare_cobol_for_antlr"]
         end
 
         LGTool --> LGState
@@ -58,13 +58,28 @@ async def reverse_engineer_cobol_system(
     directory_path: str,
     output_format: str = "json",
     include_copybooks: bool = True,
+    prepare_for_antlr: bool = False,
+    copybook_directories: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Execute LangGraph workflow for COBOL reverse engineering."""
+    """Execute LangGraph workflow for COBOL reverse engineering.
+
+    Args:
+        directory_path: Path to directory containing COBOL programs
+        output_format: Output format for results (json, graphviz, mermaid, etc.)
+        include_copybooks: Whether to resolve COPY statements
+        prepare_for_antlr: Whether to prepare COBOL files for ANTLR parser (removes optional IDENTIFICATION DIVISION paragraphs)
+        copybook_directories: Optional list of directories to search for copybooks
+
+    Returns:
+        Dictionary containing final graph, visualization, and summary report
+    """
     workflow = create_reverse_engineering_workflow()
     result = await workflow.ainvoke({
         "directory_path": directory_path,
         "output_format": output_format,
         "include_copybooks": include_copybooks,
+        "prepare_for_antlr": prepare_for_antlr,
+        "copybook_directories": copybook_directories or [],
     })
     return result
 ```
@@ -80,7 +95,10 @@ async def reverse_engineer_cobol_system(
   - Identify `.cbl`, `.cob`, `.cpy` files
   - Extract file metadata (size, modification date, path)
   - Build initial program inventory
-- **Tools**: Filesystem operations (can use MCP tools if needed)
+  - Optionally prepare files for ANTLR parser (if needed)
+- **Tools**:
+  - Filesystem operations (pure Python)
+  - `prepare_cobol_for_antlr` (MCP tool, optional) - Prepare COBOL files for ANTLR parser by removing unsupported optional paragraphs
 - **Output**: List of discovered programs with metadata
 
 #### Agent 2: Program Analyzer Agent (Can be Parallel)
@@ -97,20 +115,20 @@ async def reverse_engineer_cobol_system(
   - Identify CALL statements and targets
   - Extract COPY statements
 - **Tools**:
-  - `parse_cobol` (MCP tool) - Parse COBOL source code to raw parse tree
-  - `build_ast` (MCP tool) - Build Abstract Syntax Tree (AST) from parsed code
+  - `build_ast` (MCP tool) - Build AST from COBOL source code with comments and metadata (primary parsing tool)
+  - `parse_cobol` (MCP tool) - Parse COBOL source code into raw ParseNode (for low-level debugging)
   - `build_asg` (MCP tool) - Build Abstract Semantic Graph (ASG) with semantic analysis
   - `build_cfg` (MCP tool) - Build Control Flow Graph (CFG) for cyclomatic complexity and unreachable code detection
   - `build_dfg` (MCP tool) - Build Data Flow Graph (DFG) for dead variable and uninitialized read detection
   - `analyze_complexity` (MCP tool) - Analyze complexity metrics (LOC, cyclomatic, nesting, etc.)
   - `resolve_copybooks` (MCP tool) - Resolve COPY statements
 - **Workflow**:
-  1. Parse program to get raw parse tree
-  2. Build AST using `build_ast` for syntactic structure
-  3. Build ASG using `build_asg` for full semantic analysis (symbol tables, cross-references)
-  4. Build CFG using `build_cfg` for control flow analysis (from AST)
-  5. Build DFG using `build_dfg` for data flow analysis (from AST)
-  6. Analyze complexity using `analyze_complexity` for metrics (can use AST/ASG/CFG/DFG)
+  1. Build AST using `build_ast` (includes comments, metadata, copybook resolution)
+  2. Build ASG using `build_asg` for full semantic analysis (symbol tables, cross-references)
+  3. Build CFG using `build_cfg` for control flow analysis (from AST)
+  4. Build DFG using `build_dfg` for data flow analysis (from AST)
+  5. Analyze complexity using `analyze_complexity` for metrics (can use AST/ASG/CFG/DFG)
+  6. (Optional) Use `parse_cobol` for raw parse tree if debugging parser issues
 - **Output**: Complete AST, ASG, CFG, DFG, and complexity metrics for each program
 - **Parallelization**: Can analyze multiple programs concurrently
 
@@ -122,9 +140,10 @@ async def reverse_engineer_cobol_system(
   - Identify data flow through program parameters
   - Map program interfaces (USING/GIVING clauses)
 - **Tools**:
-  - `build_call_graph` (MCP tool)
-  - `analyze_program_system` (MCP tool)
-  - `analyze_copybook_usage` (MCP tool)
+  - `build_call_graph` (MCP tool) - Build call graph from CALL statements
+  - `analyze_program_system` (MCP tool) - System-level relationship analysis
+  - `analyze_copybook_usage` (MCP tool) - COPY book dependency analysis
+  - `analyze_data_flow` (MCP tool) - Data flow through program parameters (BY VALUE/REFERENCE)
 - **Output**: Relationship graph with edges and metadata
 
 #### Agent 4: Graph Generator Agent
@@ -154,10 +173,14 @@ class ReverseEngineeringState(TypedDict):
     directory_path: str
     output_format: str
     include_copybooks: bool
+    prepare_for_antlr: bool  # Whether to prepare files for ANTLR parser
+    copybook_directories: list[str] | None  # Directories to search for copybooks
 
     # Discovery Phase
     discovered_files: list[dict[str, Any]]  # File metadata
     program_inventory: list[str]  # List of program file paths
+    prepared_files: dict[str, str]  # Original path -> prepared path (if preprocessing used)
+    preprocessing_errors: Annotated[list[dict], add]  # Preprocessing errors
 
     # Analysis Phase
     program_asts: Annotated[dict[str, dict], add]  # Program name -> AST
@@ -165,12 +188,13 @@ class ReverseEngineeringState(TypedDict):
     program_cfgs: Annotated[dict[str, dict], add]  # Program name -> CFG
     program_dfgs: Annotated[dict[str, dict], add]  # Program name -> DFG
     complexity_metrics: Annotated[dict[str, dict], add]  # Program name -> complexity metrics
-    analysis_errors: Annotated[list[dict], add]  # Collect errors
+    analysis_errors: Annotated[list[dict], add]  # Collect errors with severity (critical, warning, info)
 
     # Relationship Phase
     call_graph: dict[str, Any]
     copybook_dependencies: dict[str, list[str]]
     program_interfaces: dict[str, dict[str, Any]]
+    program_data_flows: Annotated[dict[str, dict], add]  # Program name -> data flow analysis
 
     # Output Phase
     final_graph: dict[str, Any]
@@ -185,7 +209,11 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 def create_reverse_engineering_workflow():
-    """Create the reverse engineering workflow graph."""
+    """Create the reverse engineering workflow graph.
+
+    Note: For parallel processing, use the refined workflow with Send API (see Refinement 2).
+    This basic workflow processes programs sequentially.
+    """
     workflow = StateGraph(ReverseEngineeringState)
 
     # Add nodes (agents)
@@ -215,6 +243,39 @@ def create_reverse_engineering_workflow():
     # Compile with checkpointing for observability
     memory = MemorySaver()
     return workflow.compile(checkpointer=memory)
+
+# Alternative: Workflow with optional preprocessing step
+def create_reverse_engineering_workflow_with_preprocessing():
+    """Create workflow with optional preprocessing step for ANTLR preparation."""
+    workflow = StateGraph(ReverseEngineeringState)
+
+    workflow.add_node("scanner", scanner_agent)
+    workflow.add_node("preprocessor", preprocessor_agent)  # Optional preprocessing
+    workflow.add_node("analyzer", analyzer_agent)
+    workflow.add_node("relationship_builder", relationship_builder_agent)
+    workflow.add_node("graph_generator", graph_generator_agent)
+
+    workflow.set_entry_point("scanner")
+
+    # Conditional: preprocess if needed, otherwise skip
+    workflow.add_conditional_edges(
+        "scanner",
+        should_preprocess,  # Returns "preprocess" or "skip"
+        {
+            "preprocess": "preprocessor",
+            "skip": "analyzer",
+        }
+    )
+    workflow.add_edge("preprocessor", "analyzer")
+    workflow.add_edge("analyzer", "relationship_builder")
+    workflow.add_edge("relationship_builder", "graph_generator")
+    workflow.add_edge("graph_generator", END)
+
+    return workflow.compile(checkpointer=MemorySaver())
+
+def should_preprocess(state: ReverseEngineeringState) -> str:
+    """Determine if preprocessing is needed."""
+    return "preprocess" if state.get("prepare_for_antlr", False) else "skip"
 ```
 
 #### Agent Communication
@@ -222,20 +283,27 @@ def create_reverse_engineering_workflow():
 **Best Practices:**
 
 1. **Shared State Pattern**: All agents read/write to shared state object
-2. **Tool Calling**: Agents use existing MCP tools via tool invocation
-3. **Error Propagation**: Errors collected in state, handled by supervisor
+2. **Tool Calling Pattern**: Agents call tool handlers directly for efficiency (not via MCP protocol)
+   - **Rationale**: Direct handler calls avoid MCP protocol overhead and enable better error handling
+   - **Alternative**: Use MCP tool adapter if full observability through MCP layer is required
+   - **Implementation**: Import handlers from `src.core.services.cobol_analysis.tool_handlers_service`
+3. **Error Propagation**: Errors collected in state with severity classification (critical, warning, info)
 4. **Streaming**: Use LangGraph streaming for progress updates
 
 **Example Agent Implementation:**
 
+**Note**: The following example shows direct handler calls for efficiency. Tool handlers can work directly from `file_path` (e.g., `build_asg_handler` accepts `file_path` directly and doesn't require AST as input).
+
 ```python
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_openai import ChatOpenAI
+# Note: This is a pure Python implementation - no LLM needed for deterministic tool orchestration
+# For LLM-based dynamic tool selection, see Refinement 1
 
 async def analyzer_agent(state: ReverseEngineeringState) -> ReverseEngineeringState:
-    """Analyze discovered COBOL programs."""
-    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    """Analyze discovered COBOL programs.
 
+    This is a pure Python implementation - no LLM needed for deterministic tool orchestration.
+    For LLM-based dynamic tool selection, see Refinement 1.
+    """
     # Get list of programs to analyze
     programs = state["program_inventory"]
     asgs = {}
@@ -259,9 +327,11 @@ async def analyzer_agent(state: ReverseEngineeringState) -> ReverseEngineeringSt
             })
 
             # Build ASG for semantic analysis
+            # Note: build_asg_handler can work directly from file_path (doesn't require AST)
             asg_result = await build_asg_handler({
                 "file_path": program_path,
                 "include_copybooks": state["include_copybooks"],
+                "copybook_directories": state.get("copybook_directories"),
             })
 
             # Build CFG for control flow analysis (requires AST)
@@ -295,19 +365,73 @@ async def analyzer_agent(state: ReverseEngineeringState) -> ReverseEngineeringSt
                 if complexity_result["success"]:
                     state["complexity_metrics"][program_name] = complexity_result["data"]
             else:
+                # Determine error severity
+                severity = "critical" if not ast_result.get("success") else "warning"
+                error_msg = ast_result.get("error") or asg_result.get("error", "Unknown error")
                 errors.append({
                     "program": program_path,
-                    "error": result.get("error", "Unknown error"),
+                    "error": error_msg,
+                    "severity": severity,
                 })
         except Exception as e:
             errors.append({
                 "program": program_path,
                 "error": str(e),
+                "severity": "critical",
             })
 
     # Update state
     state["program_asgs"].update(asgs)
     state["analysis_errors"].extend(errors)
+
+    return state
+```
+
+**Relationship Builder Agent Example:**
+
+```python
+async def relationship_builder_agent(state: ReverseEngineeringState) -> ReverseEngineeringState:
+    """Build relationships between programs."""
+    from src.core.services.cobol_analysis.tool_handlers_service import (
+        build_call_graph_handler,
+        analyze_program_system_handler,
+        analyze_copybook_usage_handler,
+        analyze_data_flow_handler,
+    )
+
+    # Build call graph from all analyzed programs
+    call_graph_result = await build_call_graph_handler({
+        "program_paths": list(state["program_inventory"]),
+        "program_asgs": state["program_asgs"],
+    })
+
+    # Analyze system-level relationships
+    system_result = await analyze_program_system_handler({
+        "program_paths": list(state["program_inventory"]),
+        "program_asgs": state["program_asgs"],
+    })
+
+    # Analyze copybook usage patterns
+    copybook_result = await analyze_copybook_usage_handler({
+        "program_paths": list(state["program_inventory"]),
+        "program_asgs": state["program_asgs"],
+    })
+
+    # Analyze data flow through program parameters
+    data_flow_result = await analyze_data_flow_handler({
+        "program_paths": list(state["program_inventory"]),
+        "program_asgs": state["program_asgs"],
+    })
+
+    # Store results in state
+    if call_graph_result.get("success"):
+        state["call_graph"] = call_graph_result["data"]
+    if system_result.get("success"):
+        state["program_interfaces"] = system_result.get("data", {})
+    if copybook_result.get("success"):
+        state["copybook_dependencies"] = copybook_result.get("data", {})
+    if data_flow_result.get("success"):
+        state["program_data_flows"] = data_flow_result.get("data", {})
 
     return state
 ```
@@ -376,14 +500,18 @@ You are analyzing COBOL programs from a legacy system. Your goal is to extract:
 - COPY statement dependencies
 
 ## Available Tools
-- `parse_cobol`: Parse COBOL source code
-- `build_asg`: Build Abstract Semantic Graph
-- `resolve_copybooks`: Resolve COPY statements
+- `build_ast`: Build AST from COBOL source (with comments, metadata, copybook resolution)
+- `build_asg`: Build Abstract Semantic Graph (symbol tables, cross-references)
+- `build_cfg`: Build Control Flow Graph (cyclomatic complexity, unreachable code)
+- `build_dfg`: Build Data Flow Graph (dead variables, uninitialized reads)
+- `analyze_complexity`: Compute complexity metrics
+- `parse_cobol`: Raw parse tree (for debugging only)
 
 ## Instructions
 1. For each program in the inventory:
-   - Parse the program using `parse_cobol`
+   - Build AST using `build_ast`
    - Build ASG using `build_asg`
+   - Build CFG/DFG if needed
    - Extract key information
 
 2. Collect errors and report them in the state
@@ -486,6 +614,15 @@ src/
 │       └── tools.py           # ADD: reverse_engineer_cobol_system tool
 └── ...
 
+# Also update config/tools.json to include:
+# {
+#   "name": "reverse_engineer_cobol_system",
+#   "description": "Reverse engineer COBOL system: scan directory, analyze programs, build relationship graph using LangGraph workflow",
+#   "handler_name": "reverse_engineer_cobol_system_handler",
+#   "category": "workflow",
+#   "is_active": true
+# }
+
 prompts/                        # NEW: Root prompts directory
 ├── cobol_reverse_engineering/
 └── templates/
@@ -499,27 +636,40 @@ dependencies = [
     # ... existing dependencies
     "langgraph>=0.2.0",
     "langchain>=0.3.0",
-    "langchain-openai>=0.2.0",  # or langchain-anthropic
+    "langchain-anthropic>=0.2.0",  # Use Anthropic Claude (not OpenAI)
     "langchain-core>=0.3.0",
     "networkx>=3.0",            # For graph operations
     "graphviz>=0.20",           # For graph visualization
     "jinja2>=3.1.0",            # For prompt templates
+    "pyyaml>=6.0",               # For YAML prompt configuration (optional)
 ]
 ```
 
+**Note**: Verify LangGraph version compatibility with LangChain versions when adding dependencies.
+
 ## Key Considerations
 
-1. **MCP Tool Integration**: Agents should call existing MCP tools, not duplicate logic
-   - Use `build_ast` to build Abstract Syntax Tree (syntactic structure)
-   - Use `build_asg` for comprehensive semantic analysis (symbols, cross-references, relationships)
-   - Use `build_cfg` for control flow analysis (cyclomatic complexity, unreachable code)
-   - Use `build_dfg` for data flow analysis (dead variables, uninitialized reads)
-   - Use `analyze_complexity` for complexity metrics (LOC, cyclomatic, nesting depth, etc.)
+1. **MCP Tool Integration**: Agents should call existing MCP tool handlers directly, not duplicate logic
+   - **Tool Call Pattern**: Call handlers directly from `src.core.services.cobol_analysis.tool_handlers_service` for efficiency
+   - **Tool Dependencies**:
+     - `build_ast` - Works from `file_path` or `source_code` directly
+     - `build_asg` - Works from `file_path` directly (doesn't require AST as input)
+     - `build_cfg` - Requires AST as input (from `build_ast` output)
+     - `build_dfg` - Requires AST as input (from `build_ast` output)
+     - `analyze_complexity` - Can work from `file_path` or use AST/ASG/CFG/DFG if available
+   - **Tool Usage**:
+     - Use `build_ast` to build Abstract Syntax Tree (syntactic structure)
+     - Use `build_asg` for comprehensive semantic analysis (symbols, cross-references, relationships)
+     - Use `build_cfg` for control flow analysis (cyclomatic complexity, unreachable code)
+     - Use `build_dfg` for data flow analysis (dead variables, uninitialized reads)
+     - Use `analyze_complexity` for complexity metrics (LOC, cyclomatic, nesting depth, etc.)
+     - Use `analyze_data_flow` for data flow through program parameters (BY VALUE/REFERENCE)
+   - **Batch Tools**: Do NOT use `batch_analyze_cobol_directory` or `batch_resolve_copybooks` in LangGraph workflow - use LangGraph's parallelization (`Send` API) instead. Batch tools process files sequentially and conflict with LangGraph's parallel processing model.
 2. **State Persistence**: Use LangGraph checkpoints for long-running workflows
-3. **Error Recovery**: Implement retry logic and error collection
-4. **Parallelization**: Analyze multiple programs concurrently when possible
+3. **Error Recovery**: Implement retry logic and error collection with severity classification (critical, warning, info)
+4. **Parallelization**: Analyze multiple programs concurrently using LangGraph's `Send` API for fan-out/fan-in pattern
 5. **Observability**: Integrate with existing observability infrastructure
-6. **Token Management**: Summarize large ASGs before passing to LLM
+6. **Token Management**: Summarize large ASGs before passing to LLM (store full ASGs in state, pass summaries to LLM)
 7. **Prompt Versioning**: Track prompt versions for reproducibility
 
 ## Architecture Review and Refinements
@@ -545,6 +695,24 @@ def scanner_node(state: ReverseEngineeringState) -> ReverseEngineeringState:
     directory = Path(state["directory_path"])
     files = list(directory.rglob("*.cbl")) + list(directory.rglob("*.cob"))
     state["program_inventory"] = [str(f) for f in files]
+
+    # Optionally prepare files for ANTLR parser
+    if state.get("prepare_for_antlr", False):
+        from src.core.services.cobol_analysis.tool_handlers_service import (
+            prepare_cobol_for_antlr_handler
+        )
+        prepared = {}
+        for file_path in files:
+            result = prepare_cobol_for_antlr_handler({"file_path": str(file_path)})
+            if result.get("success"):
+                prepared[str(file_path)] = result.get("prepared_file_path", str(file_path))
+            else:
+                state["preprocessing_errors"].append({
+                    "file": str(file_path),
+                    "error": result.get("error", "Unknown error")
+                })
+        state["prepared_files"] = prepared
+
     return state
 
 # Tool-calling node (LLM decides which tools to call)
@@ -602,9 +770,12 @@ class SupervisorDecision(TypedDict):
 async def supervisor_node(state: ReverseEngineeringState) -> SupervisorDecision:
     """Supervisor decides next step based on state."""
     # Check for critical errors that need human review
-    critical_errors = [e for e in state.get("analysis_errors", []) if e.get("severity") == "critical"]
+    critical_errors = [
+        e for e in state.get("analysis_errors", [])
+        if e.get("severity") == "critical"
+    ]
     if critical_errors:
-        return {"next": "human_review", "reason": "Critical errors require human review"}
+        return {"next": "human_review", "reason": f"{len(critical_errors)} critical errors require human review"}
 
     # Check completion status
     if state.get("final_graph"):
@@ -685,13 +856,13 @@ flowchart TB
 
             Collector["COLLECTOR<br/>Merge parallel results<br/><i>Fan-in</i>"]
 
-            RelBuilder["RELATIONSHIP BUILDER<br/><b>Pure Python</b><br/>(Uses: build_call_graph,<br/>analyze_program_system)"]
+            RelBuilder["RELATIONSHIP BUILDER<br/><b>Pure Python</b><br/>(Uses: build_call_graph,<br/>analyze_program_system,<br/>analyze_data_flow)"]
 
             GraphGen["GRAPH GENERATOR<br/><b>LLM (Claude)</b> for summaries<br/><b>Pure Python</b> for graph generation"]
         end
 
         subgraph MCPTools["Existing MCP Tools (Called by agents)"]
-            ToolList["parse_cobol, build_ast, build_asg, build_cfg, build_dfg,<br/>analyze_complexity, build_call_graph, analyze_program_system,<br/>analyze_copybook_usage, resolve_copybooks"]
+            ToolList["build_ast, parse_cobol, build_asg, build_cfg, build_dfg,<br/>analyze_complexity, build_call_graph, analyze_program_system,<br/>analyze_copybook_usage, analyze_data_flow, resolve_copybooks,<br/>batch_resolve_copybooks, prepare_cobol_for_antlr"]
         end
     end
 

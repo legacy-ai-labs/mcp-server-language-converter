@@ -10,7 +10,7 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
 )
 from src.core.services.cobol_analysis.tool_handlers_service import (
     build_asg_handler,
-    parse_cobol_handler,
+    build_ast_handler,
 )
 from src.core.services.common.tool_service_service import get_handler
 from src.core.services.general.tool_handlers_service import (
@@ -112,7 +112,7 @@ def test_list_handlers() -> None:
     assert isinstance(handlers, list)
     assert "echo_handler" in handlers
     assert "calculator_add_handler" in handlers
-    assert "parse_cobol_handler" in handlers
+    assert "build_ast_handler" in handlers
     assert "build_asg_handler" in handlers
     assert len(handlers) >= 5
 
@@ -122,36 +122,36 @@ def test_list_handlers() -> None:
 # ============================================================================
 
 
-def test_parse_cobol_handler_with_source_code() -> None:
-    """Test parse_cobol_handler with file_path parameter."""
+def test_build_ast_handler_with_source_code() -> None:
+    """Test build_ast_handler with file_path parameter."""
     # Use an existing sample file for reliable testing
     file_path = Path(__file__).parent / ".." / "cobol_samples" / "CUSTOMER-ACCOUNT-MAIN.cbl"
-    result = parse_cobol_handler({"file_path": str(file_path)})
+    result = build_ast_handler({"file_path": str(file_path)})
 
     # Handler should return a result
     assert "success" in result
     if result["success"]:
         assert "ast" in result
         assert "program_name" in result
-        # ParseNode-serialized AST
-        assert result["ast"]["node_type"] == "PROGRAM"
+        # ParseNode-serialized AST uses "type" field
+        assert result["ast"]["type"] == "PROGRAM"
     else:
         # If parsing fails, should have error message
         assert "error" in result
 
 
-def test_parse_cobol_handler_missing_parameters() -> None:
-    """Test parse_cobol_handler with missing parameters."""
-    result = parse_cobol_handler({})
+def test_build_ast_handler_missing_parameters() -> None:
+    """Test build_ast_handler with missing parameters."""
+    result = build_ast_handler({})
 
     assert result["success"] is False
     assert "error" in result
     assert "source_code" in result["error"] or "file_path" in result["error"]
 
 
-def test_parse_cobol_handler_invalid_syntax() -> None:
-    """Test parse_cobol_handler with invalid COBOL syntax."""
-    result = parse_cobol_handler({"source_code": "INVALID COBOL CODE"})
+def test_build_ast_handler_invalid_syntax() -> None:
+    """Test build_ast_handler with invalid COBOL syntax."""
+    result = build_ast_handler({"source_code": "INVALID COBOL CODE"})
 
     assert result["success"] is False
     assert "error" in result
@@ -166,7 +166,7 @@ def test_build_asg_handler_missing_parameters() -> None:
 
 def test_get_handler_cobol_handlers() -> None:
     """Test get_handler for COBOL handlers."""
-    handler = get_handler("parse_cobol_handler")
+    handler = get_handler("build_ast_handler")
     assert handler is not None
     assert callable(handler)
 
@@ -174,6 +174,6 @@ def test_get_handler_cobol_handlers() -> None:
     assert handler is not None
     assert callable(handler)
 
-    handler = get_handler("parse_cobol_raw_handler")
+    handler = get_handler("parse_cobol_handler")
     assert handler is not None
     assert callable(handler)
