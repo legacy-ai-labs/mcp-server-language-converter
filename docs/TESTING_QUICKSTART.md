@@ -2,6 +2,23 @@
 
 Minimal steps to test all transports with MCP Inspector.
 
+### Unified Server Runner
+
+The unified server runner provides a single, protocol-agnostic way to run MCP servers with any transport protocol (stdio, sse, or streamable-http). It automatically handles transport-specific configuration including CORS middleware for SSE and host/port settings for HTTP-based transports.
+
+**Key Benefits:**
+- Single code path for all three protocols
+- Automatic transport-specific configuration
+- Backward compatible with existing entry points
+- Simplified maintenance with one implementation
+
+**Transport Options:**
+- `stdio`: Standard input/output (for Claude Desktop, Cursor IDE)
+- `sse`: Server-Sent Events (HTTP streaming with SSE)
+- `streamable-http`: Streamable HTTP (recommended for web deployments)
+
+**Note:** FastMCP's `run()` method only supports one transport at a time. The unified runner allows you to choose the transport at runtime, but you still need separate processes if you want to run multiple transports simultaneously.
+
 ### Launch MCP Inspector UI
 ```bash
 npx @modelcontextprotocol/inspector
@@ -9,67 +26,62 @@ npx @modelcontextprotocol/inspector
 Open http://localhost:3000 in your browser, then connect each transport using the commands/URLs below.
 
 ### STDIO (Claude Desktop/Cursor style)
-1) Start server (keep running):
+
+**Using unified runner:**
+```bash
+uv run python -m src.mcp_servers.mcp_general stdio
+```
+
+**Using legacy script:**
 ```bash
 uv run python scripts/start_stdio.py
 ```
-2) MCP Inspector → Transport: STDIO
-   - Command: `uv run python scripts/start_stdio.py`
-   - Working dir: `/Users/hyalen/workspace/mcp-server-language-converter`
-3) Test:
-   - Initialize → List tools → Call `echo` with `{ "text": "hello" }`
 
-**Alternative (using module directly):**
-```bash
-uv run python -m src.mcp_servers.mcp_general
-```
+**MCP Inspector Configuration:**
+- Transport: STDIO
+- Command: `uv run python scripts/start_stdio.py` (or use unified runner command above)
+- Working dir: `/Users/hyalen/workspace/mcp-server-language-converter`
 
-**Alternative (with environment variables and explicit directory):**
-```bash
-npx @modelcontextprotocol/inspector \
-  -e DATABASE_URL="postgresql+asyncpg://user@localhost:5432/mcp_server" \
-  -e LOG_LEVEL="INFO" \
-  -- \
-  uv --directory /path/to/mcp-server-language-converter \
-     run python -m src.mcp_servers.mcp_general
-```
-> **Note:** This is an example command. Update the `DATABASE_URL`, directory path, and module path according to your MCP server configuration.
-
-**MCP Inspector Configuration (if using UI):**
-- Command: `uv`
-- Arguments: `--directory /path/to/mcp-server-language-converter run python -m src.mcp_servers.mcp_general`
-- Working Directory: `/path/to/mcp-server-language-converter`
-> **Note:** Replace `/path/to/mcp-server-language-converter` with your actual project directory path.
+**Test:**
+- Initialize → List tools → Call `echo` with `{ "text": "hello" }`
 
 ### SSE (Server‑Sent Events)
-1) Start server:
+
+**Using unified runner:**
+```bash
+uv run python -m src.mcp_servers.mcp_general sse
+```
+
+**Using legacy script:**
 ```bash
 uv run python scripts/start_sse.py
 ```
-2) MCP Inspector → Transport: Server‑Sent Events (SSE)
-   - URL: `http://127.0.0.1:8000/sse`
-3) Test:
-   - Initialize → List tools → Call `echo`, `calculator_add`
 
-**Alternative (using module directly):**
-```bash
-uv run python -m src.mcp_servers.mcp_general.http_main
-```
+**MCP Inspector Configuration:**
+- Transport: Server‑Sent Events (SSE)
+- URL: `http://127.0.0.1:8000/sse`
+
+**Test:**
+- Initialize → List tools → Call `echo`, `calculator_add`
 
 ### Streamable HTTP (recommended for web/microservices)
-1) Start server:
+
+**Using unified runner:**
+```bash
+uv run python -m src.mcp_servers.mcp_general streamable-http
+```
+
+**Using legacy script:**
 ```bash
 uv run python scripts/start_streamable_http.py
 ```
-2) MCP Inspector → Transport: Streamable HTTP
-   - URL: `http://127.0.0.1:8002/mcp`
-3) Test:
-   - Initialize → List tools → Call `echo`, `calculator_add`
 
-**Alternative (using module directly):**
-```bash
-uv run python -m src.mcp_servers.mcp_general.streamable_http_main
-```
+**MCP Inspector Configuration:**
+- Transport: Streamable HTTP
+- URL: `http://127.0.0.1:8002/mcp`
+
+**Test:**
+- Initialize → List tools → Call `echo`, `calculator_add`
 
 Notes
 - If a port is busy, stop the other process or change the port via env vars.
@@ -109,6 +121,8 @@ Kill by module name (fallback):
 ```bash
 pkill -f "src.mcp_servers.mcp_general.http_main" || true
 pkill -f "src.mcp_servers.mcp_general.streamable_http_main" || true
+pkill -f "src.mcp_servers.mcp_general.*sse" || true
+pkill -f "src.mcp_servers.mcp_general.*streamable-http" || true
 pkill -f "src.mcp_servers.mcp_general" || true
 ```
 

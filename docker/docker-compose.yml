@@ -1,0 +1,144 @@
+# =============================================================================
+# Docker Compose for MCP Server
+# Production-ready setup with PostgreSQL and MCP server
+# =============================================================================
+#
+# Usage:
+#   docker-compose -f docker/docker-compose.yml up -d      # Start all services
+#   docker-compose -f docker/docker-compose.yml logs -f    # View logs
+#   docker-compose -f docker/docker-compose.yml down       # Stop services
+#   docker-compose -f docker/docker-compose.yml down -v    # Stop and remove volumes
+#
+# Ports:
+#   8000 - SSE (general domain)
+#   8001 - SSE (COBOL analysis domain)
+#   8002 - Streamable HTTP (general domain)
+#   8003 - Streamable HTTP (COBOL analysis domain)
+#   9090 - Prometheus metrics / health check
+#   5432 - PostgreSQL (optional external access)
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: mcp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mcp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcp_secure_password_change_me}
+      POSTGRES_DB: mcp_server
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp -d mcp_server"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mcp-network
+    # Resource limits for PostgreSQL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # MCP Server Application
+  # ---------------------------------------------------------------------------
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: mcp-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql+asyncpg://mcp:${POSTGRES_PASSWORD:-mcp_secure_password_change_me}@postgres:5432/mcp_server
+      DATABASE_ECHO: "false"
+
+      # Application Configuration
+      ENVIRONMENT: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # SSE Transport Configuration
+      HTTP_HOST: "0.0.0.0"
+      HTTP_PORT: "8000"
+
+      # Streamable HTTP Transport Configuration
+      STREAMABLE_HTTP_HOST: "0.0.0.0"
+      STREAMABLE_HTTP_PORT: "8002"
+
+      # Observability Configuration
+      ENABLE_METRICS: "true"
+      ENABLE_EXECUTION_LOGGING: "true"
+      METRICS_PORT: "9090"
+      LOG_TOOL_INPUTS: "false"
+      LOG_TOOL_OUTPUTS: "false"
+    ports:
+      # SSE Transport
+      - "8000:8000"   # General domain SSE
+      - "8001:8001"   # COBOL Analysis domain SSE
+      # Streamable HTTP Transport
+      - "8002:8002"   # General domain Streamable HTTP
+      - "8003:8003"   # COBOL Analysis domain Streamable HTTP
+      # Metrics and Health
+      - "9090:9090"   # Prometheus metrics endpoint
+    volumes:
+      # Optional: Mount for COBOL source files to analyze
+      # Uncomment and configure path as needed
+      # - /path/to/cobol/files:/data/cobol:ro
+      - cobol_files:/data/cobol:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - mcp-network
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  mcp-network:
+    driver: bridge
+    name: mcp-network
+
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+    name: mcp-postgres-data
+  cobol_files:
+    driver: local
+    name: mcp-cobol-files

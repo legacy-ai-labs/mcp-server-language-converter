@@ -24,11 +24,16 @@ createdb mcp_server                    # Create database (first time)
 uv run python scripts/init_db.py      # Initialize tables
 ./scripts/db.sh schema|size|reset|query "SQL"  # DB helper
 
-# Run servers
-uv run python -m src.mcp_servers.mcp_general           # STDIO (port 8000)
-uv run python -m src.mcp_servers.mcp_general.http_main # HTTP streaming
-uv run python -m src.mcp_servers.mcp_cobol_analysis    # COBOL STDIO
-uv run python -m src.mcp_servers.mcp_cobol_analysis.http_main  # COBOL HTTP (port 8003)
+# Run servers (unified runner - preferred)
+uv run python -m src.mcp_servers.mcp_general stdio            # STDIO transport
+uv run python -m src.mcp_servers.mcp_general sse              # SSE on :8000
+uv run python -m src.mcp_servers.mcp_general streamable-http  # Streamable HTTP on :8002
+uv run python -m src.mcp_servers.mcp_cobol_analysis stdio     # COBOL STDIO
+uv run python -m src.mcp_servers.mcp_cobol_analysis sse       # COBOL SSE on :8003
+
+# ProLeap COBOL Parser (Java-based, for validation)
+uv run python scripts/proleap_ast_export.py <cobol_file>  # Export AST to JSON
+uv run python scripts/proleap_asg_export.py <cobol_file>  # Export ASG to JSON
 
 # Testing
 uv run pytest                              # All tests
@@ -64,7 +69,8 @@ src/
 ├── mcp_servers/
 │   ├── common/             # Shared MCP infrastructure
 │   │   ├── base_server.py, tool_registry.py
-│   │   ├── stdio_runner.py, http_runner.py
+│   │   ├── unified_runner.py           # Protocol-agnostic runner (stdio/sse/streamable-http)
+│   │   ├── stdio_runner.py, http_runner.py, streamable_http_runner.py
 │   │   └── observability_middleware.py
 │   ├── mcp_general/        # General domain (7 lines per file)
 │   └── mcp_cobol_analysis/ # COBOL domain
@@ -119,6 +125,8 @@ if __name__ == "__main__":
 
 Services in `src/core/services/cobol_analysis/`:
 - `asg_builder_service.py` - Abstract Semantic Graph with symbol tables, cross-references
+- `cfg_builder_service.py` - Control Flow Graph with cyclomatic complexity, unreachable code detection
+- `dfg_builder_service.py` - Data Flow Graph with dead variable/uninitialized read detection
 - `cobol_preprocessor_service.py` - COPY/REPLACE statement handling, copybook resolution
 - `cobol_parser_antlr_service.py` - ANTLR-based parsing
 - `tool_handlers_service.py` - COBOL tool handlers
@@ -173,7 +181,9 @@ Python 3.12+, UV, PostgreSQL 14+, FastMCP 2.0, FastAPI, SQLAlchemy 2.0 + asyncpg
 ## Key Documentation
 
 - `docs/ARCHITECTURE.md` - Hexagonal architecture details
+- `docs/DOCKER.md` - Docker deployment guide (Dockerfile, docker-compose, supervisord)
 - `docs/HTTP_STREAMING.md` - HTTP streaming guide
-- `docs/TESTING_QUICKSTART.md` - Test all transport types
+- `docs/STREAMABLE_HTTP.md` - Streamable HTTP transport guide
+- `docs/TESTING_QUICKSTART.md` - Test all transport types (unified runner, MCP Inspector)
 - `docs/LANGGRAPH_ARCHITECTURE.md` - Multi-agent LangGraph workflow for COBOL reverse engineering
 - `docs/cobol/` - COBOL implementation details

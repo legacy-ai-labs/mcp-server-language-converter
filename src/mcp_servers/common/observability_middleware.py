@@ -19,7 +19,7 @@ from src.core.services.common.observability_service import trace_tool_execution
 logger = logging.getLogger(__name__)
 
 
-class ObservabilityMiddleware(Middleware):
+class ObservabilityMiddleware(Middleware):  # type: ignore[misc]
     """FastMCP middleware for automatic observability tracing of tool executions.
 
     This middleware intercepts all tool call requests and wraps them with
