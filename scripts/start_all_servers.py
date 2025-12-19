@@ -17,13 +17,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-def start_server(module_name: str, server_name: str) -> subprocess.Popen[Any]:
+def start_server(module_name: str, server_name: str, transport: str = "") -> subprocess.Popen[Any]:
     """Start a server process."""
     logger.info(f"Starting {server_name}...")
 
+    cmd = [sys.executable, "-m", module_name]
+    if transport:
+        cmd.append(transport)
+
     try:
         process = subprocess.Popen(  # nosec B603 - Safe command execution
-            [sys.executable, "-m", module_name],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
@@ -51,7 +55,9 @@ def main() -> None:
     logger.info("=" * 50)
 
     # Start SSE server
-    sse_process = start_server("src.mcp_servers.mcp_general.http_main", "SSE Server (Port 8000)")
+    sse_process = start_server(
+        "src.mcp_servers.mcp_general", "SSE Server (Port 8000)", transport="sse"
+    )
 
     if not sse_process:
         logger.error("Failed to start SSE server. Exiting.")
@@ -62,7 +68,9 @@ def main() -> None:
     os.environ["STREAMABLE_HTTP_PORT"] = "8002"
 
     streamable_process = start_server(
-        "src.mcp_servers.mcp_general.streamable_http_main", "Streamable HTTP Server (Port 8002)"
+        "src.mcp_servers.mcp_general",
+        "Streamable HTTP Server (Port 8002)",
+        transport="streamable-http",
     )
 
     if not streamable_process:

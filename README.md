@@ -63,24 +63,25 @@ src/
 ├── mcp_servers/
 │   ├── common/             # Shared MCP infrastructure (NO duplication!)
 │   │   ├── base_server.py          # FastMCP initialization
+│   │   ├── unified_runner.py       # Protocol-agnostic runner (stdio/sse/streamable-http)
 │   │   ├── tool_registry.py        # Tool registration and JSON config loading
-│   │   ├── stdio_runner.py         # Generic STDIO transport
-│   │   └── http_runner.py          # Generic HTTP streaming transport
+│   │   └── config_loader.py        # JSON configuration loader
 │   │
 │   ├── mcp_general/        # Domain servers (minimal code - just entry points)
-│   │   ├── __main__.py             # 7 lines
-│   │   └── http_main.py            # 7 lines
+│   │   └── __main__.py             # Unified entry point
+│   │
+│   ├── mcp_cobol_analysis/ # COBOL analysis domain
+│   │   └── __main__.py             # Unified entry point
 │   │
 │   ├── mcp_kubernetes/     # Future: Same minimal pattern
-│   ├── mcp_os_commands/    # Future: Same minimal pattern
-│   └── mcp_shopping/       # Future: Same minimal pattern
+│   └── mcp_os_commands/    # Future: Same minimal pattern
 │
 └── rest_api/               # Shared REST API (planned)
 ```
 
 **Architecture Benefits:**
 - **Zero Code Duplication**: All MCP server code is in `common/` - domain servers are just entry points
-- **Easy to Add Domains**: New domain server = 14 lines of code (2 files × 7 lines)
+- **Easy to Add Domains**: New domain server = single `__main__.py` file
 - **Separation of Concerns**: Each server handles one domain
 - **Shared Infrastructure**: Same repositories, services, AND MCP runtime code
 - **Independent Scaling**: Each server can be scaled separately
@@ -134,18 +135,18 @@ The MCP Server Language Converter supports **multiple transport mechanisms** for
 
 ```bash
 # Terminal 1: STDIO server (for Claude Desktop, Cursor IDE)
-uv run python -m src.mcp_servers.mcp_general
+uv run python -m src.mcp_servers.mcp_general stdio
 
-# Terminal 2: HTTP streaming server (for web-based clients)
-uv run python -m src.mcp_servers.mcp_general.http_main
-# Server available at: http://localhost:8000
+# Terminal 2: SSE server (for web-based clients)
+uv run python -m src.mcp_servers.mcp_general sse
+# Server available at: http://localhost:8000/sse
 
 # Terminal 3: Streamable HTTP server (for full MCP protocol)
-uv run python -m src.mcp_servers.mcp_general.streamable_http_main
-# Server available at: http://localhost:8002
+uv run python -m src.mcp_servers.mcp_general streamable-http
+# Server available at: http://localhost:8002/mcp
 ```
 
-Both servers share the same core business logic and tools, but provide different transport mechanisms for different client types.
+All transports share the same core business logic and tools, just with different protocols.
 
 ### Testing Your Setup
 

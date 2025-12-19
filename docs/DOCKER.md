@@ -222,7 +222,7 @@ logfile=/dev/stdout        # Log to Docker's stdout
 pidfile=/tmp/supervisord.pid
 
 [program:general-sse]
-command=/app/.venv/bin/python -m src.mcp_servers.mcp_general.http_main
+command=/app/.venv/bin/python -m src.mcp_servers.mcp_general sse
 directory=/app
 autostart=true             # Start when supervisord starts
 autorestart=true           # Restart if it crashes
