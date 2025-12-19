@@ -63,7 +63,7 @@ src/
 ├── mcp_servers/
 │   ├── common/             # Shared MCP infrastructure (NO duplication!)
 │   │   ├── base_server.py          # FastMCP initialization
-│   │   ├── dynamic_loader.py       # Generic tool loading from DB
+│   │   ├── tool_registry.py        # Tool registration and JSON config loading
 │   │   ├── stdio_runner.py         # Generic STDIO transport
 │   │   └── http_runner.py          # Generic HTTP streaming transport
 │   │
@@ -82,22 +82,22 @@ src/
 - **Zero Code Duplication**: All MCP server code is in `common/` - domain servers are just entry points
 - **Easy to Add Domains**: New domain server = 14 lines of code (2 files × 7 lines)
 - **Separation of Concerns**: Each server handles one domain
-- **Shared Infrastructure**: Same database, repositories, services, AND MCP runtime code
+- **Shared Infrastructure**: Same repositories, services, AND MCP runtime code
 - **Independent Scaling**: Each server can be scaled separately
 - **Security**: Domain-specific permissions and isolation
 
-### Database-Driven Tools
+### JSON Config-Driven Tools
 
-Tools are now **dynamically loaded from the database** at server startup:
+Tools are **configured via JSON** (`config/tools.json`) and dynamically loaded at server startup:
 
-- **Tool Metadata**: Stored in PostgreSQL with category and domain classification
-- **Handler Registry**: Predefined Python functions for business logic
-- **Dynamic Registration**: Tools loaded from database and registered with FastMCP
-- **CRUD Operations**: Full tool management through database operations
+- **Tool Configuration**: Version-controlled JSON file with category, domain, and active status
+- **Handler Registry**: Predefined Python functions for business logic in `tool_handlers_service.py`
+- **Dynamic Registration**: Tools registered in code via `@register_tool` decorator, filtered by JSON config
+- **Enable/Disable**: Toggle `is_active` in JSON to enable or disable tools without code changes
 
 **Tool Classification:**
-- **Category**: Functional grouping (utility, calculation, search, etc.)
-- **Domain**: Business domain (general, os_commands, kubernetes, etc.)
+- **Category**: Functional grouping (utility, calculation, analysis, preprocessing, etc.)
+- **Domain**: Business domain (general, cobol_analysis, etc.)
 
 
 ## Quick Start
@@ -227,17 +227,17 @@ createdb mcp_server
 cp env.example .env
 # Edit .env with your database credentials
 
-# Initialize database and seed data
+# Initialize database tables
 uv run python scripts/init_db.py
-uv run python scripts/seed_tools.py
 ```
+
+**Note:** Tool configuration is managed via `config/tools.json`, not the database. Edit this file to enable/disable tools or add new ones.
 
 ### Running the Server
 
 ```bash
-# Initialize database and seed tools
+# Initialize database (first time only)
 uv run python scripts/init_db.py
-uv run python scripts/seed_tools.py
 
 # Run General MCP server (STDIO mode)
 uv run python -m src.mcp_servers.mcp_general

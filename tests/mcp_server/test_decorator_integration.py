@@ -9,8 +9,8 @@ from fastmcp import FastMCP
 # Import tools once at module level to trigger registration
 import src.mcp_servers.mcp_general.tools  # noqa: F401
 from src.mcp_servers.common.config_loader import ToolConfig
-from src.mcp_servers.common.stdio_runner import startup
 from src.mcp_servers.common.tool_registry import TOOL_REGISTRY, load_tools_from_registry
+from src.mcp_servers.common.unified_runner import startup
 
 
 class TestDecoratorIntegration:
@@ -120,9 +120,9 @@ class TestDecoratorIntegration:
             dynamic_tools = cast(list[Any], getattr(mcp, "_dynamic_tools", []))
             assert len(dynamic_tools) == 2
 
-            # Verify tools are functions (observability-wrapped)
+            # Verify tools are FunctionTool objects (FastMCP's tool wrapper)
             for tool in dynamic_tools:
-                assert callable(tool)
+                assert hasattr(tool, "name")  # FunctionTool has a name attribute
 
     @pytest.mark.asyncio
     async def test_decorator_tools_filtered_by_domain(self):
@@ -150,7 +150,7 @@ class TestDecoratorIntegration:
             assert hasattr(mcp, "_dynamic_tools")
             dynamic_tools = cast(list[Any], getattr(mcp, "_dynamic_tools", []))
             assert len(dynamic_tools) == 1
-            assert callable(dynamic_tools[0])
+            assert hasattr(dynamic_tools[0], "name")  # FunctionTool has a name attribute
 
     @pytest.mark.asyncio
     async def test_general_domain_end_to_end(self):

@@ -27,53 +27,49 @@ Open http://localhost:3000 in your browser, then connect each transport using th
 
 ### STDIO (Claude Desktop/Cursor style)
 
-**Using unified runner:**
 ```bash
+# General domain
 uv run python -m src.mcp_servers.mcp_general stdio
-```
 
-**Using legacy script:**
-```bash
-uv run python scripts/start_stdio.py
+# COBOL Analysis domain
+uv run python -m src.mcp_servers.mcp_cobol_analysis stdio
 ```
 
 **MCP Inspector Configuration:**
 - Transport: STDIO
-- Command: `uv run python scripts/start_stdio.py` (or use unified runner command above)
-- Working dir: `/Users/hyalen/workspace/mcp-server-language-converter`
+- Command: `uv run python -m src.mcp_servers.mcp_general stdio` (or `mcp_cobol_analysis`)
+- Working dir: Your project root directory
 
 **Test:**
-- Initialize → List tools → Call `echo` with `{ "text": "hello" }`
+- General: Initialize → List tools → Call `echo` with `{ "text": "hello" }`
+- COBOL: Initialize → List tools → Call `parse_cobol` with a COBOL file path
 
-### SSE (Server‑Sent Events)
+### SSE (Server-Sent Events)
 
-**Using unified runner:**
 ```bash
+# General domain (port 8000)
 uv run python -m src.mcp_servers.mcp_general sse
-```
 
-**Using legacy script:**
-```bash
-uv run python scripts/start_sse.py
+# COBOL Analysis domain (port 8000 - run one at a time, or change HTTP_PORT)
+uv run python -m src.mcp_servers.mcp_cobol_analysis sse
 ```
 
 **MCP Inspector Configuration:**
-- Transport: Server‑Sent Events (SSE)
+- Transport: Server-Sent Events (SSE)
 - URL: `http://127.0.0.1:8000/sse`
 
 **Test:**
-- Initialize → List tools → Call `echo`, `calculator_add`
+- General: Initialize → List tools → Call `echo`, `calculator_add`
+- COBOL: Initialize → List tools → Call `build_asg`, `analyze_complexity`
 
 ### Streamable HTTP (recommended for web/microservices)
 
-**Using unified runner:**
 ```bash
+# General domain (port 8002)
 uv run python -m src.mcp_servers.mcp_general streamable-http
-```
 
-**Using legacy script:**
-```bash
-uv run python scripts/start_streamable_http.py
+# COBOL Analysis domain (port 8002 - run one at a time, or change STREAMABLE_HTTP_PORT)
+uv run python -m src.mcp_servers.mcp_cobol_analysis streamable-http
 ```
 
 **MCP Inspector Configuration:**
@@ -81,9 +77,10 @@ uv run python scripts/start_streamable_http.py
 - URL: `http://127.0.0.1:8002/mcp`
 
 **Test:**
-- Initialize → List tools → Call `echo`, `calculator_add`
+- General: Initialize → List tools → Call `echo`, `calculator_add`
+- COBOL: Initialize → List tools → Call `build_asg`, `analyze_complexity`
 
-Notes
+### Notes
 - If a port is busy, stop the other process or change the port via env vars.
 - Browsers may hit CORS limits for SSE; MCP Inspector and Python clients work.
 
@@ -110,20 +107,10 @@ Get only PIDs and kill them:
 lsof -ti:8000,8002 | xargs -r kill
 ```
 
-Kill by script name (recommended):
+Kill by module name:
 ```bash
-pkill -f "scripts/start_sse.py" || true
-pkill -f "scripts/start_streamable_http.py" || true
-pkill -f "scripts/start_stdio.py" || true
-```
-
-Kill by module name (fallback):
-```bash
-pkill -f "src.mcp_servers.mcp_general.http_main" || true
-pkill -f "src.mcp_servers.mcp_general.streamable_http_main" || true
-pkill -f "src.mcp_servers.mcp_general.*sse" || true
-pkill -f "src.mcp_servers.mcp_general.*streamable-http" || true
 pkill -f "src.mcp_servers.mcp_general" || true
+pkill -f "src.mcp_servers.mcp_cobol_analysis" || true
 ```
 
 ---

@@ -39,6 +39,8 @@ uv run python scripts/proleap_asg_export.py <cobol_file>  # Export ASG to JSON
 uv run pytest                              # All tests
 uv run pytest tests/path/file.py::test_fn # Single test
 uv run pytest -k "pattern" -vxs           # Pattern match, verbose, stop on fail
+uv run pytest -m "not slow"               # Skip slow tests
+uv run pytest -m integration              # Only integration tests
 uv run pytest --cov=src --cov-report=html # Coverage
 
 # Code quality
@@ -50,6 +52,19 @@ uv run mypy src/                   # Type check
 # Database migrations
 uv run alembic revision --autogenerate -m "Description"
 uv run alembic upgrade head
+
+# Docker (for containerized deployment)
+docker compose -f docker/docker-compose.yml up -d      # Start all services
+docker compose -f docker/docker-compose.yml logs -f    # View logs
+docker compose -f docker/docker-compose.yml down       # Stop services
+docker compose -f docker/docker-compose.yml up -d --build  # Rebuild and restart
+
+# MCP Inspector (debugging tool)
+npx @modelcontextprotocol/inspector  # Opens http://localhost:3000
+
+# Kill running MCP processes (macOS)
+lsof -ti:8000,8002 | xargs -r kill   # Kill by port
+pkill -f "src.mcp_servers.mcp_general" || true  # Kill by module
 ```
 
 ## Architecture
@@ -68,11 +83,11 @@ src/
 │
 ├── mcp_servers/
 │   ├── common/             # Shared MCP infrastructure
-│   │   ├── base_server.py, tool_registry.py
+│   │   ├── base_server.py              # FastMCP initialization
 │   │   ├── unified_runner.py           # Protocol-agnostic runner (stdio/sse/streamable-http)
-│   │   ├── stdio_runner.py, http_runner.py, streamable_http_runner.py
-│   │   └── observability_middleware.py
-│   ├── mcp_general/        # General domain (7 lines per file)
+│   │   ├── tool_registry.py            # Decorator-based tool registration
+│   │   └── observability_middleware.py # Metrics and tracing
+│   ├── mcp_general/        # General domain
 │   └── mcp_cobol_analysis/ # COBOL domain
 │
 └── config/tools.json       # Tool configuration (enable/disable)
@@ -101,7 +116,7 @@ async def my_tool(input: str) -> dict[str, Any]:
 {"name": "my_tool", "handler_name": "my_tool_handler", "category": "utility", "is_active": true}
 ```
 
-### Creating a New Domain Server (14 Lines)
+### Creating a New Domain Server
 
 ```bash
 mkdir -p src/mcp_servers/mcp_newdomain
@@ -109,16 +124,20 @@ mkdir -p src/mcp_servers/mcp_newdomain
 
 `__main__.py`:
 ```python
-from src.mcp_servers.common.stdio_runner import run_stdio_server
+"""Entry point for NewDomain MCP server."""
+import sys
+from src.mcp_servers.common.unified_runner import run_server
+
 if __name__ == "__main__":
-    run_stdio_server(domain="newdomain")
+    transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
+    run_server(domain="newdomain", transport=transport)
 ```
 
-`http_main.py`:
-```python
-from src.mcp_servers.common.http_runner import run_http_server
-if __name__ == "__main__":
-    run_http_server(domain="newdomain")
+Usage:
+```bash
+uv run python -m src.mcp_servers.mcp_newdomain stdio
+uv run python -m src.mcp_servers.mcp_newdomain sse
+uv run python -m src.mcp_servers.mcp_newdomain streamable-http
 ```
 
 ## COBOL Analysis Domain
@@ -177,6 +196,16 @@ If a tool isn't working, check in order:
 ## Technology Stack
 
 Python 3.12+, UV, PostgreSQL 14+, FastMCP 2.0, FastAPI, SQLAlchemy 2.0 + asyncpg, Pydantic v2, pytest, Ruff, mypy
+
+## Docker Ports (Quick Reference)
+
+| Port | Protocol | Domain |
+|------|----------|--------|
+| 8000 | SSE | General |
+| 8001 | SSE | COBOL Analysis |
+| 8002 | Streamable HTTP | General |
+| 8003 | Streamable HTTP | COBOL Analysis |
+| 9090 | Health/Metrics | All |
 
 ## Key Documentation
 

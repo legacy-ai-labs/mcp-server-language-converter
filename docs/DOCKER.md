@@ -20,43 +20,56 @@ This guide explains the Docker setup for the MCP Server, including all configura
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Docker Compose Network                             │
-│                                                                             │
-│  ┌─────────────────┐      ┌─────────────────────────────────────────────┐  │
-│  │                 │      │              mcp-server                      │  │
-│  │   PostgreSQL    │      │  ┌─────────────────────────────────────┐    │  │
-│  │   (postgres)    │◄────►│  │           supervisord               │    │  │
-│  │                 │      │  │  (process manager)                  │    │  │
-│  │   Port: 5432    │      │  │                                     │    │  │
-│  │                 │      │  │  ┌─────────────┐ ┌─────────────┐   │    │  │
-│  └─────────────────┘      │  │  │general-sse  │ │ cobol-sse   │   │    │  │
-│                           │  │  │  :8000      │ │  :8001      │   │    │  │
-│                           │  │  └─────────────┘ └─────────────┘   │    │  │
-│                           │  │                                     │    │  │
-│                           │  │  ┌─────────────┐ ┌─────────────┐   │    │  │
-│                           │  │  │general-     │ │cobol-       │   │    │  │
-│                           │  │  │streamable   │ │streamable   │   │    │  │
-│                           │  │  │  :8002      │ │  :8003      │   │    │  │
-│                           │  │  └─────────────┘ └─────────────┘   │    │  │
-│                           │  │                                     │    │  │
-│                           │  │  ┌─────────────┐                   │    │  │
-│                           │  │  │  metrics    │                   │    │  │
-│                           │  │  │   :9090     │                   │    │  │
-│                           │  │  └─────────────┘                   │    │  │
-│                           │  └─────────────────────────────────────┘    │  │
-│                           └─────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Network["Docker Compose Network"]
+        subgraph Postgres["PostgreSQL Container"]
+            PostgresDB["PostgreSQL<br/>(postgres)<br/>Port: 5432"]
+        end
 
-Exposed Ports:
-  - 8000: SSE (general domain)
-  - 8001: SSE (COBOL analysis domain)
-  - 8002: Streamable HTTP (general domain)
-  - 8003: Streamable HTTP (COBOL analysis domain)
-  - 9090: Health check & Prometheus metrics
-  - 5432: PostgreSQL (optional external access)
+        subgraph MCPServer["MCP Server Container"]
+            subgraph Supervisor["supervisord<br/>(process manager)"]
+                subgraph SSE["SSE Transport Servers"]
+                    GeneralSSE["general-sse<br/>Port: 8000"]
+                    CobolSSE["cobol-sse<br/>Port: 8001"]
+                end
+
+                subgraph Streamable["Streamable HTTP Servers"]
+                    GeneralStream["general-streamable<br/>Port: 8002"]
+                    CobolStream["cobol-streamable<br/>Port: 8003"]
+                end
+
+                Metrics["metrics<br/>Port: 9090<br/>Health & Prometheus"]
+            end
+        end
+    end
+
+    PostgresDB <--> Supervisor
+    Supervisor --> SSE
+    Supervisor --> Streamable
+    Supervisor --> Metrics
+
+    style Network fill:#0d0d0d,stroke:#fff,stroke-width:2px,color:#fff
+    style Postgres fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style MCPServer fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style Supervisor fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style SSE fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style Streamable fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style PostgresDB fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style GeneralSSE fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style CobolSSE fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style GeneralStream fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style CobolStream fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style Metrics fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
+
+**Exposed Ports:**
+- **8000**: SSE (general domain)
+- **8001**: SSE (COBOL analysis domain)
+- **8002**: Streamable HTTP (general domain)
+- **8003**: Streamable HTTP (COBOL analysis domain)
+- **9090**: Health check & Prometheus metrics
+- **5432**: PostgreSQL (optional external access)
 
 ---
 
@@ -251,32 +264,21 @@ This allows 4 instances of the same code to run on different ports.
 
 #### What It Does (In Order)
 
-```
-Container Start
-      │
-      ▼
-┌─────────────────────┐
-│ 1. Wait for         │  Loop up to 30 times (60 seconds max)
-│    PostgreSQL       │  using pg_isready
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ 2. Run Alembic      │  alembic upgrade head
-│    Migrations       │  Creates/updates database tables
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ 3. Verify DB        │  Python async connection test
-│    Connection       │  Ensures app can actually connect
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ 4. exec "$@"        │  Hand off to supervisord
-│    (CMD)            │  (the command from Dockerfile)
-└─────────────────────┘
+```mermaid
+flowchart TB
+    Start["Container Start"] --> WaitPostgres["1. Wait for PostgreSQL<br/>Loop up to 30 times<br/>(60 seconds max)<br/>using pg_isready"]
+
+    WaitPostgres --> RunMigrations["2. Run Alembic Migrations<br/>alembic upgrade head<br/>Creates/updates database tables"]
+
+    RunMigrations --> VerifyDB["3. Verify DB Connection<br/>Python async connection test<br/>Ensures app can actually connect"]
+
+    VerifyDB --> ExecSupervisor["4. exec \"$@\" (CMD)<br/>Hand off to supervisord<br/>(the command from Dockerfile)"]
+
+    style Start fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style WaitPostgres fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style RunMigrations fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style VerifyDB fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style ExecSupervisor fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 #### Why `exec "$@"`?
@@ -366,56 +368,27 @@ With `.dockerignore`:
 
 ### Startup Sequence
 
-```
-docker compose up
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 1. Docker Compose reads docker-compose.yml                    │
-│    - Creates network: mcp-network                             │
-│    - Creates volumes: postgres_data, cobol_files              │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 2. Starts postgres container                                  │
-│    - Initializes database if first run                        │
-│    - Health check starts (pg_isready every 10s)              │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼ (waits for postgres healthcheck to pass)
-       │
-┌──────────────────────────────────────────────────────────────┐
-│ 3. Starts mcp-server container                                │
-│    - Dockerfile builds image (if not cached)                  │
-│    - Container starts with entrypoint.sh                      │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 4. entrypoint.sh runs                                         │
-│    a. Waits for PostgreSQL (pg_isready loop)                 │
-│    b. Runs migrations (alembic upgrade head)                 │
-│    c. Verifies database connection                            │
-│    d. exec supervisord                                        │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 5. supervisord starts all 5 programs                          │
-│    - general-sse (8000)                                       │
-│    - cobol-sse (8001)                                         │
-│    - general-streamable (8002)                                │
-│    - cobol-streamable (8003)                                  │
-│    - metrics (9090)                                           │
-└──────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌──────────────────────────────────────────────────────────────┐
-│ 6. Health check passes                                        │
-│    - curl http://localhost:9090/health returns 200           │
-│    - Container marked as "healthy"                            │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    Start["docker compose up"] --> ComposeRead["1. Docker Compose reads<br/>docker-compose.yml<br/>• Creates network: mcp-network<br/>• Creates volumes: postgres_data, cobol_files"]
+
+    ComposeRead --> PostgresStart["2. Starts postgres container<br/>• Initializes database if first run<br/>• Health check starts<br/>(pg_isready every 10s)"]
+
+    PostgresStart -->|waits for postgres<br/>healthcheck to pass| MCPServerStart["3. Starts mcp-server container<br/>• Dockerfile builds image<br/>(if not cached)<br/>• Container starts with<br/>entrypoint.sh"]
+
+    MCPServerStart --> Entrypoint["4. entrypoint.sh runs<br/>a. Waits for PostgreSQL<br/>(pg_isready loop)<br/>b. Runs migrations<br/>(alembic upgrade head)<br/>c. Verifies database connection<br/>d. exec supervisord"]
+
+    Entrypoint --> Supervisor["5. supervisord starts all 5 programs<br/>• general-sse (8000)<br/>• cobol-sse (8001)<br/>• general-streamable (8002)<br/>• cobol-streamable (8003)<br/>• metrics (9090)"]
+
+    Supervisor --> HealthCheck["6. Health check passes<br/>• curl http://localhost:9090/health<br/>returns 200<br/>• Container marked as 'healthy'"]
+
+    style Start fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
+    style ComposeRead fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style PostgresStart fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style MCPServerStart fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style Entrypoint fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style Supervisor fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
+    style HealthCheck fill:#1a1a1a,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ---

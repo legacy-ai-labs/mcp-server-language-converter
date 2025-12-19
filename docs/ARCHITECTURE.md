@@ -50,17 +50,18 @@ src/
 ├── mcp_servers/
 │   ├── common/             # Shared MCP infrastructure (eliminates duplication!)
 │   │   ├── base_server.py          # Generic FastMCP initialization
-│   │   ├── dynamic_loader.py       # Generic DB tool loading
-│   │   ├── stdio_runner.py         # Generic STDIO transport runner
-│   │   └── http_runner.py          # Generic HTTP streaming runner
+│   │   ├── unified_runner.py       # Protocol-agnostic runner (stdio/sse/streamable-http)
+│   │   ├── tool_registry.py        # Tool registration and JSON config loading
+│   │   └── config_loader.py        # JSON configuration loader
 │   │
-│   ├── mcp_general/        # Domain servers are just entry points (7 lines each)
-│   │   ├── __main__.py             # STDIO: run_stdio_server(domain="general")
-│   │   └── http_main.py            # HTTP: run_http_server(domain="general")
+│   ├── mcp_general/        # Domain servers are just entry points
+│   │   └── __main__.py             # Unified: run_server(domain="general", transport=...)
+│   │
+│   ├── mcp_cobol_analysis/ # COBOL analysis domain
+│   │   └── __main__.py             # Unified: run_server(domain="cobol_analysis", transport=...)
 │   │
 │   ├── mcp_kubernetes/     # Future: Same minimal pattern
-│   ├── mcp_os_commands/    # Future: Same minimal pattern
-│   └── mcp_shopping/       # Future: Same minimal pattern
+│   └── mcp_os_commands/    # Future: Same minimal pattern
 │
 └── rest_api/               # Shared REST API (planned)
 ```
@@ -71,10 +72,10 @@ src/
 
 **Our Solution**: Extract all common MCP server code into `mcp_servers/common/`:
 - **Base Server** (`base_server.py`): Generic FastMCP initialization
-- **Dynamic Loader** (`dynamic_loader.py`): Generic tool loading from database (works for any domain)
-- **Transport Runners** (`stdio_runner.py`, `http_runner.py`): Generic server startup logic
+- **Unified Runner** (`unified_runner.py`): Protocol-agnostic runner supporting stdio/sse/streamable-http
+- **Tool Registry** (`tool_registry.py`): Decorator-based tool registration with JSON config
 
-**Result**: Adding a new domain server requires only **14 lines of code** (2 entry point files).
+**Result**: Adding a new domain server requires only a single `__main__.py` entry point file.
 
 ### Benefits of Multi-Server Approach
 
