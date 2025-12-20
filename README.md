@@ -366,7 +366,8 @@ This project is licensed under [PolyForm Noncommercial 1.0.0](LICENSE) – free 
 
 ## Contact
 
-[Add your contact information here]
+- **Email:** hyalen@gmail.com
+- **LinkedIn:** [linkedin.com/in/hyalen](https://www.linkedin.com/in/hyalen/)
 
 ---
 
