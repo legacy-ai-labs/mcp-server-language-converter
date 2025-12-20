@@ -1,5 +1,7 @@
 # MCP Server Language Converter
 
+> **Note:** This project is for personal/educational use only. See [License](#license) for details.
+
 A **hybrid MCP (Model Context Protocol) server** implementation that supports multiple domain-specific MCP servers, each exposing business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API.
 
 ## Purpose
@@ -348,7 +350,7 @@ We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIB
 
 ## License
 
-[Add your license here]
+This project is licensed under [PolyForm Noncommercial 1.0.0](LICENSE) – free for personal and educational use, commercial use requires permission.
 
 ## Additional References
 
