@@ -10,6 +10,6 @@ For COBOL analysis services, import directly from their modules:
 """
 
 # NOTE: ToolService commented out - depends on deleted database models
-# from src.core.services.common.tool_service_service import ToolService
+# from src.core.services.common.tool_service import ToolService
 
 __all__: list[str] = []

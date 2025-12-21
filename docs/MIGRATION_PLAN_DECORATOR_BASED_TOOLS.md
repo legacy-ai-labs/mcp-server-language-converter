@@ -593,7 +593,7 @@ After all domains migrated:
 
 #### Step 4.4: Update Tool Service
 
-Update `tool_service_service.py` to validate that tools exist in registry:
+Update `tool_service.py` to validate that tools exist in registry:
 
 ```python
 async def create_tool(self, tool_data: ToolCreate) -> ToolResponse:
@@ -649,7 +649,7 @@ async def create_tool(self, tool_data: ToolCreate) -> ToolResponse:
 - [x] Mark `load_tools_from_database()` as deprecated
 - [x] Update CLAUDE.md documentation
 - [ ] Run full test suite to verify nothing broke
-- [ ] Update `tool_service_service.py` validation (OPTIONAL)
+- [ ] Update `tool_service.py` validation (OPTIONAL)
 - [ ] Remove `use_decorators` flag (FUTURE: always use decorators)
 - [ ] Remove legacy wrapper functions completely (FUTURE)
 

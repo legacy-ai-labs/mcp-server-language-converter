@@ -60,7 +60,7 @@ uv run pytest -v
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service_service import ToolService
+from src.core.services.tool_service import ToolService
 
 async def test_echo_tool():
     async with async_session_factory() as session:
@@ -84,7 +84,7 @@ asyncio.run(test_echo_tool())
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service_service import ToolService
+from src.core.services.tool_service import ToolService
 
 async def list_tools():
     async with async_session_factory() as session:
@@ -102,7 +102,7 @@ asyncio.run(list_tools())
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service_service import ToolService
+from src.core.services.tool_service import ToolService
 from src.core.schemas.tool_schema import ToolCreate
 
 async def create_tool():
@@ -133,7 +133,7 @@ asyncio.run(create_tool())
 ```python
 import asyncio
 from src.core.database import async_session_factory
-from src.core.services.tool_service_service import ToolService
+from src.core.services.tool_service import ToolService
 
 async def deactivate_tool(tool_id: int):
     async with async_session_factory() as session:

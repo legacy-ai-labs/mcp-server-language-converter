@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from src.core.services.common.tool_service_service import TOOL_HANDLERS
+from src.core.services.common.tool_service import TOOL_HANDLERS
 
 
 async def get_tool_handlers() -> AsyncGenerator[dict[str, Any], None]:
