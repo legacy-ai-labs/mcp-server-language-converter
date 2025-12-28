@@ -70,6 +70,9 @@ COPY --chown=mcp:mcp config/ ./config/
 COPY --chown=mcp:mcp migrations/ ./migrations/
 COPY --chown=mcp:mcp alembic.ini ./
 
+# Remove macOS AppleDouble files (._*) that may have slipped through
+RUN find /app -name "._*" -type f -delete 2>/dev/null || true
+
 # Copy required scripts
 COPY --chown=mcp:mcp scripts/init_db.py ./scripts/
 COPY --chown=mcp:mcp scripts/start_metrics_server.py ./scripts/
