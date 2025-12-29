@@ -1,8 +1,10 @@
 # MCP Server Language Converter
 
+> *Parse the past, build the future - Bridging legacy systems to AI, one interface at a time.*
+
 > **Note:** This project is for personal/educational use only. See [License](#license) for details.
 
-A **hybrid MCP (Model Context Protocol) server** implementation that supports multiple domain-specific MCP servers, each exposing business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API.
+A **hybrid MCP (Model Context Protocol) server** implementation that supports multiple domain-specific MCP servers, each exposing business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API. Currently focused on **COBOL program analysis and reverse engineering**, with an extensible architecture for other legacy languages.
 
 ## Purpose
 
@@ -10,12 +12,62 @@ This project demonstrates how to build a modern server that serves both AI agent
 
 ## Key Features
 
-- **Domain-Specific MCP Servers**: Separate MCP servers for different domains (general, OS commands, Kubernetes, etc.)
+- **COBOL Reverse Engineering**: Comprehensive analysis tools for legacy COBOL programs
+- **Domain-Specific MCP Servers**: Separate MCP servers for different domains (general, COBOL analysis, etc.)
 - **Dual Interface Support**: MCP protocol and REST API using the same core business logic
 - **Multiple Transport Layers**: STDIO, HTTP streaming (MCP), and standard REST
 - **MCP Capabilities**: Tools, Resources, and Prompts
 - **Incremental Development**: Phased approach across capabilities and transport layers
 - **Modern Python Stack**: UV for package management, FastMCP 2.0, FastAPI
+
+## COBOL Analysis
+
+The COBOL analysis domain provides a comprehensive suite of reverse engineering tools designed to help AI agents understand, analyze, and document legacy COBOL systems.
+
+### Analysis Capabilities
+
+| Tool | Description |
+|------|-------------|
+| `parse_cobol` | Parse COBOL source code into an Abstract Syntax Tree (AST) |
+| `build_asg` | Build Abstract Semantic Graph with symbol tables and cross-references |
+| `build_cfg` | Build Control Flow Graph for program flow analysis |
+| `build_dfg` | Build Data Flow Graph for variable usage tracking |
+| `analyze_complexity` | Calculate cyclomatic complexity with optional ASG/CFG/DFG enhancement |
+| `resolve_copybooks` | Resolve COPY statements and expand copybook includes |
+| `batch_analyze_cobol_directory` | Analyze entire directories of COBOL programs |
+| `analyze_program_system` | Analyze inter-program relationships and dependencies |
+| `build_call_graph` | Generate program call graphs across a codebase |
+| `analyze_copybook_usage` | Track copybook usage across programs |
+| `analyze_data_flow` | Trace data flow through program execution |
+
+### Progressive Analysis Model
+
+The analysis tools support **progressive enhancement** — start with basic parsing and add semantic analysis as needed:
+
+```
+AST (Syntax)  →  ASG (Semantics)  →  CFG (Control Flow)  →  DFG (Data Flow)
+    │                 │                    │                     │
+    └── Structure     └── Symbols          └── Complexity        └── Variable
+        Paragraphs        Cross-refs           Paths                 Tracking
+        Statements        Data items           Unreachable           Dead code
+```
+
+### Running the COBOL Analysis Server
+
+```bash
+# STDIO transport (for Claude Desktop, Cursor IDE)
+uv run python -m src.mcp_servers.mcp_cobol_analysis stdio
+
+# SSE transport (for web clients)
+uv run python -m src.mcp_servers.mcp_cobol_analysis sse
+# Available at: http://localhost:8001/sse
+
+# Streamable HTTP transport
+uv run python -m src.mcp_servers.mcp_cobol_analysis streamable-http
+# Available at: http://localhost:8003/mcp
+```
+
+For multi-agent workflows and LangGraph integration, see [LangGraph Architecture](docs/LANGGRAPH_ARCHITECTURE.md).
 
 ## Architecture
 
@@ -262,6 +314,8 @@ uv run pytest --cov=src
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | Architectural decisions, design patterns, and development phases |
+| [LangGraph Architecture](docs/LANGGRAPH_ARCHITECTURE.md) | Multi-agent workflow for COBOL reverse engineering |
+| [COBOL Implementation](docs/cobol/) | COBOL-specific implementation details |
 | [Setup Guide](docs/SETUP.md) | Development environment setup, tools, and configuration |
 | [Database Guide](docs/DATABASE.md) | Database schema, setup, migrations, and management |
 | [Usage Guide](docs/USAGE.md) | Common usage patterns and examples |
