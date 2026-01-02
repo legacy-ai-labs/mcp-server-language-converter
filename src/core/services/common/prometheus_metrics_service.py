@@ -19,6 +19,21 @@ tool_calls_total = Counter(
     ["tool_name", "domain", "transport", "status"],
 )
 
+# Request/response size metrics
+request_size_bytes = Histogram(
+    "mcp_request_size_bytes",
+    "Size of tool input parameters in bytes",
+    ["tool_name", "domain", "transport"],
+    buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000],
+)
+
+response_size_bytes = Histogram(
+    "mcp_response_size_bytes",
+    "Size of tool output in bytes",
+    ["tool_name", "domain", "transport"],
+    buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000],
+)
+
 tool_errors_total = Counter(
     "mcp_tool_errors_total",
     "Total number of tool errors by type",
@@ -150,6 +165,48 @@ class PrometheusMetrics:
                 "environment": environment,
             }
         )
+
+    @staticmethod
+    def record_request_size(
+        tool_name: str,
+        domain: str,
+        transport: str,
+        size_bytes: int,
+    ) -> None:
+        """Record the size of a tool request (input parameters).
+
+        Args:
+            tool_name: Name of the tool
+            domain: Domain the tool belongs to
+            transport: Transport protocol used
+            size_bytes: Size of the request in bytes
+        """
+        request_size_bytes.labels(
+            tool_name=tool_name,
+            domain=domain,
+            transport=transport,
+        ).observe(size_bytes)
+
+    @staticmethod
+    def record_response_size(
+        tool_name: str,
+        domain: str,
+        transport: str,
+        size_bytes: int,
+    ) -> None:
+        """Record the size of a tool response (output data).
+
+        Args:
+            tool_name: Name of the tool
+            domain: Domain the tool belongs to
+            transport: Transport protocol used
+            size_bytes: Size of the response in bytes
+        """
+        response_size_bytes.labels(
+            tool_name=tool_name,
+            domain=domain,
+            transport=transport,
+        ).observe(size_bytes)
 
 
 # Singleton instance for easy access

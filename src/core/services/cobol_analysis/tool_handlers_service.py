@@ -32,6 +32,16 @@ from src.core.services.cobol_analysis.asg_builder_service import (
     build_asg_from_file,
     build_asg_from_source,
 )
+from src.core.services.cobol_analysis.ast_builder_service import (
+    ASTParseError,
+    build_ast,
+    deserialize_parse_node,
+    extract_program_name,
+    find_all_nodes,
+    find_node,
+    save_ast_result,
+    serialize_parse_node,
+)
 from src.core.services.cobol_analysis.cfg_builder_service import (
     CFGBuilderError,
     ControlFlowGraph,
@@ -39,12 +49,9 @@ from src.core.services.cobol_analysis.cfg_builder_service import (
     serialize_cfg,
 )
 from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
-    Comment,
     ParseNode,
     parse_cobol,
     parse_cobol_file,
-    parse_cobol_file_with_copybooks,
-    parse_cobol_with_copybooks,
 )
 from src.core.services.cobol_analysis.dfg_builder_service import (
     DataFlowGraph,
@@ -59,289 +66,14 @@ logger = logging.getLogger(__name__)
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
 
-
-# ============================================================================
-# Metadata extraction helper (works with ParseNode)
-# ============================================================================
-
-
-def _extract_program_name_from_parse_tree(parse_tree: ParseNode) -> str | None:
-    """Extract program name from parse tree.
-
-    Args:
-        parse_tree: The ParseNode tree
-
-    Returns:
-        Program name or None if not found
-    """
-
-    def find_node(node: ParseNode, target_type: str) -> ParseNode | None:
-        if target_type in {node.type, node.rule_name}:
-            return node
-        for child in node.children:
-            result = find_node(child, target_type)
-            if result:
-                return result
-        return None
-
-    # Try to find PROGRAM_NAME or programIdParagraph
-    program_name_node = find_node(parse_tree, "PROGRAM_NAME")
-    if program_name_node and program_name_node.value:
-        return str(program_name_node.value)
-
-    # Try finding in programIdParagraph
-    program_id_node = find_node(parse_tree, "programIdParagraph")
-    if program_id_node:
-        # Look for the program name in children
-        for child in program_id_node.children:
-            if "programName" in {child.type, child.rule_name}:
-                if child.value:
-                    return str(child.value)
-                # Get text from terminal children
-                for terminal in child.children:
-                    if terminal.text:
-                        return terminal.text
-    return None
-
-
-def _extract_metadata_from_parse_tree(
-    parse_tree: ParseNode, file_path: str | None = None
-) -> dict[str, Any]:
-    """Extract basic metadata from parse tree.
-
-    Args:
-        parse_tree: The ParseNode tree
-        file_path: Optional source file path
-
-    Returns:
-        Dictionary with program_info and basic metrics
-    """
-    program_name = _extract_program_name_from_parse_tree(parse_tree)
-
-    return {
-        "program_info": {
-            "program_id": program_name,
-            "file_path": file_path,
-        },
-        "dependencies": {
-            "calls": [],
-            "copybooks": [],
-            "files": [],
-        },
-    }
-
-
-# ============================================================================
-# Result persistence helper
-# ============================================================================
-
-
-def _save_tool_result(
-    tool_name: str,
-    result: dict[str, Any],
-    source_identifier: str | None = None,
-) -> Path | None:
-    """Save tool execution result to tests/cobol_samples/result directory.
-
-    Args:
-        tool_name: Name of the tool (e.g., "parse_cobol", "build_cfg")
-        result: Tool execution result dictionary
-        source_identifier: Optional identifier for the source (e.g., program name, file path)
-
-    Returns:
-        Path to the saved file, or None if save failed
-    """
-    try:
-        # Create result directory if it doesn't exist
-        result_dir = Path("tests/cobol_samples/result")
-        result_dir.mkdir(parents=True, exist_ok=True)
-
-        # Generate filename with timestamp
-        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-        identifier = source_identifier or "unknown"
-        # Sanitize identifier for filename
-        identifier = "".join(c if c.isalnum() or c in "-_" else "_" for c in identifier)
-        filename = f"{tool_name}_{identifier}_{timestamp}.json"
-        filepath = result_dir / filename
-
-        # Save result as JSON
-        with filepath.open("w") as f:
-            json.dump(result, f, indent=2, default=str)
-
-        logger.info(f"Saved {tool_name} result to {filepath}")
-        return filepath
-
-    except Exception as e:
-        logger.error(f"Failed to save {tool_name} result: {e}")
-        return None
-
-
-def _deserialize_parse_node(node_dict: dict[str, Any]) -> ParseNode:
-    """Deserialize ParseNode from dict.
-
-    Args:
-        node_dict: Dictionary representation of ParseNode
-
-    Returns:
-        ParseNode instance
-    """
-    # Support both old format (node_type) and new format (type)
-    node_type = node_dict.get("type") or node_dict.get("node_type", "")
-    value = node_dict.get("value")
-    children = node_dict.get("children", [])
-
-    # Recursively deserialize children
-    deserialized_children: list[ParseNode] = []
-    for child in children:
-        if isinstance(child, dict):
-            deserialized_children.append(_deserialize_parse_node(child))
-
-    # Build ParseNode with new Pydantic model structure
-    return ParseNode(
-        type=node_type,
-        children=deserialized_children,
-        value=value,
-        # Support both old and new location fields
-        start_line=node_dict.get("start_line") or node_dict.get("line_number"),
-        start_column=node_dict.get("start_column") or node_dict.get("column_number"),
-        end_line=node_dict.get("end_line"),
-        end_column=node_dict.get("end_column"),
-        # Extended fields for full AST representation
-        id=node_dict.get("id"),
-        rule_index=node_dict.get("rule_index"),
-        rule_name=node_dict.get("rule_name"),
-        text=node_dict.get("text"),
-        token_type=node_dict.get("token_type"),
-        token_name=node_dict.get("token_name"),
-    )
-
-
-def _serialize_parse_node(node: ParseNode) -> dict[str, Any]:
-    """Serialize ParseNode to dict.
-
-    Args:
-        node: ParseNode instance to serialize
-
-    Returns:
-        Dictionary representation of ParseNode (uses Pydantic model_dump)
-    """
-    # Use Pydantic's model_dump for serialization
-    # exclude_none=True to avoid cluttering output with None values
-    return node.model_dump(exclude_none=True)
-
-
-def _resolve_copybook_paths(
-    *,
-    copybook_directories: Any,
-    file_path: str | None,
-) -> list[Path] | None:
-    """Resolve copybook directories from explicit input or auto-detection.
-
-    Args:
-        copybook_directories: Optional list of directory strings
-        file_path: Optional COBOL file path (used for auto-detection)
-
-    Returns:
-        List of copybook directories as Path objects, or None.
-    """
-    if copybook_directories:
-        return [Path(d) for d in copybook_directories]
-
-    if not file_path:
-        return None
-
-    file_dir = Path(file_path).parent
-    candidates: list[Path] = [file_dir]
-
-    # Check common copybook directory names in same and sibling directories
-    for name in ["copybooks", "copy", "copybook", "COPYBOOKS", "COPY"]:
-        for base in [file_dir, file_dir.parent]:
-            candidate = base / name
-            if candidate.exists():
-                candidates.append(candidate)
-
-    # De-duplicate while preserving order
-    unique_candidates: list[Path] = []
-    seen: set[Path] = set()
-    for candidate in candidates:
-        if candidate in seen:
-            continue
-        seen.add(candidate)
-        unique_candidates.append(candidate)
-
-    return unique_candidates
-
-
-def _parse_cobol_source_or_file(
-    *,
-    source_code: str | None,
-    file_path: str | None,
-    copybook_paths: list[Path] | None,
-) -> tuple[ParseNode, list[Comment], Any, Any | None]:
-    """Parse COBOL from either file or source, optionally with copybook preprocessing.
-
-    Returns:
-        parsed_tree, comments, id_metadata, preprocessed (or None)
-    """
-    if file_path:
-        if copybook_paths:
-            parsed_tree, comments, id_metadata, preprocessed = parse_cobol_file_with_copybooks(
-                file_path, copybook_paths
-            )
-            return parsed_tree, comments, id_metadata, preprocessed
-
-        parsed_tree, comments, id_metadata = parse_cobol_file(file_path)
-        return parsed_tree, comments, id_metadata, None
-
-    if source_code is None:
-        raise ValueError("Either 'source_code' or 'file_path' must be provided")
-
-    if copybook_paths:
-        parsed_tree, comments, id_metadata, preprocessed = parse_cobol_with_copybooks(
-            source_code, copybook_paths
-        )
-        return parsed_tree, comments, id_metadata, preprocessed
-
-    parsed_tree, comments, id_metadata = parse_cobol(source_code)
-    return parsed_tree, comments, id_metadata, None
-
-
-def _add_copybook_info_to_metadata(metadata: dict[str, Any], preprocessed: Any | None) -> None:
-    """Attach copybook preprocessing info to metadata if available."""
-    if not preprocessed:
-        return
-
-    metadata["copybook_info"] = {
-        "copybooks_found": len(preprocessed.copybook_usages),
-        "copybooks": [
-            {
-                "name": usage.copybook_name,
-                "resolved": usage.is_resolved,
-                "resolved_path": str(usage.resolved_path) if usage.resolved_path else None,
-            }
-            for usage in preprocessed.copybook_usages
-        ],
-        "unresolved": preprocessed.unresolved_copybooks,
-    }
-
-
-def _add_copybook_info_to_result(result: dict[str, Any], preprocessed: Any | None) -> None:
-    """Attach copybook preprocessing info directly to result if available."""
-    if not preprocessed:
-        return
-
-    result["copybook_info"] = {
-        "copybooks_found": len(preprocessed.copybook_usages),
-        "copybooks": [
-            {
-                "name": usage.copybook_name,
-                "resolved": usage.is_resolved,
-                "resolved_path": str(usage.resolved_path) if usage.resolved_path else None,
-            }
-            for usage in preprocessed.copybook_usages
-        ],
-        "unresolved": preprocessed.unresolved_copybooks,
-    }
+# NOTE: AST building helper functions have been moved to ast_builder_service.py
+# The following are imported from there:
+# - extract_program_name, extract_metadata
+# - serialize_parse_node, deserialize_parse_node
+# - resolve_copybook_paths, parse_cobol_source_or_file
+# - add_copybook_info_to_metadata, add_copybook_info_to_result
+# - find_node, find_all_nodes
+# - save_ast_result
 
 
 # ============================================================================
@@ -349,14 +81,10 @@ def _add_copybook_info_to_result(result: dict[str, Any], preprocessed: Any | Non
 # ============================================================================
 
 
-def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912
+def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build Abstract Syntax Tree (AST) from COBOL source code.
 
-    The ParseNode structure serves as the AST for COBOL analysis.
-    This provides a unified structure for further analysis (ASG, CFG, DFG, call graphs).
-
-    This is the primary tool for building COBOL ASTs with optional comment
-    extraction and metadata.
+    Delegates to ast_builder_service.build_ast() for the actual implementation.
 
     Args:
         parameters: Handler parameters containing:
@@ -366,144 +94,27 @@ def build_ast_handler(parameters: dict[str, Any]) -> dict[str, Any]:  # noqa: PL
             - 'include_metadata': Include IDENTIFICATION DIVISION metadata (default: True)
 
     Returns:
-        Dictionary with AST (ParseNode) representation including:
-        - success: Whether parsing succeeded
-        - ast: Complete AST structure as nested dictionary
-        - program_name: Extracted program name
-        - node_count: Total number of nodes in the AST
-        - root_type: Type of the root AST node
-        - metadata: Dependencies (calls, copybooks, files)
-        - comments: List of extracted comments (if include_comments=True)
-        - comment_count: Number of comments (if include_comments=True)
-        - identification_metadata: AUTHOR, DATE-WRITTEN, etc. (if include_metadata=True)
-        - copybook_info: Copybook resolution details
-        - source_file: Path to source file (if file_path provided)
+        Dictionary with AST representation (see ast_builder_service.build_ast)
     """
-    source_code = parameters.get("source_code")
-    file_path = parameters.get("file_path")
-    copybook_directories = parameters.get("copybook_directories")
-    include_comments = parameters.get("include_comments", True)
-    include_metadata = parameters.get("include_metadata", True)
-
-    if not source_code and not file_path:
-        return {
-            "success": False,
-            "error": "Either 'source_code' or 'file_path' must be provided",
-        }
-
     try:
-        if source_code is not None and not isinstance(source_code, str):
-            return {
-                "success": False,
-                "error": "'source_code' must be a string",
-            }
-
-        if file_path is not None and not isinstance(file_path, str):
-            return {
-                "success": False,
-                "error": "'file_path' must be a string",
-            }
-
-        copybook_paths = _resolve_copybook_paths(
-            copybook_directories=copybook_directories,
-            file_path=file_path if isinstance(file_path, str) else None,
+        result = build_ast(
+            source_code=parameters.get("source_code"),
+            file_path=parameters.get("file_path"),
+            copybook_directories=parameters.get("copybook_directories"),
+            include_comments=parameters.get("include_comments", True),
+            include_metadata=parameters.get("include_metadata", True),
+            save_result=True,
         )
-
-        parsed_tree, comments, id_metadata, preprocessed = _parse_cobol_source_or_file(
-            source_code=source_code if isinstance(source_code, str) else None,
-            file_path=file_path if isinstance(file_path, str) else None,
-            copybook_paths=copybook_paths,
-        )
-
-        # ParseNode is now the AST - serialize using Pydantic
-        ast_dict = _serialize_parse_node(parsed_tree)
-
-        # Extract program name from parse tree
-        program_name = _extract_program_name_from_parse_tree(parsed_tree)
-
-        # Extract metadata from parse tree (dependencies: calls, copybooks, files)
-        metadata = _extract_metadata_from_parse_tree(parsed_tree, file_path)
-
-        # Add copybook info to metadata
-        _add_copybook_info_to_metadata(metadata, preprocessed)
-
-        # Count nodes in the AST
-        def count_nodes(node: dict[str, Any]) -> int:
-            count = 1
-            for child in node.get("children", []):
-                count += count_nodes(child)
-            return count
-
-        node_count = count_nodes(ast_dict)
-
-        # Build result
-        result: dict[str, Any] = {
-            "success": True,
-            "ast": ast_dict,
-            "program_name": program_name,
-            "node_count": node_count,
-            "root_type": parsed_tree.type,
-            "metadata": metadata,
-        }
-
-        # Include comments if requested
-        if include_comments and comments:
-            result["comments"] = [
-                {
-                    "text": comment.text,
-                    "line": comment.location.line,
-                    "type": comment.comment_type.value,
-                }
-                for comment in comments
-            ]
-            result["comment_count"] = len(comments)
-
-        # Include identification metadata if requested (AUTHOR, DATE-WRITTEN, etc.)
-        if include_metadata and id_metadata:
-            id_metadata_dict: dict[str, Any] = {}
-            if id_metadata.author:
-                id_metadata_dict["author"] = id_metadata.author
-            if id_metadata.installation:
-                id_metadata_dict["installation"] = id_metadata.installation
-            if id_metadata.date_written:
-                id_metadata_dict["date_written"] = id_metadata.date_written
-            if id_metadata.date_compiled:
-                id_metadata_dict["date_compiled"] = id_metadata.date_compiled
-            if id_metadata.security:
-                id_metadata_dict["security"] = id_metadata.security
-            if id_metadata.remarks:
-                id_metadata_dict["remarks"] = id_metadata.remarks
-            if id_metadata_dict:
-                result["identification_metadata"] = id_metadata_dict
-
-        # Add copybook info at top level for easy access
-        if preprocessed:
-            _add_copybook_info_to_result(result, preprocessed)
-
-        # Add source file info
-        if file_path:
-            result["source_file"] = file_path
-
-        # Save result to file
-        saved_path = _save_tool_result("build_ast", result, program_name)
-        if saved_path:
-            result["saved_to"] = str(saved_path)
-
+        # Remove parse_tree from result (not JSON serializable for MCP response)
+        result.pop("parse_tree", None)
         return result
-
-    except SyntaxError as e:
-        logger.warning(f"COBOL syntax error: {e}")
-        return {
-            "success": False,
-            "error": f"COBOL syntax error: {e}",
-        }
-    except FileNotFoundError as e:
+    except ASTParseError as e:
         return {
             "success": False,
             "error": str(e),
         }
     except Exception as e:
-        logger.exception("Failed to parse COBOL")
+        logger.exception("Failed to build AST")
         return {
             "success": False,
             "error": str(e),
@@ -546,7 +157,7 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
                     "error": "'source_code' must be a string",
                 }
             parse_node, _, _ = parse_cobol(source_code)
-        parse_tree_dict = _serialize_parse_node(parse_node)
+        parse_tree_dict = serialize_parse_node(parse_node)
 
         result = {
             "success": True,
@@ -556,7 +167,7 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
         # Save result to file
         identifier = Path(file_path).stem if file_path else "source_code"
-        saved_path = _save_tool_result("parse_cobol", result, identifier)
+        saved_path = save_ast_result("parse_cobol", result, identifier)
         if saved_path:
             result["saved_to"] = str(saved_path)
 
@@ -653,7 +264,7 @@ def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
                     result["summary"]["using_parameters"] = pd.using_parameters
 
         # Save result to file
-        saved_path = _save_tool_result("build_asg", result, program_name)
+        saved_path = save_ast_result("build_asg", result, program_name)
         if saved_path:
             result["saved_to"] = str(saved_path)
 
@@ -2257,7 +1868,7 @@ def analyze_complexity_handler(parameters: dict[str, Any]) -> dict[str, Any]:  #
     try:
         # Get or build AST
         if ast_input:
-            ast = _deserialize_parse_node(ast_input) if isinstance(ast_input, dict) else ast_input
+            ast = deserialize_parse_node(ast_input) if isinstance(ast_input, dict) else ast_input
             source_lines: list[str] = []
         # Parse source to get AST
         elif file_path:
@@ -2271,7 +1882,7 @@ def analyze_complexity_handler(parameters: dict[str, Any]) -> dict[str, Any]:  #
 
         # Initialize complexity metrics
         metrics = ComplexityMetrics(
-            program_name=_extract_program_name_from_parse_tree(ast),
+            program_name=extract_program_name(ast),
             source_file=file_path,
             analysis_level=AnalysisLevel.AST,
         )
@@ -2328,7 +1939,7 @@ def analyze_complexity_handler(parameters: dict[str, Any]) -> dict[str, Any]:  #
                 logger.warning(f"ASG build failed during complexity analysis: {e}")
 
         # Serialize AST for CFG/DFG builders
-        ast_dict = _serialize_parse_node(ast) if should_build_cfg or should_build_dfg else None
+        ast_dict = serialize_parse_node(ast) if should_build_cfg or should_build_dfg else None
 
         # Build CFG if requested
         if should_build_cfg and ast_dict:
@@ -2408,7 +2019,7 @@ def analyze_complexity_handler(parameters: dict[str, Any]) -> dict[str, Any]:  #
             result["recommendations"] = metrics.quality_indicators.recommendations
 
         # Save result
-        saved_path = _save_tool_result(
+        saved_path = save_ast_result(
             "analyze_complexity", result, metrics.program_name or "unknown"
         )
         if saved_path:
@@ -2454,35 +2065,35 @@ def _compute_structural_metrics(ast: ParseNode) -> StructuralMetrics:
     metrics = StructuralMetrics()
 
     # Count divisions
-    divisions = _find_all_nodes(
+    divisions = find_all_nodes(
         ast, ["IdentificationDivision", "EnvironmentDivision", "DataDivision", "ProcedureDivision"]
     )
     metrics.division_count = len(divisions)
 
     # Count sections
-    sections = _find_all_nodes(ast, ["Section", "section", "procedureSection"])
+    sections = find_all_nodes(ast, ["Section", "section", "procedureSection"])
     metrics.section_count = len(sections)
 
     # Count paragraphs
-    paragraphs = _find_all_nodes(ast, ["Paragraph", "paragraph"])
+    paragraphs = find_all_nodes(ast, ["Paragraph", "paragraph"])
     metrics.paragraph_count = len(paragraphs)
 
     # Count statements
-    statements = _find_all_nodes(ast, ["Statement", "statement"])
+    statements = find_all_nodes(ast, ["Statement", "statement"])
     metrics.statement_count = len(statements)
 
     # Count data items
-    data_entries = _find_all_nodes(
+    data_entries = find_all_nodes(
         ast, ["DataDescriptionEntry", "dataDescriptionEntry", "dataDescriptionEntryFormat1"]
     )
     metrics.data_item_count = len(data_entries)
 
     # Count level 88 conditions
-    level_88 = _find_all_nodes(ast, ["DataDescriptionEntryFormat2", "conditionNameEntry"])
+    level_88 = find_all_nodes(ast, ["DataDescriptionEntryFormat2", "conditionNameEntry"])
     metrics.level_88_count = len(level_88)
 
     # Count copybooks
-    copy_stmts = _find_all_nodes(ast, ["CopyStatement", "copyStatement"])
+    copy_stmts = find_all_nodes(ast, ["CopyStatement", "copyStatement"])
     metrics.copybook_count = len(copy_stmts)
 
     return metrics
@@ -2493,32 +2104,32 @@ def _compute_control_flow_metrics(ast: ParseNode) -> ControlFlowMetrics:
     metrics = ControlFlowMetrics()
 
     # Count IF statements
-    if_stmts = _find_all_nodes(ast, ["IfStatement", "ifStatement"])
+    if_stmts = find_all_nodes(ast, ["IfStatement", "ifStatement"])
     metrics.if_count = len(if_stmts)
 
     # Count EVALUATE statements
-    eval_stmts = _find_all_nodes(ast, ["EvaluateStatement", "evaluateStatement"])
+    eval_stmts = find_all_nodes(ast, ["EvaluateStatement", "evaluateStatement"])
     metrics.evaluate_count = len(eval_stmts)
 
     # Count PERFORM statements
-    perform_stmts = _find_all_nodes(ast, ["PerformStatement", "performStatement"])
+    perform_stmts = find_all_nodes(ast, ["PerformStatement", "performStatement"])
     metrics.perform_count = len(perform_stmts)
 
     # Count GO TO statements (bad practice)
-    goto_stmts = _find_all_nodes(ast, ["GoToStatement", "gotoStatement", "goToStatement"])
+    goto_stmts = find_all_nodes(ast, ["GoToStatement", "gotoStatement", "goToStatement"])
     metrics.goto_count = len(goto_stmts)
 
     # Count ALTER statements (very bad practice)
-    alter_stmts = _find_all_nodes(ast, ["AlterStatement", "alterStatement"])
+    alter_stmts = find_all_nodes(ast, ["AlterStatement", "alterStatement"])
     metrics.alter_count = len(alter_stmts)
 
     # Count CALL statements
-    call_stmts = _find_all_nodes(ast, ["CallStatement", "callStatement"])
+    call_stmts = find_all_nodes(ast, ["CallStatement", "callStatement"])
     metrics.call_count = len(call_stmts)
 
     # Approximate cyclomatic complexity from decision points
     # CC = 1 + IF + EVALUATE*when_count + PERFORM_UNTIL
-    when_clauses = _find_all_nodes(ast, ["WhenPhrase", "whenPhrase"])
+    when_clauses = find_all_nodes(ast, ["WhenPhrase", "whenPhrase"])
     metrics.cyclomatic_complexity = (
         1 + metrics.if_count + len(when_clauses) + metrics.evaluate_count
     )
@@ -2551,40 +2162,40 @@ def _compute_data_metrics(ast: ParseNode) -> DataMetrics:
     metrics = DataMetrics()
 
     # Find DATA DIVISION
-    data_div = _find_node(ast, ["DataDivision", "dataDivision"])
+    data_div = find_node(ast, ["DataDivision", "dataDivision"])
     if not data_div:
         return metrics
 
     # Count WORKING-STORAGE items
-    ws_section = _find_node(data_div, ["WorkingStorageSection", "workingStorageSection"])
+    ws_section = find_node(data_div, ["WorkingStorageSection", "workingStorageSection"])
     if ws_section:
-        ws_entries = _find_all_nodes(ws_section, ["DataDescriptionEntry", "dataDescriptionEntry"])
+        ws_entries = find_all_nodes(ws_section, ["DataDescriptionEntry", "dataDescriptionEntry"])
         metrics.working_storage_items = len(ws_entries)
 
     # Count LINKAGE items
-    linkage = _find_node(data_div, ["LinkageSection", "linkageSection"])
+    linkage = find_node(data_div, ["LinkageSection", "linkageSection"])
     if linkage:
-        link_entries = _find_all_nodes(linkage, ["DataDescriptionEntry", "dataDescriptionEntry"])
+        link_entries = find_all_nodes(linkage, ["DataDescriptionEntry", "dataDescriptionEntry"])
         metrics.linkage_items = len(link_entries)
 
     # Count FILE SECTION items
-    file_section = _find_node(data_div, ["FileSection", "fileSection"])
+    file_section = find_node(data_div, ["FileSection", "fileSection"])
     if file_section:
-        file_entries = _find_all_nodes(
+        file_entries = find_all_nodes(
             file_section, ["DataDescriptionEntry", "dataDescriptionEntry"]
         )
         metrics.file_section_items = len(file_entries)
 
     # Count REDEFINES
-    redefines = _find_all_nodes(data_div, ["RedefinesClause", "redefinesClause"])
+    redefines = find_all_nodes(data_div, ["RedefinesClause", "redefinesClause"])
     metrics.redefines_count = len(redefines)
 
     # Count OCCURS
-    occurs = _find_all_nodes(data_div, ["OccursClause", "occursClause"])
+    occurs = find_all_nodes(data_div, ["OccursClause", "occursClause"])
     metrics.occurs_count = len(occurs)
 
     # Count PICTURE clauses
-    pictures = _find_all_nodes(data_div, ["PictureClause", "pictureClause"])
+    pictures = find_all_nodes(data_div, ["PictureClause", "pictureClause"])
     metrics.picture_clauses = len(pictures)
 
     return metrics
@@ -2595,7 +2206,7 @@ def _compute_dependency_metrics(ast: ParseNode) -> DependencyMetrics:
     metrics = DependencyMetrics()
 
     # Extract external calls
-    call_stmts = _find_all_nodes(ast, ["CallStatement", "callStatement"])
+    call_stmts = find_all_nodes(ast, ["CallStatement", "callStatement"])
     for call in call_stmts:
         target = _extract_call_target_from_node(call)
         if target and target not in metrics.external_calls:
@@ -2604,7 +2215,7 @@ def _compute_dependency_metrics(ast: ParseNode) -> DependencyMetrics:
     metrics.fan_out = len(metrics.external_calls)
 
     # Extract copybooks
-    copy_stmts = _find_all_nodes(ast, ["CopyStatement", "copyStatement"])
+    copy_stmts = find_all_nodes(ast, ["CopyStatement", "copyStatement"])
     for copy in copy_stmts:
         copybook = _extract_copybook_name_from_node(copy)
         if copybook and copybook not in metrics.copybooks_used:
@@ -2636,27 +2247,6 @@ def _extract_copybook_name_from_node(node: ParseNode) -> str | None:
                 if sub.text:
                     return sub.text
     return None
-
-
-def _find_node(node: ParseNode, type_names: list[str]) -> ParseNode | None:
-    """Find a node by type name."""
-    if node.type in type_names or (node.rule_name and node.rule_name in type_names):
-        return node
-    for child in node.children:
-        result = _find_node(child, type_names)
-        if result:
-            return result
-    return None
-
-
-def _find_all_nodes(node: ParseNode, type_names: list[str]) -> list[ParseNode]:
-    """Find all nodes matching type names."""
-    results: list[ParseNode] = []
-    if node.type in type_names or (node.rule_name and node.rule_name in type_names):
-        results.append(node)
-    for child in node.children:
-        results.extend(_find_all_nodes(child, type_names))
-    return results
 
 
 def _compute_asg_metrics(program: Program) -> ASGMetrics:  # noqa: PLR0912
@@ -2791,7 +2381,7 @@ def build_cfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
         # Save result
-        saved_path = _save_tool_result("build_cfg", result, program_name or "unknown")
+        saved_path = save_ast_result("build_cfg", result, program_name or "unknown")
         if saved_path:
             result["saved_to"] = str(saved_path)
 
@@ -2853,7 +2443,7 @@ def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
         # Save result
-        saved_path = _save_tool_result("build_dfg", result, program_name or "unknown")
+        saved_path = save_ast_result("build_dfg", result, program_name or "unknown")
         if saved_path:
             result["saved_to"] = str(saved_path)
 

@@ -2,8 +2,20 @@
 
 import sys
 from functools import lru_cache
+from importlib.metadata import version as get_package_version
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _get_version() -> str:
+    """Get version from package metadata (pyproject.toml).
+
+    Falls back to "0.0.0-dev" if package is not installed.
+    """
+    try:
+        return get_package_version("mcp-server-language-converter")
+    except Exception:
+        return "0.0.0-dev"
 
 
 class Settings(BaseSettings):
@@ -15,19 +27,19 @@ class Settings(BaseSettings):
 
     # Application
     app_name: str = "MCP Server Language Converter"
-    app_version: str = "0.1.0"
+    app_version: str = _get_version()  # Read from pyproject.toml
     environment: str = "development"
 
     # Logging
     log_level: str = "INFO"
 
     # HTTP Streaming
-    http_host: str = "0.0.0.0"  # nosec B104 - Development default, configurable via env
+    http_host: str = "::"  # nosec B104 - Dual-stack IPv4/IPv6, configurable via env
     http_port: int = 8000
     http_streaming_enabled: bool = True
 
     # Streamable HTTP (recommended for web deployments)
-    streamable_http_host: str = "0.0.0.0"  # nosec B104 - Development default, configurable via env
+    streamable_http_host: str = "::"  # nosec B104 - Dual-stack IPv4/IPv6, configurable via env
     streamable_http_port: int = 8002
     streamable_http_enabled: bool = True
 

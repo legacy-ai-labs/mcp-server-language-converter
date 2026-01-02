@@ -1,6 +1,6 @@
 [project]
 name = "mcp-server-language-converter"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP Server Language Converter - Hybrid MCP Server with REST API that exposes business logic through both MCP protocol and REST API"
 authors = [
     { name = "Hyalen M. Caldeira", email = "hyalen@gmail.com" }

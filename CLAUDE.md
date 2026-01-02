@@ -29,7 +29,7 @@ uv run python -m src.mcp_servers.mcp_general stdio            # STDIO transport
 uv run python -m src.mcp_servers.mcp_general sse              # SSE on :8000
 uv run python -m src.mcp_servers.mcp_general streamable-http  # Streamable HTTP on :8002
 uv run python -m src.mcp_servers.mcp_cobol_analysis stdio     # COBOL STDIO
-uv run python -m src.mcp_servers.mcp_cobol_analysis sse       # COBOL SSE on :8003
+uv run python -m src.mcp_servers.mcp_cobol_analysis sse       # COBOL SSE on :8001
 
 # ProLeap COBOL Parser (Java-based, for validation)
 uv run python scripts/proleap_ast_export.py <cobol_file>  # Export AST to JSON

@@ -6,12 +6,7 @@ from src.core.services.general.tool_handlers_service import (
     calculator_add_handler,
     echo_handler,
 )
-from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.tool_registry import register_tool
-
-
-# Create FastMCP instance for this domain
-mcp = create_mcp_server(domain="general")
 
 
 @register_tool(

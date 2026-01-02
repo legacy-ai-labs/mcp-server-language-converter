@@ -130,12 +130,12 @@ class TestBuildASTComments:
 
     def test_build_ast_with_comments_default(self) -> None:
         """Test that comments are included by default."""
-        # COBOL fixed format: * in column 7 for comments
+        # ANTLR lexer uses *> format for inline comments
         source = (
-            "      * This is a comment line\n"
             "       IDENTIFICATION DIVISION.\n"
             "       PROGRAM-ID. COMMENT-TEST.\n"
             "       PROCEDURE DIVISION.\n"
+            "      *> This is a comment line\n"
             '           DISPLAY "TEST".\n'
             "           STOP RUN.\n"
         )
@@ -148,12 +148,12 @@ class TestBuildASTComments:
 
     def test_build_ast_include_comments_true(self) -> None:
         """Test explicit include_comments=True."""
-        # COBOL fixed format: * in column 7 for comments
+        # ANTLR lexer uses *> format for inline comments
         source = (
-            "      * This is a comment\n"
             "       IDENTIFICATION DIVISION.\n"
             "       PROGRAM-ID. COMMENT-TEST.\n"
             "       PROCEDURE DIVISION.\n"
+            "      *> This is a comment\n"
             "           STOP RUN.\n"
         )
         result = build_ast_handler(
@@ -167,12 +167,12 @@ class TestBuildASTComments:
 
     def test_build_ast_include_comments_false(self) -> None:
         """Test include_comments=False excludes comments."""
-        # COBOL fixed format: * in column 7 for comments
+        # ANTLR lexer uses *> format for inline comments
         source = (
-            "      * This is a comment\n"
             "       IDENTIFICATION DIVISION.\n"
             "       PROGRAM-ID. COMMENT-TEST.\n"
             "       PROCEDURE DIVISION.\n"
+            "      *> This is a comment\n"
             "           STOP RUN.\n"
         )
         result = build_ast_handler(

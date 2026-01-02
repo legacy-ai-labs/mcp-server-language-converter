@@ -18,12 +18,7 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     prepare_cobol_for_antlr_handler,
     resolve_copybooks_handler,
 )
-from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.tool_registry import register_tool
-
-
-# Create FastMCP instance for this domain
-mcp = create_mcp_server(domain="cobol_analysis")
 
 
 @register_tool(
@@ -103,6 +98,7 @@ async def build_ast(
         parameters["file_path"] = file_path
     if copybook_directories is not None:
         parameters["copybook_directories"] = copybook_directories
+
     return build_ast_handler(parameters)
 
 

@@ -19,11 +19,56 @@ from typing import Any, Literal
 
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from src.core.config import get_settings
 from src.core.services.common.prometheus_metrics_service import PROMETHEUS_METRICS
 from src.mcp_servers.common.base_server import create_mcp_server
 from src.mcp_servers.common.tool_registry import load_tools_from_registry
+
+
+class MCPAcceptHeaderMiddleware:
+    """Middleware to ensure MCP-required Accept headers are present.
+
+    The MCP Streamable HTTP protocol requires clients to send:
+    Accept: application/json, text/event-stream
+
+    Some clients (like MCP Inspector in Direct mode) may not send these headers,
+    causing 406 Not Acceptable errors. This middleware adds them if missing.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Check if Accept header needs to be fixed
+        headers = dict(scope.get("headers", []))
+        accept = headers.get(b"accept", b"").decode("utf-8", errors="ignore")
+
+        # MCP requires both application/json and text/event-stream
+        needs_json = "application/json" not in accept
+        needs_sse = "text/event-stream" not in accept
+
+        if needs_json or needs_sse:
+            # Build new Accept header
+            accept_parts = [accept] if accept and accept != "*/*" else []
+            if needs_json:
+                accept_parts.append("application/json")
+            if needs_sse:
+                accept_parts.append("text/event-stream")
+            new_accept = ", ".join(accept_parts)
+
+            # Replace headers in scope
+            new_headers = [(k, v) for k, v in scope.get("headers", []) if k != b"accept"]
+            new_headers.append((b"accept", new_accept.encode("utf-8")))
+            scope = dict(scope)
+            scope["headers"] = new_headers
+
+        await self.app(scope, receive, send)
 
 
 # Configure logging to stderr so clients can see it
@@ -159,10 +204,11 @@ def _get_transport_config(transport: TransportType) -> dict[str, Any]:
             "host": settings.http_host,
             "port": settings.http_port,
             "middleware": [
+                Middleware(MCPAcceptHeaderMiddleware),  # Fix Accept headers before MCP processing
                 Middleware(
                     CORSMiddleware,
                     allow_origins=["*"],  # Allow all origins for development
-                    allow_credentials=True,
+                    allow_credentials=False,  # Must be False when using allow_origins=["*"]
                     allow_methods=["GET", "POST", "OPTIONS"],
                     allow_headers=["*"],
                 ),
@@ -173,7 +219,19 @@ def _get_transport_config(transport: TransportType) -> dict[str, Any]:
         config = {
             "host": settings.streamable_http_host,
             "port": settings.streamable_http_port,
+            "middleware": [
+                Middleware(MCPAcceptHeaderMiddleware),  # Fix Accept headers before MCP processing
+                Middleware(
+                    CORSMiddleware,
+                    allow_origins=["*"],  # Allow all origins for development
+                    allow_credentials=False,  # Must be False when using allow_origins=["*"]
+                    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+                    allow_headers=["*"],
+                    expose_headers=["mcp-session-id"],  # Allow JS to read session ID
+                ),
+            ],
         }
+        logger.info("CORS and Accept header middleware enabled for Streamable HTTP transport")
 
     return config
 

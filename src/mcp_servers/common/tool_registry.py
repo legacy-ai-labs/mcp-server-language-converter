@@ -110,6 +110,7 @@ async def load_tools_from_registry(
 
             # Register with FastMCP using the tool decorator
             # Observability is automatically applied via ObservabilityMiddleware
+            # Apply the tool decorator to the tool function
             decorated_tool = mcp.tool(name=tool_name, description=final_description)(tool_func)
 
             # Store reference to prevent garbage collection

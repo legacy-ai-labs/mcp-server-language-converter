@@ -12,6 +12,7 @@ event loop mismatch issues with FastMCP's anyio-based transports.
 """
 
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -33,6 +34,26 @@ settings = get_settings()
 # Thread pool for database writes (avoids event loop issues)
 # Using max_workers=3 to limit concurrent database writes
 _db_write_executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="observability_db_")
+
+
+def calculate_payload_size(data: Any) -> int:
+    """Calculate the size of a payload in bytes.
+
+    Serializes the data to JSON and returns the byte length.
+    Returns 0 if serialization fails.
+
+    Args:
+        data: Any JSON-serializable data
+
+    Returns:
+        Size in bytes, or 0 if calculation fails
+    """
+    if data is None:
+        return 0
+    try:
+        return len(json.dumps(data, default=str).encode("utf-8"))
+    except (TypeError, ValueError):
+        return 0
 
 
 def generate_correlation_id() -> str:
@@ -108,6 +129,8 @@ def _persist_execution_sync(
                 error_message=context.get("error_message"),
                 input_params=parameters if settings.log_tool_inputs else None,
                 output_data=context.get("output_data") if settings.log_tool_outputs else None,
+                request_size_bytes=context.get("request_size_bytes"),
+                response_size_bytes=context.get("response_size_bytes"),
                 transport=transport,
                 domain=domain,
             )
@@ -211,17 +234,22 @@ async def trace_tool_execution(
     execution_id = correlation_id or get_correlation_id_from_context() or generate_correlation_id()
     session = session_id or get_session_id_from_context()
 
+    # Calculate request size
+    request_size = calculate_payload_size(parameters)
+
     # Initialize trace context
     context: dict[str, Any] = {
         "correlation_id": execution_id,
         "session_id": session,
         "started_at": datetime.now(UTC),
         "status": "success",  # Optimistic, will be overridden on error
+        "request_size_bytes": request_size,
     }
 
-    # Prometheus: Mark execution as started
+    # Prometheus: Mark execution as started and record request size
     if settings.enable_metrics:
         PROMETHEUS_METRICS.start_tool_execution(tool_name, domain, transport)
+        PROMETHEUS_METRICS.record_request_size(tool_name, domain, transport, request_size)
 
     # High-precision timing for latency measurement
     start_time = time.perf_counter()
@@ -259,10 +287,15 @@ async def trace_tool_execution(
         context["completed_at"] = datetime.now(UTC)
         context["duration_ms"] = duration_seconds * 1000
 
+        # Calculate response size
+        response_size = calculate_payload_size(context.get("output_data"))
+        context["response_size_bytes"] = response_size
+
         # Structured logging: TRACE_END
         logger.info(
             f"TRACE_END tool={tool_name} correlation_id={execution_id} "
-            f"duration_ms={context['duration_ms']:.2f} status={context['status']}"
+            f"duration_ms={context['duration_ms']:.2f} status={context['status']} "
+            f"request_bytes={context['request_size_bytes']} response_bytes={response_size}"
         )
 
         # Prometheus: Record metrics
@@ -275,6 +308,7 @@ async def trace_tool_execution(
                 duration_seconds=duration_seconds,
                 error_type=context.get("error_type"),
             )
+            PROMETHEUS_METRICS.record_response_size(tool_name, domain, transport, response_size)
             PROMETHEUS_METRICS.end_tool_execution(tool_name, domain, transport)
 
         # Database: Persist execution record (via thread pool, non-blocking)

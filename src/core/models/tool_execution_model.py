@@ -53,6 +53,10 @@ class ToolExecution(Base):
     input_params: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     output_data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
+    # Payload sizes (for performance analysis)
+    request_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Transport and domain context
     transport: Mapped[str] = mapped_column(String(20), nullable=False)  # stdio, http, rest
     domain: Mapped[str] = mapped_column(String(50), nullable=False)
