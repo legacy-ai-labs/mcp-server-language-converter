@@ -63,13 +63,16 @@ flowchart TB
     style Metrics fill:#2d2d2d,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
-**Exposed Ports:**
-- **8000**: SSE (general domain)
-- **8001**: SSE (COBOL analysis domain)
-- **8002**: Streamable HTTP (general domain)
-- **8003**: Streamable HTTP (COBOL analysis domain)
-- **9090**: Health check & Prometheus metrics
-- **5432**: PostgreSQL (optional external access)
+**Exposed Ports & Endpoints:**
+| Port | Description | Endpoint |
+|------|-------------|----------|
+| 8000 | SSE General | `http://<IP>:8000/sse` |
+| 8001 | SSE COBOL | `http://<IP>:8001/sse` |
+| 8002 | Streamable HTTP General | `http://<IP>:8002/mcp` |
+| 8003 | Streamable HTTP COBOL | `http://<IP>:8003/mcp` |
+| 9090 | Health Check | `http://<IP>:9090/health` |
+| 9090 | Prometheus Metrics | `http://<IP>:9090/metrics` |
+| 5432 | PostgreSQL | (optional external access) |
 
 ---
 

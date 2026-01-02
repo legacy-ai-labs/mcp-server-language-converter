@@ -33,14 +33,16 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
-    # HTTP Streaming
+    # SSE Transport (HTTP Streaming via Server-Sent Events)
     http_host: str = "::"  # nosec B104 - Dual-stack IPv4/IPv6, configurable via env
-    http_port: int = 8000
+    http_port: int = 8000  # SSE General: http://<IP>:8000/sse
+    http_port_cobol: int = 8001  # SSE COBOL: http://<IP>:8001/sse
     http_streaming_enabled: bool = True
 
-    # Streamable HTTP (recommended for web deployments)
+    # Streamable HTTP Transport (recommended for web deployments)
     streamable_http_host: str = "::"  # nosec B104 - Dual-stack IPv4/IPv6, configurable via env
-    streamable_http_port: int = 8002
+    streamable_http_port: int = 8002  # Streamable HTTP General: http://<IP>:8002/mcp
+    streamable_http_port_cobol: int = 8003  # Streamable HTTP COBOL: http://<IP>:8003/mcp
     streamable_http_enabled: bool = True
 
     # Observability & Metrics

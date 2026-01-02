@@ -9,12 +9,13 @@
 #   docker-compose -f docker/docker-compose.yml down       # Stop services
 #   docker-compose -f docker/docker-compose.yml down -v    # Stop and remove volumes
 #
-# Ports:
-#   8000 - SSE (general domain)
-#   8001 - SSE (COBOL analysis domain)
-#   8002 - Streamable HTTP (general domain)
-#   8003 - Streamable HTTP (COBOL analysis domain)
-#   9090 - Prometheus metrics / health check
+# Ports & Endpoints:
+#   8000 - SSE General:           http://<IP>:8000/sse
+#   8001 - SSE COBOL:             http://<IP>:8001/sse
+#   8002 - Streamable HTTP General: http://<IP>:8002/mcp
+#   8003 - Streamable HTTP COBOL:   http://<IP>:8003/mcp
+#   9090 - Health Check:          http://<IP>:9090/health
+#   9090 - Prometheus Metrics:    http://<IP>:9090/metrics
 #   5432 - PostgreSQL (optional external access)
 #
 # =============================================================================
@@ -74,12 +75,16 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
       # SSE Transport Configuration
-      HTTP_HOST: "0.0.0.0"
+      # Endpoints: http://<IP>:8000/sse (General), http://<IP>:8001/sse (COBOL)
+      HTTP_HOST: "::"
       HTTP_PORT: "8000"
+      HTTP_PORT_COBOL: "8001"
 
       # Streamable HTTP Transport Configuration
-      STREAMABLE_HTTP_HOST: "0.0.0.0"
+      # Endpoints: http://<IP>:8002/mcp (General), http://<IP>:8003/mcp (COBOL)
+      STREAMABLE_HTTP_HOST: "::"
       STREAMABLE_HTTP_PORT: "8002"
+      STREAMABLE_HTTP_PORT_COBOL: "8003"
 
       # Observability Configuration
       ENABLE_METRICS: "true"
@@ -88,14 +93,14 @@ services:
       LOG_TOOL_INPUTS: "false"
       LOG_TOOL_OUTPUTS: "false"
     ports:
-      # SSE Transport
-      - "8000:8000"   # General domain SSE
-      - "8001:8001"   # COBOL Analysis domain SSE
-      # Streamable HTTP Transport
-      - "8002:8002"   # General domain Streamable HTTP
-      - "8003:8003"   # COBOL Analysis domain Streamable HTTP
-      # Metrics and Health
-      - "9090:9090"   # Prometheus metrics endpoint
+      # SSE Transport (http://<IP>:<port>/sse)
+      - "8000:8000"   # SSE General
+      - "8001:8001"   # SSE COBOL
+      # Streamable HTTP Transport (http://<IP>:<port>/mcp)
+      - "8002:8002"   # Streamable HTTP General
+      - "8003:8003"   # Streamable HTTP COBOL
+      # Metrics and Health (http://<IP>:9090/health, http://<IP>:9090/metrics)
+      - "9090:9090"   # Health Check & Prometheus Metrics
     volumes:
       # Optional: Mount for COBOL source files to analyze
       # Uncomment and configure path as needed

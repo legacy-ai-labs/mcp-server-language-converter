@@ -190,11 +190,10 @@ Add to Cursor settings:
 HTTP streaming mode uses Server-Sent Events (SSE) for real-time communication:
 
 ```bash
-# Start HTTP streaming server
-uv run python -m src.mcp_servers.mcp_general.http_main
+# Start SSE server (General domain)
+uv run python -m src.mcp_servers.mcp_general sse
 
-# Server will be available at:
-# http://localhost:8000
+# Endpoint: http://localhost:8000/sse
 ```
 
 #### Environment Variables
@@ -202,9 +201,11 @@ uv run python -m src.mcp_servers.mcp_general.http_main
 Configure HTTP streaming in `.env`:
 
 ```bash
-# HTTP Streaming Configuration
-HTTP_HOST=0.0.0.0
+# SSE Transport Configuration
+# Endpoints: http://<IP>:8000/sse (General), http://<IP>:8001/sse (COBOL)
+HTTP_HOST=::
 HTTP_PORT=8000
+HTTP_PORT_COBOL=8001
 HTTP_STREAMING_ENABLED=true
 ```
 

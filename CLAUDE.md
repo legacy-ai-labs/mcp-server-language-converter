@@ -26,10 +26,11 @@ uv run python scripts/init_db.py      # Initialize tables
 
 # Run servers (unified runner - preferred)
 uv run python -m src.mcp_servers.mcp_general stdio            # STDIO transport
-uv run python -m src.mcp_servers.mcp_general sse              # SSE on :8000
-uv run python -m src.mcp_servers.mcp_general streamable-http  # Streamable HTTP on :8002
+uv run python -m src.mcp_servers.mcp_general sse              # SSE General: http://<IP>:8000/sse
+uv run python -m src.mcp_servers.mcp_general streamable-http  # Streamable HTTP General: http://<IP>:8002/mcp
 uv run python -m src.mcp_servers.mcp_cobol_analysis stdio     # COBOL STDIO
-uv run python -m src.mcp_servers.mcp_cobol_analysis sse       # COBOL SSE on :8001
+uv run python -m src.mcp_servers.mcp_cobol_analysis sse       # SSE COBOL: http://<IP>:8001/sse
+uv run python -m src.mcp_servers.mcp_cobol_analysis streamable-http  # Streamable HTTP COBOL: http://<IP>:8003/mcp
 
 # ProLeap COBOL Parser (Java-based, for validation)
 uv run python scripts/proleap_ast_export.py <cobol_file>  # Export AST to JSON
@@ -63,7 +64,7 @@ docker compose -f docker/docker-compose.yml up -d --build  # Rebuild and restart
 npx @modelcontextprotocol/inspector  # Opens http://localhost:3000
 
 # Kill running MCP processes (macOS)
-lsof -ti:8000,8002 | xargs -r kill   # Kill by port
+lsof -ti:8000,8001,8002,8003,9090 | xargs -r kill   # Kill by port
 pkill -f "src.mcp_servers.mcp_general" || true  # Kill by module
 ```
 
@@ -175,7 +176,7 @@ from src.core.config import get_settings
 settings = get_settings()  # settings.database_url, settings.enable_metrics
 ```
 
-**Observability**: All tools automatically traced with Prometheus metrics and database logging. Access at `http://localhost:8000/metrics`.
+**Observability**: All tools automatically traced with Prometheus metrics and database logging. Access at `http://localhost:9090/metrics` (health: `http://localhost:9090/health`).
 
 ## Code Style
 
@@ -199,13 +200,14 @@ Python 3.12+, UV, PostgreSQL 14+, FastMCP 2.0, FastAPI, SQLAlchemy 2.0 + asyncpg
 
 ## Docker Ports (Quick Reference)
 
-| Port | Protocol | Domain |
-|------|----------|--------|
-| 8000 | SSE | General |
-| 8001 | SSE | COBOL Analysis |
-| 8002 | Streamable HTTP | General |
-| 8003 | Streamable HTTP | COBOL Analysis |
-| 9090 | Health/Metrics | All |
+| Port | Description | Endpoint |
+|------|-------------|----------|
+| 8000 | SSE General | `http://<IP>:8000/sse` |
+| 8001 | SSE COBOL | `http://<IP>:8001/sse` |
+| 8002 | Streamable HTTP General | `http://<IP>:8002/mcp` |
+| 8003 | Streamable HTTP COBOL | `http://<IP>:8003/mcp` |
+| 9090 | Health Check | `http://<IP>:9090/health` |
+| 9090 | Prometheus Metrics | `http://<IP>:9090/metrics` |
 
 ## Key Documentation
 

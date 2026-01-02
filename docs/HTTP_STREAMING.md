@@ -224,9 +224,11 @@ uv run python scripts/start_http_streaming.py
 Create or update `.env`:
 
 ```bash
-# HTTP Streaming Configuration
-HTTP_HOST=0.0.0.0
+# SSE Transport (HTTP Streaming via Server-Sent Events)
+# Endpoints: http://<IP>:8000/sse (General), http://<IP>:8001/sse (COBOL)
+HTTP_HOST=::
 HTTP_PORT=8000
+HTTP_PORT_COBOL=8001
 HTTP_STREAMING_ENABLED=true
 
 # Database (required for tool loading)
@@ -606,8 +608,9 @@ uv run python scripts/seed_tools.py
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HTTP_HOST` | `0.0.0.0` | Host to bind the HTTP server |
-| `HTTP_PORT` | `8000` | Port for the HTTP server |
+| `HTTP_HOST` | `::` | Host to bind the HTTP server (dual-stack IPv4/IPv6) |
+| `HTTP_PORT` | `8000` | Port for SSE General (`http://<IP>:8000/sse`) |
+| `HTTP_PORT_COBOL` | `8001` | Port for SSE COBOL (`http://<IP>:8001/sse`) |
 | `HTTP_STREAMING_ENABLED` | `true` | Enable HTTP streaming mode |
 | `LOG_LEVEL` | `INFO` | Logging level |
 

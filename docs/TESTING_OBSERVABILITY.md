@@ -140,12 +140,12 @@ ORDER BY total_calls DESC;
 
 1. **Start HTTP server**:
    ```bash
-   uv run python -m src.mcp_servers.mcp_general.http_main
+   uv run python -m src.mcp_servers.mcp_general sse
    ```
 
-2. **Check Prometheus metrics** (if available):
+2. **Check Prometheus metrics** (http://<IP>:9090/metrics):
    ```bash
-   curl http://localhost:8000/metrics | grep mcp_tool
+   curl http://localhost:9090/metrics | grep mcp_tool
    ```
 
    You should see:

@@ -50,13 +50,14 @@ uv run python -m src.mcp_servers.mcp_cobol_analysis stdio
 # General domain (port 8000)
 uv run python -m src.mcp_servers.mcp_general sse
 
-# COBOL Analysis domain (port 8000 - run one at a time, or change HTTP_PORT)
+# COBOL Analysis domain (port 8001)
 uv run python -m src.mcp_servers.mcp_cobol_analysis sse
 ```
 
 **MCP Inspector Configuration:**
 - Transport: Server-Sent Events (SSE)
-- URL: `http://127.0.0.1:8000/sse`
+- URL (General): `http://localhost:8000/sse`
+- URL (COBOL): `http://localhost:8001/sse`
 
 **Test:**
 - General: Initialize → List tools → Call `echo`, `calculator_add`
@@ -68,13 +69,14 @@ uv run python -m src.mcp_servers.mcp_cobol_analysis sse
 # General domain (port 8002)
 uv run python -m src.mcp_servers.mcp_general streamable-http
 
-# COBOL Analysis domain (port 8002 - run one at a time, or change STREAMABLE_HTTP_PORT)
+# COBOL Analysis domain (port 8003)
 uv run python -m src.mcp_servers.mcp_cobol_analysis streamable-http
 ```
 
 **MCP Inspector Configuration:**
 - Transport: Streamable HTTP
-- URL: `http://127.0.0.1:8002/mcp`
+- URL (General): `http://localhost:8002/mcp`
+- URL (COBOL): `http://localhost:8003/mcp`
 
 **Test:**
 - General: Initialize → List tools → Call `echo`, `calculator_add`
@@ -98,13 +100,16 @@ open ./test_streamable_http.html
 
 Check if servers are running (ports):
 ```bash
-lsof -i :8000 -sTCP:LISTEN
-lsof -i :8002 -sTCP:LISTEN
+lsof -i :8000 -sTCP:LISTEN  # SSE General
+lsof -i :8001 -sTCP:LISTEN  # SSE COBOL
+lsof -i :8002 -sTCP:LISTEN  # Streamable HTTP General
+lsof -i :8003 -sTCP:LISTEN  # Streamable HTTP COBOL
+lsof -i :9090 -sTCP:LISTEN  # Health/Metrics
 ```
 
 Get only PIDs and kill them:
 ```bash
-lsof -ti:8000,8002 | xargs -r kill
+lsof -ti:8000,8001,8002,8003,9090 | xargs -r kill
 ```
 
 Kill by module name:

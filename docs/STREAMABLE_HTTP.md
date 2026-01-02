@@ -18,12 +18,18 @@ Streamable HTTP is a bidirectional HTTP transport protocol that consolidates all
 
 ### Port Configuration
 
-The Streamable HTTP server runs on port 8002 by default (configurable via environment variables):
+The Streamable HTTP servers run on ports 8002 (General) and 8003 (COBOL) by default:
+
+| Port | Domain | Endpoint |
+|------|--------|----------|
+| 8002 | General | `http://<IP>:8002/mcp` |
+| 8003 | COBOL | `http://<IP>:8003/mcp` |
 
 ```bash
-# Default configuration
-STREAMABLE_HTTP_HOST=0.0.0.0
+# Default configuration (env.example)
+STREAMABLE_HTTP_HOST=::
 STREAMABLE_HTTP_PORT=8002
+STREAMABLE_HTTP_PORT_COBOL=8003
 STREAMABLE_HTTP_ENABLED=true
 ```
 
@@ -170,7 +176,8 @@ curl -X POST http://127.0.0.1:8002/mcp \
 | **Endpoint** | `/sse` | `/mcp` |
 | **Communication** | Server-to-client only | Bidirectional |
 | **Session Management** | Automatic | Automatic |
-| **Port** | 8000 | 8002 |
+| **Port (General)** | 8000 | 8002 |
+| **Port (COBOL)** | 8001 | 8003 |
 | **Use Case** | Real-time updates | Full MCP protocol |
 | **Client Complexity** | Simple | Requires MCP client |
 

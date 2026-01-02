@@ -182,11 +182,12 @@ async def startup(
         raise
 
 
-def _get_transport_config(transport: TransportType) -> dict[str, Any]:
+def _get_transport_config(transport: TransportType, domain: str) -> dict[str, Any]:
     """Get transport-specific configuration (host, port, middleware).
 
     Args:
         transport: Transport type
+        domain: Server domain (e.g., "general", "cobol_analysis")
 
     Returns:
         Dictionary with transport configuration:
@@ -196,13 +197,18 @@ def _get_transport_config(transport: TransportType) -> dict[str, Any]:
     """
     config: dict[str, Any] = {}
 
+    # Determine if this is a COBOL domain server
+    is_cobol = domain == "cobol_analysis"
+
     if transport == "stdio":
         # STDIO doesn't need host/port
         config = {}
     elif transport == "sse":
+        # Use COBOL port (8001) for cobol_analysis, general port (8000) otherwise
+        port = settings.http_port_cobol if is_cobol else settings.http_port
         config = {
             "host": settings.http_host,
-            "port": settings.http_port,
+            "port": port,
             "middleware": [
                 Middleware(MCPAcceptHeaderMiddleware),  # Fix Accept headers before MCP processing
                 Middleware(
@@ -214,11 +220,13 @@ def _get_transport_config(transport: TransportType) -> dict[str, Any]:
                 ),
             ],
         }
-        logger.info("CORS enabled for SSE transport - browser connections allowed")
+        logger.info(f"CORS enabled for SSE transport on port {port} - browser connections allowed")
     elif transport == "streamable-http":
+        # Use COBOL port (8003) for cobol_analysis, general port (8002) otherwise
+        port = settings.streamable_http_port_cobol if is_cobol else settings.streamable_http_port
         config = {
             "host": settings.streamable_http_host,
-            "port": settings.streamable_http_port,
+            "port": port,
             "middleware": [
                 Middleware(MCPAcceptHeaderMiddleware),  # Fix Accept headers before MCP processing
                 Middleware(
@@ -231,7 +239,7 @@ def _get_transport_config(transport: TransportType) -> dict[str, Any]:
                 ),
             ],
         }
-        logger.info("CORS and Accept header middleware enabled for Streamable HTTP transport")
+        logger.info(f"CORS and Accept header middleware enabled for Streamable HTTP on port {port}")
 
     return config
 
@@ -279,7 +287,7 @@ def run_server(
         mcp = asyncio.run(startup(domain=domain, transport=transport, server_name=server_name))
 
         # Get transport-specific configuration
-        transport_config = _get_transport_config(transport)
+        transport_config = _get_transport_config(transport, domain)
 
         # Run MCP server with specified transport
         run_kwargs = {"transport": transport, **transport_config}
