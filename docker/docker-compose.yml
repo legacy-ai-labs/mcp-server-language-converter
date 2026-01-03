@@ -76,13 +76,13 @@ services:
 
       # SSE Transport Configuration
       # Endpoints: http://<IP>:8000/sse (General), http://<IP>:8001/sse (COBOL)
-      HTTP_HOST: "::"
+      HTTP_HOST: "0.0.0.0"
       HTTP_PORT: "8000"
       HTTP_PORT_COBOL: "8001"
 
       # Streamable HTTP Transport Configuration
       # Endpoints: http://<IP>:8002/mcp (General), http://<IP>:8003/mcp (COBOL)
-      STREAMABLE_HTTP_HOST: "::"
+      STREAMABLE_HTTP_HOST: "0.0.0.0"
       STREAMABLE_HTTP_PORT: "8002"
       STREAMABLE_HTTP_PORT_COBOL: "8003"
 
