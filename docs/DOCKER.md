@@ -9,6 +9,7 @@ This guide explains the Docker setup for the MCP Server, including all configura
   - [Dockerfile](#dockerfile)
   - [docker-compose.yml](#docker-composeyml)
   - [supervisord.conf](#supervisordconf)
+    - [How Python Reads Port Configuration](#how-python-reads-port-configuration)
   - [entrypoint.sh](#entrypointsh)
   - [.dockerignore](#dockerignore)
 - [How It All Works Together](#how-it-all-works-together)
@@ -256,6 +257,46 @@ environment=STREAMABLE_HTTP_PORT="8003"
 ```
 
 This allows 4 instances of the same code to run on different ports.
+
+#### How Python Reads Port Configuration
+
+The Python application uses Pydantic settings to read environment variables:
+
+**`src/core/config.py`:**
+```python
+class Settings(BaseSettings):
+    # SSE Transport
+    http_port: int = 8000           # Reads HTTP_PORT env var
+    http_port_cobol: int = 8001     # Reads HTTP_PORT_COBOL env var
+
+    # Streamable HTTP Transport
+    streamable_http_port: int = 8002       # Reads STREAMABLE_HTTP_PORT env var
+    streamable_http_port_cobol: int = 8003 # Reads STREAMABLE_HTTP_PORT_COBOL env var
+```
+
+**`src/mcp_servers/common/unified_runner.py`:**
+```python
+def _get_transport_config(transport: TransportType, domain: str) -> dict[str, Any]:
+    is_cobol = domain == "cobol_analysis"
+
+    if transport == "sse":
+        port = settings.http_port_cobol if is_cobol else settings.http_port
+        return {"host": settings.http_host, "port": port, ...}
+
+    elif transport == "streamable-http":
+        port = settings.streamable_http_port_cobol if is_cobol else settings.streamable_http_port
+        return {"host": settings.streamable_http_host, "port": port, ...}
+```
+
+**Complete flow:**
+```
+supervisord.conf              Python config.py              unified_runner.py
+────────────────────────────────────────────────────────────────────────────
+environment=HTTP_PORT="8000"  → settings.http_port=8000    → SSE binds to 8000
+environment=HTTP_PORT="8001"  → settings.http_port=8001    → SSE binds to 8001
+environment=STREAMABLE_HTTP_PORT="8002" → settings...=8002 → Streamable binds to 8002
+environment=STREAMABLE_HTTP_PORT="8003" → settings...=8003 → Streamable binds to 8003
+```
 
 ---
 

@@ -42,6 +42,7 @@ uv run pytest tests/path/file.py::test_fn # Single test
 uv run pytest -k "pattern" -vxs           # Pattern match, verbose, stop on fail
 uv run pytest -m "not slow"               # Skip slow tests
 uv run pytest -m integration              # Only integration tests
+uv run pytest -m unit                     # Only unit tests
 uv run pytest --cov=src --cov-report=html # Coverage
 
 # Code quality
@@ -53,6 +54,7 @@ uv run mypy src/                   # Type check
 # Database migrations
 uv run alembic revision --autogenerate -m "Description"
 uv run alembic upgrade head
+uv run alembic downgrade -1    # Rollback one migration
 
 # Docker (for containerized deployment)
 docker compose -f docker/docker-compose.yml up -d      # Start all services
@@ -152,13 +154,20 @@ Services in `src/core/services/cobol_analysis/`:
 - `tool_handlers_service.py` - COBOL tool handlers
 
 Key tools:
-- `parse_cobol` - Parse COBOL source to AST
+- `parse_cobol` - Parse COBOL source to raw ParseNode (parse tree)
+- `build_ast` - Build Abstract Syntax Tree with comments and metadata
 - `build_asg` - Build Abstract Semantic Graph with semantic analysis
+- `build_cfg` - Build Control Flow Graph for cyclomatic complexity
+- `build_dfg` - Build Data Flow Graph for variable tracking
 - `analyze_complexity` - Complexity metrics with optional `build_asg`, `build_cfg`, `build_dfg`, `auto_enhance` parameters
+- `prepare_cobol_for_antlr` - Remove unsupported optional paragraphs (AUTHOR, DATE-WRITTEN, etc.)
 - `resolve_copybooks` - Resolve COPY statements
+- `batch_resolve_copybooks` - Batch resolve COPY statements for entire directories
 - `batch_analyze_cobol_directory` - Analyze entire directory of COBOL programs
 - `analyze_program_system` - Inter-program relationship analysis
 - `build_call_graph` - Generate program call graph
+- `analyze_copybook_usage` - Track copybook usage across programs
+- `analyze_data_flow` - Trace data flow through program parameters
 
 Models in `src/core/models/`:
 - `complexity_metrics_model.py` - ComplexityMetrics with ASGMetrics, CFGMetrics, DFGMetrics for progressive analysis
@@ -174,7 +183,13 @@ async with get_db() as db:
 # Configuration
 from src.core.config import get_settings
 settings = get_settings()  # settings.database_url, settings.enable_metrics
+
+# RORO pattern (Receive Object, Return Object)
+def process_data(params: ProcessParams) -> ProcessResult:
+    return ProcessResult(success=True, data=params.input)
 ```
+
+**Lifespan**: Prefer lifespan context managers over `@app.on_event("startup")` for FastAPI.
 
 **Observability**: All tools automatically traced with Prometheus metrics and database logging. Access at `http://localhost:9090/metrics` (health: `http://localhost:9090/health`).
 
