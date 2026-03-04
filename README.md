@@ -404,7 +404,7 @@ We welcome contributions! Please read our [Contributing Guidelines](docs/CONTRIB
 
 ## License
 
-This project is licensed under [PolyForm Noncommercial 1.0.0](LICENSE) – free for personal and educational use, commercial use requires permission.
+This project is licensed under the [MIT License](LICENSE).
 
 ## Additional References
 
