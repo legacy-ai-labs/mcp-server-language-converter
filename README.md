@@ -2,8 +2,6 @@
 
 > *Parse the past, build the future - Bridging legacy systems to AI, one interface at a time.*
 
-> **Note:** This project is for personal/educational use only. See [License](#license) for details.
-
 A **hybrid MCP (Model Context Protocol) server** implementation that supports multiple domain-specific MCP servers, each exposing business logic through multiple interfaces: MCP protocol (STDIO and HTTP streaming) and REST API. Currently focused on **COBOL program analysis and reverse engineering**, with an extensible architecture for other legacy languages.
 
 ## Purpose
