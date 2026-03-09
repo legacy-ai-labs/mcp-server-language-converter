@@ -2596,8 +2596,8 @@ def _resolve_cross_references(
 
         # When multiple entries share the same name, use the qualifier (parent
         # group name) to pick the right one.  If no qualifier is present, record
-        # the reference on all matching entries (conservative — same behaviour as
-        # ProLeap when the reference is unqualified).
+        # the reference on all matching entries (conservative approach when
+        # the reference is unqualified).
         if len(matches) > 1 and qualifier:
             narrowed = [e for e in matches if e.parent_name and e.parent_name.upper() == qualifier]
             if narrowed:
