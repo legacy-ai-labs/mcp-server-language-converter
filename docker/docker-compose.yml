@@ -16,7 +16,6 @@
 #   8003 - Streamable HTTP COBOL:   http://<IP>:8003/mcp
 #   9090 - Health Check:          http://<IP>:9090/health
 #   9090 - Prometheus Metrics:    http://<IP>:9090/metrics
-#   4567 - ProLeap COBOL Service: http://<IP>:4567/v1/cobol/health
 #   5432 - PostgreSQL (optional external access)
 #
 # =============================================================================
@@ -51,34 +50,6 @@ services:
       resources:
         limits:
           memory: 512M
-        reservations:
-          memory: 256M
-
-  # ---------------------------------------------------------------------------
-  # ProLeap COBOL Service (Java sidecar — AGPL v3, isolated by HTTP boundary)
-  # ---------------------------------------------------------------------------
-  proleap-service:
-    build:
-      context: ../services/proleap-service
-      dockerfile: Dockerfile
-    container_name: mcp-proleap-service
-    restart: unless-stopped
-    ports:
-      - "4567:4567"
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:4567/v1/cobol/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - mcp-network
-    volumes:
-      - cobol_files:/data/cobol:ro
-    deploy:
-      resources:
-        limits:
-          memory: 1G
         reservations:
           memory: 256M
 
@@ -122,10 +93,6 @@ services:
       LOG_TOOL_INPUTS: "false"
       LOG_TOOL_OUTPUTS: "false"
 
-      # ProLeap Java Service
-      PROLEAP_SERVICE_URL: http://proleap-service:4567
-      PROLEAP_SERVICE_ENABLED: "true"
-      PROLEAP_SERVICE_TIMEOUT: "30"
     ports:
       # SSE Transport (http://<IP>:<port>/sse)
       - "8000:8000"   # SSE General

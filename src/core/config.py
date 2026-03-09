@@ -45,11 +45,6 @@ class Settings(BaseSettings):
     streamable_http_port_cobol: int = 8003  # Streamable HTTP COBOL: http://<IP>:8003/mcp
     streamable_http_enabled: bool = True
 
-    # ProLeap Java Service (COBOL analysis sidecar)
-    proleap_service_url: str = "http://localhost:4567"
-    proleap_service_timeout: int = 30
-    proleap_service_enabled: bool = False
-
     # Observability & Metrics
     enable_metrics: bool = True  # Enable Prometheus metrics collection
     enable_execution_logging: bool = True  # Enable database logging of executions

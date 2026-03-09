@@ -1,8 +1,6 @@
 """Tool definitions for COBOL analysis domain using decorator-based registration."""
 
-from typing import Annotated, Any
-
-from pydantic import Field
+from typing import Any
 
 from src.core.services.cobol_analysis.tool_handlers_service import (
     analyze_complexity_handler,
@@ -18,9 +16,6 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     build_dfg_handler,
     parse_cobol_handler,
     prepare_cobol_for_antlr_handler,
-    proleap_analyze_cobol_handler,
-    proleap_interpret_cobol_handler,
-    proleap_transform_cobol_handler,
     resolve_copybooks_handler,
 )
 from src.mcp_servers.common.tool_registry import register_tool
@@ -828,100 +823,3 @@ async def batch_resolve_copybooks(
     if file_extensions is not None:
         parameters["file_extensions"] = file_extensions
     return batch_resolve_copybooks_handler(parameters)
-
-
-# ---------------------------------------------------------------------------
-# ProLeap Java Service Tools (require running sidecar)
-# ---------------------------------------------------------------------------
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="proleap_analyze_cobol",
-    description="Static analysis of COBOL using ProLeap (code smells, anti-patterns). Requires ProLeap sidecar.",
-)
-async def proleap_analyze_cobol(
-    source_code: Annotated[str, Field(description="COBOL source code to analyze")],
-    format: Annotated[
-        str,
-        Field(
-            description=(
-                "COBOL source format. "
-                "FIXED (default): traditional mainframe — columns 1-6 sequence, col 7 indicator, cols 8-72 code. "
-                "FREE: modern COBOL-2002+ — no column restrictions. "
-                "VARIABLE: like FIXED but lines can exceed column 72."
-            ),
-        ),
-    ] = "FIXED",
-) -> dict[str, Any]:
-    """Analyze COBOL source code for issues using the ProLeap Java service.
-
-    This tool delegates to the ProLeap COBOL analyzer running as a separate
-    Java service (AGPL v3, isolated by HTTP/container boundary).
-
-    Returns:
-        Dictionary with analysis results including detected issues categorized as
-        'standard', 'best_practice', 'style_opinion', or 'code_quality'
-    """
-    return await proleap_analyze_cobol_handler({"source_code": source_code, "format": format})
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="proleap_transform_cobol",
-    description="Transform COBOL to Java using ProLeap transpiler. Requires ProLeap sidecar.",
-)
-async def proleap_transform_cobol(
-    source_code: Annotated[str, Field(description="COBOL source code to transform to Java")],
-    format: Annotated[
-        str,
-        Field(
-            description=(
-                "COBOL source format. "
-                "FIXED (default): traditional mainframe — columns 1-6 sequence, col 7 indicator, cols 8-72 code. "
-                "FREE: modern COBOL-2002+ — no column restrictions. "
-                "VARIABLE: like FIXED but lines can exceed column 72."
-            ),
-        ),
-    ] = "FIXED",
-) -> dict[str, Any]:
-    """Transform COBOL source code to Java using the ProLeap transpiler.
-
-    This tool delegates to the ProLeap COBOL-to-Java transpiler running as a
-    separate Java service (AGPL v3, isolated by HTTP/container boundary).
-    Generated Java source code is NOT subject to AGPL licensing per ProLeap's README.
-
-    Returns:
-        Dictionary with the generated Java source code
-    """
-    return await proleap_transform_cobol_handler({"source_code": source_code, "format": format})
-
-
-@register_tool(
-    domain="cobol_analysis",
-    tool_name="proleap_interpret_cobol",
-    description="Execute COBOL program in JVM interpreter via ProLeap. Requires ProLeap sidecar.",
-)
-async def proleap_interpret_cobol(
-    source_code: Annotated[str, Field(description="COBOL source code to execute")],
-    format: Annotated[
-        str,
-        Field(
-            description=(
-                "COBOL source format. "
-                "FIXED (default): traditional mainframe — columns 1-6 sequence, col 7 indicator, cols 8-72 code. "
-                "FREE: modern COBOL-2002+ — no column restrictions. "
-                "VARIABLE: like FIXED but lines can exceed column 72."
-            ),
-        ),
-    ] = "FIXED",
-) -> dict[str, Any]:
-    """Execute a COBOL program using the ProLeap JVM interpreter.
-
-    This tool delegates to the ProLeap interpreter running as a separate Java
-    service (AGPL v3, isolated by HTTP/container boundary).
-
-    Returns:
-        Dictionary with program output and execution results
-    """
-    return await proleap_interpret_cobol_handler({"source_code": source_code, "format": format})

@@ -119,27 +119,6 @@
           "handler_name": "batch_resolve_copybooks_handler",
           "category": "preprocessing",
           "is_active": true
-        },
-        {
-          "name": "proleap_analyze_cobol",
-          "description": "Static analysis of COBOL using ProLeap (code smells, anti-patterns). Requires ProLeap sidecar.",
-          "handler_name": "proleap_analyze_cobol_handler",
-          "category": "proleap",
-          "is_active": true
-        },
-        {
-          "name": "proleap_transform_cobol",
-          "description": "Transform COBOL to Java using ProLeap transpiler. Requires ProLeap sidecar.",
-          "handler_name": "proleap_transform_cobol_handler",
-          "category": "proleap",
-          "is_active": true
-        },
-        {
-          "name": "proleap_interpret_cobol",
-          "description": "Execute COBOL program in JVM interpreter via ProLeap. Requires ProLeap sidecar.",
-          "handler_name": "proleap_interpret_cobol_handler",
-          "category": "proleap",
-          "is_active": true
         }
       ]
     }
