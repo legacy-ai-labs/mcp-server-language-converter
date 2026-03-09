@@ -184,6 +184,21 @@ Key tools:
 - `proleap_transform_cobol` - COBOL-to-Java transformation via ProLeap (requires sidecar)
 - `proleap_interpret_cobol` - Execute COBOL in JVM interpreter via ProLeap (requires sidecar)
 
+### ProLeap Java Sidecar
+
+The ProLeap service (`services/proleap-service/`) runs as a separate Java container to maintain AGPL license isolation. The Python project stays MIT; AGPL obligation stays inside the Java container. Communication is via HTTP REST.
+
+**Architecture**: Embedded Jetty with custom servlets (parse, ASG, health) + proleap-cobol-app AGPL servlets (analyze, transform, execute).
+
+**Known ProLeap limitations** (upstream bugs, not fixable in our code):
+- `ABS()` and other intrinsic functions on LINKAGE SECTION variables cause `ClassCastException` (UndefinedCallImpl → TableCall)
+- Interpreter cannot run subprograms with `PROCEDURE DIVISION USING` (LINKAGE variables have no memory)
+- `/analyze/text` returns Content-Type `application/json` but body may be plain text on errors
+
+**Error handling**: `_humanize_proleap_error()` in `tool_handlers_service.py` translates raw Java exceptions into clear messages. `_PROLEAP_ISSUE_RULES` classifies ProLeap analysis issues into categories: `standard`, `best_practice`, `style_opinion`, `code_quality`. Add new patterns there when ProLeap returns new rule types.
+
+**Client**: `proleap_client_service.py` uses httpx with circuit breaker (closed → open after 5 failures → half-open after 30s). The `_post()` method handles both JSON and plain text responses.
+
 Models in `src/core/models/`:
 - `complexity_metrics_model.py` - ComplexityMetrics with ASGMetrics, CFGMetrics, DFGMetrics for progressive analysis
 
@@ -206,7 +221,27 @@ def process_data(params: ProcessParams) -> ProcessResult:
 
 **Lifespan**: Prefer lifespan context managers over `@app.on_event("startup")` for FastAPI.
 
+**Tool parameter descriptions**: Use `Annotated[str, Field(description="...")]` from pydantic to add descriptions that appear in MCP Inspector. Docstring `Args:` sections alone do not propagate to the MCP tool schema.
+
+```python
+from typing import Annotated
+from pydantic import Field
+
+async def my_tool(
+    source_code: Annotated[str, Field(description="COBOL source code to analyze")],
+    format: Annotated[str, Field(description="FIXED, FREE, or VARIABLE")] = "FIXED",
+) -> dict[str, Any]: ...
+```
+
 **Observability**: All tools automatically traced with Prometheus metrics and database logging. Access at `http://localhost:9090/metrics` (health: `http://localhost:9090/health`).
+
+**MCP Inspector testing**: Start Docker services, then run Inspector in another terminal:
+```bash
+docker compose -f docker/docker-compose.yml up -d
+npx @modelcontextprotocol/inspector
+# Connect to Streamable HTTP: http://localhost:8003/mcp (COBOL) or http://localhost:8002/mcp (General)
+# Or SSE: http://localhost:8001/sse (COBOL) or http://localhost:8000/sse (General)
+```
 
 ## Code Style
 
