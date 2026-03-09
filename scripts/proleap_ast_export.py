@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-ProLeap AST Export Script
+ProLeap AST Export Script (DEPRECATED)
+
+DEPRECATED: Use the ProLeap HTTP service instead:
+    curl -X POST http://localhost:4567/v1/cobol/parse/text \
+         -H 'Content-Type: application/json' \
+         -d '{"code": "...", "format": "FIXED"}'
+
+Or start the service via Docker:
+    docker compose -f docker/docker-compose.yml up -d proleap-service
 
 This script builds ProLeap from source and uses it to export COBOL AST to JSON.
 The AST (Abstract Syntax Tree) is the raw parse tree from ANTLR, before semantic analysis.
@@ -150,7 +158,18 @@ def get_classpath() -> str:
 
 
 def create_java_exporter() -> Path:
-    """Create a Java AST exporter that outputs the raw parse tree."""
+    """Use the existing SimpleAstExporter.java from lib/java/ as the single source of truth."""
+    java_file = LIB_DIR / "java" / "SimpleAstExporter.java"
+
+    if not java_file.exists():
+        raise FileNotFoundError(f"SimpleAstExporter.java not found at {java_file}")
+
+    print(f"Using Java AST exporter: {java_file}")
+    return java_file
+
+
+def _unused_create_java_exporter_template() -> Path:
+    """DEPRECATED - kept only for reference. Do not call."""
     java_dir = LIB_DIR / "java"
     java_dir.mkdir(parents=True, exist_ok=True)
 

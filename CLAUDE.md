@@ -34,7 +34,13 @@ uv run python -m src.mcp_servers.mcp_cobol_analysis stdio     # COBOL STDIO
 uv run python -m src.mcp_servers.mcp_cobol_analysis sse       # SSE COBOL: http://<IP>:8001/sse
 uv run python -m src.mcp_servers.mcp_cobol_analysis streamable-http  # Streamable HTTP COBOL: http://<IP>:8003/mcp
 
-# ProLeap COBOL Parser (Java-based, for validation)
+# ProLeap COBOL Service (Java sidecar — AGPL v3, isolated by HTTP/container boundary)
+docker compose -f docker/docker-compose.yml up -d proleap-service  # Start ProLeap only
+curl http://localhost:4567/v1/cobol/health                          # Health check
+# Endpoints: POST /v1/cobol/parse/text, /v1/cobol/asg/text,
+#            /v1/cobol/analyze/text, /v1/cobol/transform/text, /v1/cobol/execute/text
+
+# ProLeap export scripts (DEPRECATED — use the HTTP service above)
 uv run python scripts/proleap_ast_export.py <cobol_file>       # Export AST to JSON
 uv run python scripts/proleap_full_asg_export.py <cobol_file>  # Export full ASG to JSON
 
@@ -157,6 +163,7 @@ Services in `src/core/services/cobol_analysis/`:
 - `cobol_preprocessor_service.py` - COPY/REPLACE statement handling, copybook resolution
 - `cobol_parser_antlr_service.py` - ANTLR-based parsing
 - `tool_handlers_service.py` - COBOL tool handlers
+- `proleap_client_service.py` - Async HTTP client for ProLeap Java sidecar (circuit breaker)
 
 Key tools:
 - `parse_cobol` - Parse COBOL source to raw ParseNode (parse tree)
@@ -173,6 +180,9 @@ Key tools:
 - `build_call_graph` - Generate program call graph
 - `analyze_copybook_usage` - Track copybook usage across programs
 - `analyze_data_flow` - Trace data flow through program parameters
+- `proleap_analyze_cobol` - Static analysis via ProLeap Java sidecar (requires sidecar)
+- `proleap_transform_cobol` - COBOL-to-Java transformation via ProLeap (requires sidecar)
+- `proleap_interpret_cobol` - Execute COBOL in JVM interpreter via ProLeap (requires sidecar)
 
 Models in `src/core/models/`:
 - `complexity_metrics_model.py` - ComplexityMetrics with ASGMetrics, CFGMetrics, DFGMetrics for progressive analysis
@@ -228,6 +238,7 @@ Python 3.12+, UV, PostgreSQL 14+, FastMCP 2.0, FastAPI, SQLAlchemy 2.0 + asyncpg
 | 8001 | SSE COBOL | `http://<IP>:8001/sse` |
 | 8002 | Streamable HTTP General | `http://<IP>:8002/mcp` |
 | 8003 | Streamable HTTP COBOL | `http://<IP>:8003/mcp` |
+| 4567 | ProLeap COBOL Service | `http://<IP>:4567/v1/cobol/health` |
 | 9090 | Health Check | `http://<IP>:9090/health` |
 | 9090 | Prometheus Metrics | `http://<IP>:9090/metrics` |
 

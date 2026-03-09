@@ -5,7 +5,7 @@ For COBOL analysis services, import directly from their modules:
         ParseNode, parse_cobol, parse_cobol_file
     )
     from src.core.services.cobol_analysis.asg_builder_service import (
-        build_asg_from_source, build_asg_from_file
+        build_asg_from_source_with_preprocessing, build_asg_with_preprocessing
     )
 """
 

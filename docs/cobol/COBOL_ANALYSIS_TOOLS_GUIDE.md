@@ -38,21 +38,21 @@ The COBOL analysis toolkit provides 14 specialized tools organized into four cat
 - Clean up unsupported language features
 
 #### 2. **Parsing Tools** (2 tools)
-- Parse COBOL to raw parse tree
-- Parse COBOL to Abstract Syntax Tree (AST)
+- `parse_cobol` — Parse COBOL to raw parse tree
+- `build_ast` — Parse COBOL to Abstract Syntax Tree (AST) with metadata
 
-#### 3. **Analysis Tools** (4 tools)
-- Build Control Flow Graph (CFG)
-- Build Data Flow Graph (DFG)
-- Build Program Dependency Graph (PDG)
-- Batch analyze multiple files
+#### 3. **Analysis Tools** (5 tools)
+- `build_asg` — Build Abstract Semantic Graph
+- `build_cfg` — Build Control Flow Graph
+- `build_dfg` — Build Data Flow Graph
+- `analyze_complexity` — Compute complexity metrics
+- `batch_analyze_cobol_directory` — Batch analyze multiple files
 
-#### 4. **System Analysis Tools** (5 tools)
-- Analyze inter-program relationships
-- Build call graphs
-- Track copybook usage
-- Analyze data flow between programs
-- Build system-level dependency graphs
+#### 4. **System Analysis Tools** (4 tools)
+- `analyze_program_system` — Analyze inter-program relationships
+- `build_call_graph` — Build call graphs
+- `analyze_copybook_usage` — Track copybook usage
+- `analyze_data_flow` — Analyze data flow between programs
 
 ## Preprocessing Tools
 
@@ -63,9 +63,9 @@ The COBOL analysis toolkit provides 14 specialized tools organized into four cat
 **Parameters**:
 ```python
 {
-    "source_code": str,      # COBOL source code (optional if file_path provided)
-    "file_path": str,        # Path to COBOL file (optional if source_code provided)
-    "remove_comments": bool  # Remove comment lines (default: False)
+    "source_code": str,   # COBOL source code (optional if source_file provided)
+    "source_file": str,   # Path to COBOL file (optional if source_code provided)
+    "output_file": str    # Path to save cleaned file (optional)
 }
 ```
 
@@ -77,11 +77,21 @@ The COBOL analysis toolkit provides 14 specialized tools organized into four cat
 - SECURITY paragraph
 - REMARKS section
 
+**Returns**:
+```python
+{
+    "success": bool,
+    "cleaned_source": str,         # COBOL source with optional paragraphs removed
+    "paragraphs_removed": list,    # List of paragraph types that were removed
+    "output_file": str             # Path to saved file (if requested)
+}
+```
+
 **Example Usage**:
 ```python
 result = prepare_cobol_for_antlr_handler({
-    "file_path": "/path/to/program.cbl",
-    "remove_comments": False
+    "source_file": "/path/to/program.cbl",
+    "output_file": "/path/to/program-clean.cbl"
 })
 ```
 
@@ -92,25 +102,39 @@ result = prepare_cobol_for_antlr_handler({
 **Parameters**:
 ```python
 {
-    "source_code": str,           # COBOL source with COPY statements
-    "file_path": str,            # Path to main COBOL file
-    "copybook_dirs": List[str],  # Directories to search for copybooks
-    "recursive": bool            # Search directories recursively (default: True)
+    "source_file": str,           # Path to main COBOL file (required)
+    "copybook_paths": list[str],  # Directories to search for copybooks (required)
+    "output_file": str,           # Path to save resolved file (optional)
+    "keep_markers": bool          # Add boundary markers in output (default: True)
 }
 ```
 
 **Features**:
-- Resolves `COPY 'filename'` statements
+- Resolves `COPY filename` statements
 - Handles nested COPY statements
 - Maintains line number tracking
 - Preserves original formatting
 
+**Returns**:
+```python
+{
+    "success": bool,
+    "resolved_source": str,        # Complete source with COPY statements expanded
+    "copybooks_resolved": list,    # Copybooks successfully resolved
+    "copybooks_missing": list,     # Copybooks that couldn't be found
+    "output_file": str,            # Path to saved file (if requested)
+    "line_mapping": dict,          # Original line -> expanded line mapping
+    "original_lines": int,
+    "expanded_lines": int
+}
+```
+
 **Example Usage**:
 ```python
 result = resolve_copybooks_handler({
-    "file_path": "/path/to/program.cbl",
-    "copybook_dirs": ["/path/to/copybooks", "/path/to/includes"],
-    "recursive": True
+    "source_file": "/path/to/program.cbl",
+    "copybook_paths": ["/path/to/copybooks", "/path/to/includes"],
+    "keep_markers": True
 })
 ```
 
@@ -121,52 +145,69 @@ result = resolve_copybooks_handler({
 **Parameters**:
 ```python
 {
-    "directory_path": str,        # Directory containing COBOL files
-    "copybook_dirs": List[str],  # Copybook search directories
-    "file_pattern": str,         # Pattern to match (default: "*.cbl")
-    "backup_originals": bool,    # Create .original backup files (default: True)
-    "include_subdirs": bool      # Process subdirectories (default: True)
+    "directory": str,             # Directory containing COBOL files (required)
+    "copybook_paths": list[str],  # Copybook search directories (required)
+    "file_extensions": list[str], # Extensions to process (default: ['.cbl', '.cob', '.cobol'])
+    "recursive": bool,            # Search subdirectories (default: False)
+    "keep_markers": bool,         # Add boundary markers (default: True)
+    "backup_originals": bool      # Rename originals to .original (default: True)
 }
 ```
 
 **Features**:
 - Processes entire directories
-- Creates backup files before modification
-- Parallel processing support
-- Progress tracking
+- Creates `.original` backup files before modification
+- Progress tracking per file
 
-## Analysis Tools
-
-### 1. parse_cobol & parse_cobol_raw
-
-**Purpose**: Parse COBOL source into structured representations.
-
-#### parse_cobol
-Parses COBOL directly to Abstract Syntax Tree (AST).
-
-**Parameters**:
+**Returns**:
 ```python
 {
-    "source_code": str,  # COBOL source code
-    "file_path": str    # Path to COBOL file
+    "success": bool,
+    "files_processed": list,   # Successfully processed files with details
+    "files_failed": list,      # Failed files with error messages
+    "summary": dict            # Processing summary with totals and statistics
 }
 ```
 
-**Returns**: AST with program structure, divisions, sections, paragraphs, and statements.
+**Example Usage**:
+```python
+result = batch_resolve_copybooks_handler({
+    "directory": "/cobol/sources",
+    "copybook_paths": ["/cobol/copybooks"],
+    "backup_originals": True
+})
+```
 
-#### parse_cobol_raw
-Parses COBOL to raw parse tree (lower-level representation).
+## Analysis Tools
 
-**Returns**: Raw parse tree suitable for custom processing or debugging.
+### 1. parse_cobol
 
-### 2. build_ast
-
-**Purpose**: Convert raw parse tree to Abstract Syntax Tree.
+**Purpose**: Parse COBOL source into a raw parse tree (low-level representation).
 
 **Parameters**:
 ```python
 {
-    "parse_tree": dict  # Raw parse tree from parse_cobol_raw
+    "source_code": str,  # COBOL source code (optional if file_path provided)
+    "file_path": str     # Path to COBOL file (optional if source_code provided)
+}
+```
+
+**Returns**: Dictionary with `success` status and raw parse tree data.
+
+Use this for low-level access to the ANTLR parse tree. For most analysis use cases, prefer `build_ast` which provides more structure and metadata.
+
+### 2. build_ast
+
+**Purpose**: Parse COBOL source into a fully-structured Abstract Syntax Tree with metadata and comments.
+
+**Parameters**:
+```python
+{
+    "source_code": str,                # COBOL source code (optional if file_path provided)
+    "file_path": str,                  # Path to COBOL file (optional if source_code provided)
+    "include_comments": bool,          # Include extracted comments (default: True)
+    "include_metadata": bool,          # Include IDENTIFICATION DIVISION metadata (default: True)
+    "copybook_directories": list[str]  # Directories to search for copybooks (optional)
 }
 ```
 
@@ -183,14 +224,67 @@ ProgramNode
     └── Statements
 ```
 
-### 3. build_cfg
+**Returns**:
+```python
+{
+    "success": bool,
+    "ast": dict,                      # Complete AST structure
+    "program_name": str,
+    "node_count": int,
+    "root_type": str,
+    "metadata": dict,                 # Dependencies (calls, copybooks, files)
+    "comments": list,                 # Extracted comments (if include_comments=True)
+    "comment_count": int,
+    "identification_metadata": dict,  # AUTHOR, DATE-WRITTEN, etc. (if include_metadata=True)
+    "copybook_info": dict,
+    "source_file": str,
+    "saved_to": str
+}
+```
 
-**Purpose**: Build Control Flow Graph from AST.
+**Note**: The `ast` dict returned here is the input required by `build_cfg`, `build_dfg`, and `analyze_complexity`.
+
+### 3. build_asg
+
+**Purpose**: Build an Abstract Semantic Graph (ASG) with resolved references, symbol tables, and cross-references.
 
 **Parameters**:
 ```python
 {
-    "ast": dict  # AST from parse_cobol or build_ast
+    "file_path": str,          # Path to COBOL file (optional if source_code provided)
+    "source_code": str,        # COBOL source code (optional if file_path provided)
+    "program_name": str,       # Program name when using source_code (default: "UNNAMED")
+    "copybook_dir": str,       # Path to copybook directory (optional)
+    "include_summary": bool,   # Include summary statistics (default: True)
+    "include_call_graph": bool,# Include call graph extraction (default: True)
+    "include_data_refs": bool  # Include data item cross-references (default: False)
+}
+```
+
+**Returns**:
+```python
+{
+    "success": bool,
+    "asg": dict,               # Full ASG structure
+    "source_file": str,
+    "parser_version": str,
+    "export_type": str,
+    "summary": dict,           # Counts of programs, divisions, data items, etc.
+    "call_graph": dict,        # Call graph nodes and edges (if include_call_graph=True)
+    "data_references": dict,   # Cross-reference data (if include_data_refs=True)
+    "saved_to": str
+}
+```
+
+### 4. build_cfg
+
+**Purpose**: Build a Control Flow Graph from a COBOL AST for accurate cyclomatic complexity and unreachable code detection.
+
+**Parameters**:
+```python
+{
+    "ast": dict,          # AST dictionary from build_ast (required)
+    "program_name": str   # Optional program name for labeling
 }
 ```
 
@@ -200,6 +294,20 @@ ProgramNode
 - **Entry/Exit nodes**: Program boundaries
 - **Edge types**: Sequential, conditional, loop, call
 
+**Returns**:
+```python
+{
+    "success": bool,
+    "cfg": dict,
+    "cyclomatic_complexity": int,  # Accurate complexity from graph theory (E - N + 2P)
+    "node_count": int,
+    "edge_count": int,
+    "unreachable_nodes": list,     # Nodes unreachable from entry
+    "entry_node": str,
+    "exit_nodes": list
+}
+```
+
 **Example CFG Structure**:
 ```
 Entry → MAIN-PARA → IF-STATEMENT → [TRUE-BRANCH | FALSE-BRANCH] → EXIT
@@ -207,15 +315,15 @@ Entry → MAIN-PARA → IF-STATEMENT → [TRUE-BRANCH | FALSE-BRANCH] → EXIT
            └──────── LOOP-BACK ←──────────┘
 ```
 
-### 4. build_dfg
+### 5. build_dfg
 
-**Purpose**: Build Data Flow Graph showing variable definitions and uses.
+**Purpose**: Build a Data Flow Graph showing variable definitions and uses.
 
 **Parameters**:
 ```python
 {
-    "ast": dict,  # Abstract Syntax Tree
-    "cfg": dict   # Control Flow Graph
+    "ast": dict,          # AST dictionary from build_ast (required)
+    "program_name": str   # Optional program name for labeling
 }
 ```
 
@@ -225,73 +333,120 @@ Entry → MAIN-PARA → IF-STATEMENT → [TRUE-BRANCH | FALSE-BRANCH] → EXIT
 - **Use edges**: Where variables are read
 - **Dependency chains**: Data flow paths
 
-### 5. build_pdg
+**Returns**:
+```python
+{
+    "success": bool,
+    "dfg": dict,
+    "dead_variables": list,        # Variables assigned but never read
+    "uninitialized_reads": list,   # Variables read before assignment
+    "data_dependencies": int,      # Number of dependency edges
+    "variable_count": int,
+    "node_count": int,
+    "edge_count": int
+}
+```
 
-**Purpose**: Build Program Dependency Graph combining control and data dependencies.
+### 6. analyze_complexity
+
+**Purpose**: Compute complexity metrics from COBOL source, optionally building ASG, CFG, and/or DFG for deeper analysis.
 
 **Parameters**:
 ```python
 {
-    "ast": dict,  # Abstract Syntax Tree
-    "cfg": dict,  # Control Flow Graph
-    "dfg": dict   # Data Flow Graph
+    "source_code": str,              # COBOL source code (optional)
+    "file_path": str,                # Path to COBOL file (optional)
+    "ast": dict,                     # Pre-built AST (optional, avoids re-parsing)
+    "include_recommendations": bool, # Generate recommendations (default: True)
+    "build_asg": bool,               # Build ASG for semantic analysis (default: False)
+    "build_cfg": bool,               # Build CFG for accurate cyclomatic complexity (default: False)
+    "build_dfg": bool,               # Build DFG for dead/uninitialized variable detection (default: False)
+    "auto_enhance": bool             # Auto-build ASG/CFG/DFG based on complexity (default: False)
 }
 ```
 
-**PDG Features**:
-- Control dependencies (execution order)
-- Data dependencies (definition-use chains)
-- Combined dependency analysis
-- Slice extraction support
+**Returns**:
+```python
+{
+    "success": bool,
+    "complexity_rating": str,                  # LOW, MEDIUM, HIGH, VERY_HIGH
+    "complexity_score": int,                   # Numeric score 0-100
+    "analysis_level": str,                     # "ast", "asg", "cfg", or "dfg"
+    "metrics": dict,                           # Detailed metrics breakdown
+    "cyclomatic_complexity_accurate": int,     # Accurate CC (if build_cfg=True)
+    "unreachable_code": list,                  # Dead code (if build_cfg=True)
+    "dead_variables": list,                    # Unused variables (if build_dfg=True)
+    "uninitialized_reads": list,               # Variables read before assignment (if build_dfg=True)
+    "recommended_analysis": list,
+    "warnings": list,
+    "recommendations": list
+}
+```
 
-### 6. batch_analyze_cobol_directory
+### 7. batch_analyze_cobol_directory
 
-**Purpose**: Analyze all COBOL files in a directory with configurable analysis options.
+**Purpose**: Analyze all COBOL files in a directory, generating AST, CFG, and DFG for each file.
 
 **Parameters**:
 ```python
 {
-    "directory_path": str,      # Directory to analyze
-    "include_subdirs": bool,    # Include subdirectories
-    "file_pattern": str,        # File pattern (e.g., "*.cbl")
-    "parallel": bool,           # Enable parallel processing
-    "max_workers": int,         # Number of parallel workers
-    "generate_cfg": bool,       # Generate CFG for each file
-    "generate_dfg": bool,       # Generate DFG for each file
-    "generate_pdg": bool,       # Generate PDG for each file
-    "save_results": bool,       # Save results to JSON files
-    "output_dir": str          # Directory for output files
+    "directory_path": str,        # Root directory to scan (required)
+    "file_extensions": list[str], # Extensions to search (default: ['.cbl', '.cob', '.cobol'])
+    "output_directory": str       # Output directory for results (optional)
 }
 ```
 
-**Batch Processing Features**:
-- Parallel file processing
-- Error resilience (continues on failures)
-- Progress tracking
-- Aggregate statistics
-- Configurable analysis depth
+**Returns**:
+```python
+{
+    "success": bool,
+    "directory": str,
+    "files_found": int,
+    "files_processed": int,
+    "files_succeeded": int,
+    "files_failed": int,
+    "output_directory": str,
+    "results": list               # Per-file results with stage-by-stage status
+}
+```
 
 ## System Analysis Tools
 
 ### 1. analyze_program_system
 
-**Purpose**: Analyze relationships across multiple COBOL programs to build a system graph.
+**Purpose**: Analyze relationships across multiple COBOL programs to build a system-level graph.
 
 **Parameters**:
 ```python
 {
-    "directory_path": str,     # Directory containing COBOL programs
-    "include_subdirs": bool,   # Include subdirectories
-    "file_pattern": str       # File pattern to match
+    "directory_path": str,        # Directory containing COBOL programs (required)
+    "file_extensions": list[str], # Extensions to match (default: ['.cbl', '.cob', '.cobol'])
+    "include_inactive": bool,     # Include commented-out relationships (default: False)
+    "max_depth": int              # Maximum directory depth to scan (default: unlimited)
 }
 ```
 
 **System Graph Components**:
-- Program nodes
-- CALL relationships
+- Program nodes with call relationships
 - COPY dependencies
-- Data sharing patterns
+- Data sharing patterns via parameters
 - System-level metrics
+
+**Returns**:
+```python
+{
+    "success": bool,
+    "programs": dict,          # program_id -> program metadata
+    "call_graph": dict,        # caller -> list of callees
+    "copybook_usage": dict,    # copybook -> set of programs using it
+    "data_flows": list,        # Parameter flow records
+    "system_metrics": dict,
+    "entry_points": list,      # Programs that are never called
+    "isolated_programs": list  # Programs with no dependencies
+}
+```
+
+**Note**: The `programs`, `call_graph`, `copybook_usage`, and `data_flows` outputs feed directly into `build_call_graph`, `analyze_copybook_usage`, and `analyze_data_flow`.
 
 ### 2. build_call_graph
 
@@ -300,16 +455,22 @@ Entry → MAIN-PARA → IF-STATEMENT → [TRUE-BRANCH | FALSE-BRANCH] → EXIT
 **Parameters**:
 ```python
 {
-    "programs": List[dict],    # List of analyzed programs
-    "include_dynamic": bool    # Include dynamic CALL statements
+    "programs": dict,       # Programs dict from analyze_program_system (required)
+    "call_graph": dict,     # Raw call relationships (optional, extracted from programs if omitted)
+    "output_format": str,   # "dict", "dot" (Graphviz), or "mermaid" (default: "dict")
+    "include_metrics": bool # Include graph metrics like cycles (default: True)
 }
 ```
 
-**Call Graph Features**:
-- Static CALL analysis
-- Dynamic CALL detection
-- Call chain depth
-- Circular dependency detection
+**Returns**:
+```python
+{
+    "nodes": list,          # Program nodes with attributes
+    "edges": list,          # Call edges with attributes
+    "metrics": dict,        # Cycles, components, density
+    "visualization": str    # Graph in requested format (if dot or mermaid)
+}
+```
 
 ### 3. analyze_copybook_usage
 
@@ -318,16 +479,22 @@ Entry → MAIN-PARA → IF-STATEMENT → [TRUE-BRANCH | FALSE-BRANCH] → EXIT
 **Parameters**:
 ```python
 {
-    "directory_path": str,     # Directory to analyze
-    "copybook_dirs": List[str] # Copybook directories
+    "copybook_usage": dict,          # copybook_usage dict from analyze_program_system (required)
+    "programs": dict,                # programs dict from analyze_program_system (optional)
+    "include_recommendations": bool  # Generate optimization recommendations (default: True)
 }
 ```
 
-**Copybook Analysis**:
-- Usage frequency
-- Dependency chains
-- Shared data structures
-- Impact analysis
+**Returns**:
+```python
+{
+    "copybooks": list,         # Per-copybook analysis records
+    "usage_matrix": dict,      # Programs vs copybooks matrix
+    "impact_analysis": dict,   # Programs affected by each copybook
+    "recommendations": list,   # Suggested optimizations (if enabled)
+    "statistics": dict
+}
+```
 
 ### 4. analyze_data_flow
 
@@ -336,16 +503,23 @@ Entry → MAIN-PARA → IF-STATEMENT → [TRUE-BRANCH | FALSE-BRANCH] → EXIT
 **Parameters**:
 ```python
 {
-    "programs": List[dict],    # Analyzed programs
-    "trace_parameters": bool   # Trace parameter flow
+    "data_flows": list[dict],  # data_flows list from analyze_program_system (required)
+    "programs": dict,          # programs dict from analyze_program_system (optional)
+    "trace_variable": str      # Specific variable to trace through the system (optional)
 }
 ```
 
-**Data Flow Analysis**:
-- Parameter passing patterns
-- BY VALUE vs BY REFERENCE
-- Data modification tracking
-- Inter-program data dependencies
+**Returns**:
+```python
+{
+    "flows": list,                   # Analyzed data flow records
+    "chains": list,                  # Multi-hop flow chains
+    "warnings": list,                # Potential issues detected
+    "variable_usage": dict,          # Usage patterns for traced variable (if trace_variable set)
+    "by_reference_summary": dict,    # Summary of BY REFERENCE usage
+    "statistics": dict
+}
+```
 
 ## Recommended Workflow
 
@@ -357,11 +531,14 @@ graph TD
     B -->|Yes| C[resolve_copybooks]
     B -->|No| D[prepare_cobol_for_antlr]
     C --> D
-    D --> E[parse_cobol]
+    D --> E[build_ast]
     E --> F[build_cfg]
-    F --> G[build_dfg]
-    G --> H[build_pdg]
-    H --> I[Analysis Results]
+    E --> G[build_dfg]
+    E --> H[build_asg]
+    F --> I[analyze_complexity]
+    G --> I
+    H --> I
+    I --> J[Analysis Results]
 ```
 
 ### Step-by-Step Workflow
@@ -370,27 +547,25 @@ graph TD
 
 ```python
 # 1a. Resolve COPY statements if present
-if has_copy_statements:
-    resolved = resolve_copybooks_handler({
-        "file_path": "program.cbl",
-        "copybook_dirs": ["./copybooks"],
-        "recursive": True
-    })
-    source_code = resolved["resolved_code"]
-
-# 1b. Clean up unsupported features
-cleaned = prepare_cobol_for_antlr_handler({
-    "source_code": source_code,
-    "remove_comments": False
+resolved = resolve_copybooks_handler({
+    "source_file": "program.cbl",
+    "copybook_paths": ["./copybooks"],
+    "keep_markers": True
 })
-source_code = cleaned["cleaned_code"]
+source_code = resolved["resolved_source"]
+
+# 1b. Clean up unsupported IDENTIFICATION DIVISION paragraphs
+cleaned = prepare_cobol_for_antlr_handler({
+    "source_code": source_code
+})
+source_code = cleaned["cleaned_source"]
 ```
 
 #### Step 2: Parsing
 
 ```python
-# Parse to AST
-ast_result = parse_cobol_handler({
+# Build AST (the foundation for CFG, DFG, and complexity analysis)
+ast_result = build_ast_handler({
     "source_code": source_code
 })
 ast = ast_result["ast"]
@@ -401,7 +576,8 @@ ast = ast_result["ast"]
 ```python
 # Build Control Flow Graph
 cfg_result = build_cfg_handler({
-    "ast": ast
+    "ast": ast,
+    "program_name": ast_result["program_name"]
 })
 cfg = cfg_result["cfg"]
 ```
@@ -412,21 +588,31 @@ cfg = cfg_result["cfg"]
 # Build Data Flow Graph
 dfg_result = build_dfg_handler({
     "ast": ast,
-    "cfg": cfg
+    "program_name": ast_result["program_name"]
 })
 dfg = dfg_result["dfg"]
 ```
 
-#### Step 5: Dependency Analysis
+#### Step 5: Semantic Analysis
 
 ```python
-# Build Program Dependency Graph
-pdg_result = build_pdg_handler({
-    "ast": ast,
-    "cfg": cfg,
-    "dfg": dfg
+# Build Abstract Semantic Graph (independent path - builds its own AST internally)
+asg_result = build_asg_handler({
+    "source_code": source_code,
+    "include_data_refs": True
 })
-pdg = pdg_result["pdg"]
+```
+
+#### Step 6: Complexity Analysis (orchestrates all of the above)
+
+```python
+# Full analysis in one call using auto_enhance
+complexity_result = analyze_complexity_handler({
+    "source_code": source_code,
+    "build_asg": True,
+    "build_cfg": True,
+    "build_dfg": True
+})
 ```
 
 ### Batch Processing Workflow
@@ -436,23 +622,16 @@ For analyzing multiple files:
 ```python
 # Step 1: Batch resolve copybooks
 batch_resolve_copybooks_handler({
-    "directory_path": "/cobol/sources",
-    "copybook_dirs": ["/cobol/copybooks"],
-    "backup_originals": True
+    "directory": "/cobol/sources",
+    "copybook_paths": ["/cobol/copybooks"],
+    "backup_originals": True  # Renames originals to .original
 })
 
-# Step 2: Batch analyze all files
+# Step 2: Batch analyze all files (uses the resolved files)
 results = batch_analyze_cobol_directory_handler({
     "directory_path": "/cobol/sources",
-    "include_subdirs": True,
-    "file_pattern": "*.cbl",
-    "parallel": True,
-    "max_workers": 8,
-    "generate_cfg": True,
-    "generate_dfg": True,
-    "generate_pdg": True,
-    "save_results": True,
-    "output_dir": "/cobol/analysis_results"
+    "file_extensions": [".cbl"],
+    "output_directory": "/cobol/analysis_results"
 })
 ```
 
@@ -463,27 +642,25 @@ For analyzing program systems:
 ```python
 # Step 1: Analyze entire system
 system_analysis = analyze_program_system_handler({
-    "directory_path": "/cobol/system",
-    "include_subdirs": True,
-    "file_pattern": "*.cbl"
+    "directory_path": "/cobol/system"
 })
 
-# Step 2: Build call graph
+# Step 2: Build call graph from system analysis output
 call_graph = build_call_graph_handler({
     "programs": system_analysis["programs"],
-    "include_dynamic": True
+    "output_format": "mermaid"  # or "dict" or "dot"
 })
 
-# Step 3: Analyze copybook usage
+# Step 3: Analyze copybook usage from system analysis output
 copybook_analysis = analyze_copybook_usage_handler({
-    "directory_path": "/cobol/system",
-    "copybook_dirs": ["/cobol/copybooks"]
+    "copybook_usage": system_analysis["copybook_usage"],
+    "programs": system_analysis["programs"]
 })
 
-# Step 4: Analyze data flow
+# Step 4: Analyze data flow from system analysis output
 data_flow = analyze_data_flow_handler({
-    "programs": system_analysis["programs"],
-    "trace_parameters": True
+    "data_flows": system_analysis["data_flows"],
+    "programs": system_analysis["programs"]
 })
 ```
 
@@ -495,17 +672,22 @@ data_flow = analyze_data_flow_handler({
 
 **Common Causes**:
 - COPY statements not resolved
-- Unsupported COBOL extensions
+- Unsupported IDENTIFICATION DIVISION paragraphs (AUTHOR, DATE-WRITTEN, etc.)
 - Missing END-IF/END-PERFORM statements
 - Comment format issues
 
 **Solutions**:
 ```python
 # 1. Resolve COPY statements first
-resolved = resolve_copybooks_handler({...})
+resolved = resolve_copybooks_handler({
+    "source_file": "program.cbl",
+    "copybook_paths": ["./copybooks"]
+})
 
 # 2. Clean up unsupported features
-cleaned = prepare_cobol_for_antlr_handler({...})
+cleaned = prepare_cobol_for_antlr_handler({
+    "source_code": resolved["resolved_source"]
+})
 
 # 3. Check for balanced block statements
 # Ensure all IF statements have END-IF
@@ -518,11 +700,18 @@ cleaned = prepare_cobol_for_antlr_handler({...})
 
 **Solutions**:
 ```python
-# Use batch processing with limited workers
+# Use batch processing and skip heavy analyses if not needed
 batch_analyze_cobol_directory_handler({
-    "parallel": True,
-    "max_workers": 4,  # Limit parallelism
-    "generate_pdg": False  # Skip heavy analysis if not needed
+    "directory_path": "/cobol/sources",
+    "file_extensions": [".cbl"]
+    # output_directory defaults to tests/cobol_samples/result
+})
+
+# For complexity analysis, start without optional graphs
+analyze_complexity_handler({
+    "file_path": "program.cbl",
+    "build_cfg": False,  # Add these incrementally
+    "build_dfg": False
 })
 ```
 
@@ -534,12 +723,12 @@ batch_analyze_cobol_directory_handler({
 ```python
 # Specify all copybook directories
 resolve_copybooks_handler({
-    "copybook_dirs": [
+    "source_file": "program.cbl",
+    "copybook_paths": [
         "/main/copybooks",
         "/legacy/includes",
         "/shared/copy"
-    ],
-    "recursive": True  # Search subdirectories
+    ]
 })
 ```
 
@@ -547,24 +736,23 @@ resolve_copybooks_handler({
 
 ### Optimization Strategies
 
-1. **Parallel Processing**
-   - Use `parallel=True` for batch operations
-   - Adjust `max_workers` based on system resources
-   - Typical: 4-8 workers for standard systems
+1. **Preprocessing Once**
+   - Resolve copybooks once per codebase with `batch_resolve_copybooks`
+   - Use `backup_originals=True` to avoid reprocessing
+   - Work with preprocessed files for all subsequent analysis
 
 2. **Selective Analysis**
-   - Only generate needed graphs (CFG, DFG, PDG)
-   - Skip PDG for initial exploration
-   - Use CFG-only for control flow studies
+   - Only generate needed graphs (CFG, DFG, ASG)
+   - Use `analyze_complexity` with `auto_enhance=True` to let the tool decide depth based on complexity
+   - Skip DFG for initial exploration
 
 3. **File Patterns**
-   - Use specific patterns to limit scope
-   - Example: `"BATCH*.cbl"` for batch programs only
+   - Use specific `file_extensions` to limit scope
+   - Use `max_depth` in `analyze_program_system` to limit directory traversal
 
-4. **Preprocessing Once**
-   - Resolve copybooks once, save results
-   - Use `backup_originals=True` for safety
-   - Work with preprocessed files
+4. **Start Simple**
+   - Begin with `parse_cobol` to validate files parse cleanly
+   - Add `build_ast` next, then layer in CFG/DFG
 
 ### Performance Benchmarks
 
@@ -573,7 +761,6 @@ resolve_copybooks_handler({
 | Parse only | 100 | ~10s | 10 files/sec |
 | Parse + CFG | 100 | ~20s | 5 files/sec |
 | Full analysis | 100 | ~60s | 1.7 files/sec |
-| Parallel (4 workers) | 100 | ~20s | 5 files/sec |
 
 ### Memory Usage
 
@@ -582,7 +769,7 @@ resolve_copybooks_handler({
 | Parse only | ~5 MB |
 | Parse + CFG | ~10 MB |
 | Parse + CFG + DFG | ~15 MB |
-| Full PDG | ~25 MB |
+| Full ASG + CFG + DFG | ~25 MB |
 
 ## Best Practices
 
@@ -596,24 +783,24 @@ Always preprocess in this order:
 ### 2. Analysis Strategy
 
 Start simple, add complexity:
-1. Begin with parsing only to validate files
-2. Add CFG for control flow understanding
-3. Add DFG for data dependencies
-4. Generate PDG only when needed
+1. Begin with `parse_cobol` to validate files
+2. Use `build_ast` as the foundation for single-program analysis
+3. Add `build_cfg` for control flow understanding
+4. Add `build_dfg` for data dependencies
+5. Use `build_asg` when you need symbol tables and cross-references
+6. Use `analyze_complexity` with all flags for a full report
 
 ### 3. Error Handling
 
-- Use batch processing for resilience
+- Use batch processing for resilience (continues on failures)
 - Log failed files for manual review
-- Continue processing on errors
-- Review error patterns for systematic issues
+- Review error patterns for systematic issues (e.g., all files failing on same copybook)
 
 ### 4. Output Management
 
 - Use descriptive output directories
-- Include timestamps in output names
-- Save intermediate results
-- Version control analysis outputs
+- Save intermediate results with `output_file` / `output_directory` parameters
+- Use `backup_originals=True` before batch preprocessing
 
 ## Example Use Cases
 
@@ -623,43 +810,45 @@ Start simple, add complexity:
 # Document entire legacy system
 results = batch_analyze_cobol_directory_handler({
     "directory_path": "/legacy/cobol",
-    "include_subdirs": True,
-    "generate_cfg": True,
-    "generate_dfg": False,  # Skip for documentation
-    "generate_pdg": False,
-    "save_results": True,
-    "output_dir": "/documentation/analysis"
+    "file_extensions": [".cbl", ".cob"],
+    "output_directory": "/documentation/analysis"
 })
 ```
 
-### Use Case 2: Impact Analysis
+### Use Case 2: Impact Analysis for Copybook Change
 
 ```python
-# Analyze impact of changing a copybook
-copybook_usage = analyze_copybook_usage_handler({
-    "directory_path": "/production/cobol",
-    "copybook_dirs": ["/production/copybooks"]
+# Step 1: Get system analysis
+system = analyze_program_system_handler({
+    "directory_path": "/production/cobol"
 })
 
-# Find all programs using specific copybook
-affected_programs = [
-    prog for prog in copybook_usage["programs"]
-    if "CUSTOMER-RECORD.cpy" in prog["copybooks"]
+# Step 2: Analyze copybook usage
+copybook_analysis = analyze_copybook_usage_handler({
+    "copybook_usage": system["copybook_usage"],
+    "programs": system["programs"]
+})
+
+# Find all programs using a specific copybook
+affected = [
+    cb for cb in copybook_analysis["copybooks"]
+    if cb["name"] == "CUSTOMER-RECORD"
 ]
 ```
 
 ### Use Case 3: Complexity Analysis
 
 ```python
-# Analyze program complexity via CFG
-cfg_result = build_cfg_handler({"ast": ast})
+# Analyze program complexity with accurate cyclomatic complexity from CFG
+complexity = analyze_complexity_handler({
+    "file_path": "programs/MAIN-BATCH.cbl",
+    "build_cfg": True,
+    "build_dfg": True
+})
 
-complexity_metrics = {
-    "cyclomatic_complexity": len(cfg_result["cfg"]["edges"])
-                           - len(cfg_result["cfg"]["nodes"]) + 2,
-    "node_count": len(cfg_result["cfg"]["nodes"]),
-    "edge_count": len(cfg_result["cfg"]["edges"])
-}
+print(f"Rating: {complexity['complexity_rating']}")
+print(f"Cyclomatic complexity: {complexity['cyclomatic_complexity_accurate']}")
+print(f"Dead variables: {complexity['dead_variables']}")
 ```
 
 ## Troubleshooting
@@ -676,22 +865,20 @@ logging.basicConfig(level=logging.DEBUG)
 
 1. **Validate preprocessing**:
    ```python
-   # Check if COPY statements are resolved
-   assert "COPY" not in preprocessed_code
+   # Check COPY statements are resolved
+   assert "COPY " not in preprocessed_code
    ```
 
 2. **Validate parsing**:
    ```python
-   # Ensure AST has expected structure
    assert ast_result["success"]
-   assert "divisions" in ast_result["ast"]
+   assert ast_result["node_count"] > 0
    ```
 
 3. **Validate analysis**:
    ```python
-   # Check graph generation
-   assert len(cfg["nodes"]) > 0
-   assert len(cfg["edges"]) >= len(cfg["nodes"]) - 1
+   assert cfg_result["success"]
+   assert cfg_result["cyclomatic_complexity"] >= 1
    ```
 
 ## Conclusion

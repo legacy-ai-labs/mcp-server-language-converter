@@ -285,11 +285,14 @@ def _extract_identification_metadata(source: str) -> IdentificationMetadata:
         if match:
             # Clean up the extracted text
             content = match.group(1).strip()
-            # Remove comment markers (* in column 7) and clean up
+            # Remove comment markers (* in column 7) and *>CE tags and clean up
             content_lines = []
             for line in content.split("\n"):
                 # Skip pure comment lines but include content after AUTHOR.
                 stripped = line.strip()
+                # Strip *>CE comment entry tag added by CobolPreprocessor
+                if stripped.startswith("*>CE"):
+                    stripped = stripped[4:].strip()
                 if stripped and not stripped.startswith("*"):
                     content_lines.append(stripped)
             if content_lines:
@@ -530,8 +533,9 @@ def _normalize_node_names(node: ParseNode) -> ParseNode:
         "PROCEDUREDIVISIONBODY": "PROCEDURE_BODY",
     }
 
-    # Normalize type name
-    new_type = name_map.get(node.type, node.type)
+    # Normalize type name: explicit map first, then fall back to ALLUPPERCASE
+    # (the ASG builder expects ALLUPPERCASE for all node types not explicitly mapped)
+    new_type = name_map.get(node.type, node.type.upper())
 
     # Recursively normalize children
     new_children = [_normalize_node_names(child) for child in node.children]

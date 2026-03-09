@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -29,8 +29,8 @@ from src.core.models.complexity_metrics_model import (
 )
 from src.core.services.cobol_analysis.asg_builder_service import (
     ASGBuilderError,
-    build_asg_from_file,
-    build_asg_from_source,
+    build_asg_from_source_with_preprocessing,
+    build_asg_with_preprocessing,
 )
 from src.core.services.cobol_analysis.ast_builder_service import (
     ASTParseError,
@@ -64,7 +64,10 @@ from src.core.services.cobol_analysis.dfg_builder_service import (
 logger = logging.getLogger(__name__)
 
 
-ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
+ToolHandler = (
+    Callable[[dict[str, Any]], dict[str, Any]]
+    | Callable[[dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]
+)
 
 # NOTE: AST building helper functions have been moved to ast_builder_service.py
 # The following are imported from there:
@@ -180,6 +183,69 @@ def parse_cobol_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+def _extract_data_refs(pu: Any) -> list[dict[str, Any]]:
+    """Extract field-level read/write reference counts from a program unit's data division."""
+    refs: list[dict[str, Any]] = []
+    if not pu.data_division:
+        return refs
+
+    def collect(entries: list[Any]) -> None:
+        for entry in entries:
+            if entry.name and entry.calls:
+                read_count = sum(1 for c in entry.calls if c.is_read)
+                write_count = sum(1 for c in entry.calls if c.is_write)
+                refs.append(
+                    {
+                        "field": entry.name,
+                        "level": entry.level,
+                        "picture": entry.picture.picture_string if entry.picture else None,
+                        "container": entry.container_type,
+                        "total_references": len(entry.calls),
+                        "read_count": read_count,
+                        "write_count": write_count,
+                    }
+                )
+            if entry.children:
+                collect(entry.children)
+
+    dd = pu.data_division
+    if dd.working_storage:
+        collect(dd.working_storage.entries)
+    if dd.linkage_section:
+        collect(dd.linkage_section.entries)
+    if dd.file_section:
+        for fd in dd.file_section.file_descriptions:
+            collect(fd.record_entries)
+
+    return sorted(refs, key=lambda x: x["total_references"], reverse=True)
+
+
+def _extract_perform_chain(pu: Any) -> list[dict[str, Any]]:
+    """Extract the intra-program PERFORM call graph per paragraph."""
+    chain: list[dict[str, Any]] = []
+    if not pu.procedure_division:
+        return chain
+
+    pd = pu.procedure_division
+    all_paragraphs = list(pd.paragraphs)
+    for section in pd.sections:
+        all_paragraphs.extend(section.paragraphs)
+
+    for para in all_paragraphs:
+        name = para.paragraph_name or para.name
+        if not name:
+            continue
+        chain.append(
+            {
+                "paragraph": name,
+                "performs": para.calls_to,
+                "performed_by": para.called_by,
+            }
+        )
+
+    return chain
+
+
 def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
     """Build Abstract Semantic Graph (ASG) from COBOL source.
 
@@ -207,13 +273,17 @@ def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
 
     try:
         # Build ASG using pure Python builder
+        copybook_dir = parameters.get("copybook_dir")
+        copybook_dirs = [copybook_dir] if copybook_dir else None
         if file_path:
-            asg = build_asg_from_file(str(file_path))
+            asg = build_asg_with_preprocessing(str(file_path), copybook_dirs)
             program_name = Path(file_path).stem
         else:
             # source_code is guaranteed non-None here due to earlier check
             assert source_code is not None  # nosec B101
-            asg = build_asg_from_source(source_code)
+            asg = build_asg_from_source_with_preprocessing(
+                source_code, copybook_directories=copybook_dirs
+            )
             # Extract program name from ASG
             program_name = "UNNAMED"
             if asg.compilation_units:
@@ -235,33 +305,39 @@ def build_asg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
             "external_calls": list(asg.external_calls),
         }
 
-        # Add summary information
         if asg.compilation_units:
             cu = asg.compilation_units[0]
             if cu.program_units:
                 pu = cu.program_units[0]
-                result["summary"] = {
+
+                # Summary
+                summary: dict[str, Any] = {
                     "program_id": pu.identification_division.program_id
                     if pu.identification_division
                     else None,
                     "has_data_division": pu.data_division is not None,
                     "has_procedure_division": pu.procedure_division is not None,
                 }
-
                 if pu.data_division:
                     dd = pu.data_division
-                    result["summary"]["working_storage_entries"] = (
+                    summary["working_storage_entries"] = (
                         len(dd.working_storage.entries) if dd.working_storage else 0
                     )
-                    result["summary"]["linkage_entries"] = (
+                    summary["linkage_entries"] = (
                         len(dd.linkage_section.entries) if dd.linkage_section else 0
                     )
-
                 if pu.procedure_division:
                     pd = pu.procedure_division
-                    result["summary"]["paragraph_count"] = len(pd.paragraphs)
-                    result["summary"]["call_statement_count"] = len(pd.call_statements)
-                    result["summary"]["using_parameters"] = pd.using_parameters
+                    summary["paragraph_count"] = len(pd.paragraphs)
+                    summary["call_statement_count"] = len(pd.call_statements)
+                    summary["using_parameters"] = pd.using_parameters
+                result["summary"] = summary
+
+                # Data field reference counts
+                result["data_refs"] = _extract_data_refs(pu)
+
+                # Intra-program PERFORM call graph
+                result["perform_chain"] = _extract_perform_chain(pu)
 
         # Save result to file
         saved_path = save_ast_result("build_asg", result, program_name)
@@ -1920,9 +1996,9 @@ def analyze_complexity_handler(parameters: dict[str, Any]) -> dict[str, Any]:  #
         if should_build_asg:
             try:
                 if file_path:
-                    asg_program = build_asg_from_file(file_path)
+                    asg_program = build_asg_with_preprocessing(file_path)
                 elif source_code:
-                    asg_program = build_asg_from_source(source_code)
+                    asg_program = build_asg_from_source_with_preprocessing(source_code)
                 else:
                     # If only AST provided, we can't build ASG (need source)
                     logger.warning("Cannot build ASG without source_code or file_path")
@@ -2457,6 +2533,252 @@ def build_dfg_handler(parameters: dict[str, Any]) -> dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+# ---------------------------------------------------------------------------
+# ProLeap Java Service Handlers (async — require running sidecar)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# ProLeap issue classification
+# ---------------------------------------------------------------------------
+# Maps ProLeap description patterns to categories:
+#   standard       — based on COBOL-85/2002/2014 language standard
+#   best_practice  — widely accepted mainframe best practices
+#   style_opinion  — ProLeap's own preferences, often debatable
+#   code_quality   — general code quality (dead code, unused vars)
+_PROLEAP_ISSUE_RULES: list[tuple[str, str, str]] = [
+    # (substring pattern, category, optional clarification)
+    # --- standard ---
+    ("Obsolete keyword", "standard", ""),
+    # --- best_practice ---
+    (
+        "GOBACK should be used instead of STOP RUN",
+        "best_practice",
+        "STOP RUN terminates the run unit; GOBACK returns control to the caller, which is safer in subprograms",
+    ),
+    (
+        "PROGRAM-ID does not match filename",
+        "best_practice",
+        "ProLeap compares against its internal temp filename — ignore when sending code as text",
+    ),
+    # --- style_opinion ---
+    (
+        "Paragraphs should not be used",
+        "style_opinion",
+        "ProLeap prefers SECTIONs over standalone paragraphs — paragraphs are valid and widely used",
+    ),
+    (
+        "computational fields",
+        "style_opinion",
+        "ProLeap warns against COMP/COMP-3 for portability — COMP-3 is standard on mainframes",
+    ),
+    (
+        "DISPLAY should not be used",
+        "style_opinion",
+        "ProLeap discourages DISPLAY statements — they are valid for logging and debugging",
+    ),
+    (
+        "Performing math on variables that are declared as DISPLAY",
+        "style_opinion",
+        "Contradicts the COMP portability warning — choose one convention for your shop",
+    ),
+    ("naming convention", "style_opinion", ""),
+    # --- code_quality ---
+    (
+        "magic numbers",
+        "code_quality",
+        "Consider using named constants (88-level or WORKING-STORAGE fields) for clarity",
+    ),
+    ("Unused paragraphs", "code_quality", ""),
+    ("is uncalled", "code_quality", ""),
+]
+
+
+def _classify_proleap_issue(description: str) -> tuple[str, str]:
+    """Return (category, note) for a ProLeap issue description."""
+    for pattern, category, note in _PROLEAP_ISSUE_RULES:
+        if pattern in description:
+            return category, note
+    return "other", ""
+
+
+def _humanize_proleap_error(error_msg: str) -> str:
+    """Translate raw ProLeap Java exceptions into clear, actionable messages."""
+    if "UndefinedCallImpl" in error_msg and "TableCall" in error_msg:
+        return (
+            "ProLeap cannot resolve an intrinsic function (e.g. ABS, LENGTH, MAX) "
+            "applied to LINKAGE SECTION variables. This is a known ProLeap limitation. "
+            "Workaround: move the intrinsic function result to a WORKING-STORAGE variable first, "
+            "or use the Python-based 'build_asg' / 'analyze_complexity' tools instead."
+        )
+    if "UndefinedCallImpl" in error_msg:
+        return (
+            "ProLeap encountered an unresolved reference — a variable or function call "
+            "could not be resolved. This typically happens with intrinsic functions or "
+            "LINKAGE SECTION variables. Consider using the Python-based analysis tools instead."
+        )
+    if "PROCEDURE DIVISION USING" in error_msg or "LINKAGE" in error_msg:
+        return (
+            "ProLeap cannot process this program because it uses LINKAGE SECTION parameters "
+            "(subprogram). The interpreter requires a calling program to supply parameter values. "
+            "Consider using the Python-based 'build_asg' / 'analyze_complexity' tools instead."
+        )
+    if "NullPointerException" in error_msg:
+        return (
+            "ProLeap encountered an internal error (NullPointerException) while processing "
+            "this program. This is a known ProLeap limitation with certain COBOL constructs. "
+            "Consider using the Python-based analysis tools instead."
+        )
+    return error_msg
+
+
+async def proleap_analyze_cobol_handler(
+    parameters: dict[str, Any],
+) -> dict[str, Any]:
+    """Static analysis of COBOL using the ProLeap Java service."""
+    from src.core.services.cobol_analysis.proleap_client_service import (
+        is_proleap_available,
+        proleap_analyze,
+    )
+
+    source_code = parameters.get("source_code")
+    if not source_code:
+        return {"success": False, "error": "source_code is required"}
+
+    if not await is_proleap_available():
+        return {
+            "success": False,
+            "error": (
+                "ProLeap service is not available. "
+                "Enable it via PROLEAP_SERVICE_ENABLED=true and ensure the Java sidecar is running."
+            ),
+        }
+
+    fmt = parameters.get("format", "FIXED")
+    result = await proleap_analyze(source_code, format=fmt)
+
+    # Translate raw Java errors into clear messages
+    if result.get("success") is False and "error" in result:
+        result["error"] = _humanize_proleap_error(result["error"])
+        return result
+
+    # Format the response: extract issues, classify, and drop raw HTML codeView
+    if "issues" in result:
+        severity_map = {0: "INFO", 1: "WARNING", 2: "ERROR"}
+        issues = result.get("issues", [])
+
+        # Detect obsolete keywords in source to enrich vague ProLeap messages
+        _OBSOLETE_KEYWORDS = [
+            "AUTHOR",
+            "DATE-WRITTEN",
+            "DATE-COMPILED",
+            "INSTALLATION",
+            "SECURITY",
+            "REMARKS",
+        ]
+        found_obsolete = [
+            kw
+            for kw in _OBSOLETE_KEYWORDS
+            if re.search(rf"^\s{{6,}}{kw}\b", source_code, re.MULTILINE)
+        ]
+        obsolete_iter = iter(found_obsolete)
+
+        formatted_issues = []
+        category_counts: dict[str, int] = {}
+        for issue in issues:
+            desc = issue.get("description", "")
+
+            # Enrich "Obsolete keyword at example." with the actual keyword
+            if desc.startswith("Obsolete keyword"):
+                kw = next(obsolete_iter, None)
+                if kw:
+                    desc = f"Obsolete keyword '{kw}' — removed in COBOL-85/2002 standard"
+
+            category, note = _classify_proleap_issue(desc)
+            category_counts[category] = category_counts.get(category, 0) + 1
+
+            entry: dict[str, str] = {
+                "description": desc,
+                "severity": severity_map.get(issue.get("severity"), str(issue.get("severity", ""))),
+                "category": category,
+            }
+            if note:
+                entry["note"] = note
+
+            formatted_issues.append(entry)
+
+        return {
+            "success": True,
+            "issue_count": len(formatted_issues),
+            "category_summary": category_counts,
+            "issues": formatted_issues,
+        }
+
+    return result
+
+
+async def proleap_transform_cobol_handler(
+    parameters: dict[str, Any],
+) -> dict[str, Any]:
+    """Transform COBOL to Java using ProLeap transpiler."""
+    from src.core.services.cobol_analysis.proleap_client_service import (
+        is_proleap_available,
+        proleap_transform,
+    )
+
+    source_code = parameters.get("source_code")
+    if not source_code:
+        return {"success": False, "error": "source_code is required"}
+
+    if not await is_proleap_available():
+        return {
+            "success": False,
+            "error": (
+                "ProLeap service is not available. "
+                "Enable it via PROLEAP_SERVICE_ENABLED=true and ensure the Java sidecar is running."
+            ),
+        }
+
+    fmt = parameters.get("format", "FIXED")
+    result = await proleap_transform(source_code, format=fmt)
+
+    if result.get("success") is False and "error" in result:
+        result["error"] = _humanize_proleap_error(result["error"])
+
+    return result
+
+
+async def proleap_interpret_cobol_handler(
+    parameters: dict[str, Any],
+) -> dict[str, Any]:
+    """Execute COBOL in JVM interpreter via ProLeap."""
+    from src.core.services.cobol_analysis.proleap_client_service import (
+        is_proleap_available,
+        proleap_execute,
+    )
+
+    source_code = parameters.get("source_code")
+    if not source_code:
+        return {"success": False, "error": "source_code is required"}
+
+    if not await is_proleap_available():
+        return {
+            "success": False,
+            "error": (
+                "ProLeap service is not available. "
+                "Enable it via PROLEAP_SERVICE_ENABLED=true and ensure the Java sidecar is running."
+            ),
+        }
+
+    fmt = parameters.get("format", "FIXED")
+    result = await proleap_execute(source_code, format=fmt)
+
+    if result.get("success") is False and "error" in result:
+        result["error"] = _humanize_proleap_error(result["error"])
+
+    return result
+
+
 # Registry mapping handler names to handler functions
 TOOL_HANDLERS: dict[str, ToolHandler] = {
     "build_ast_handler": build_ast_handler,
@@ -2473,6 +2795,9 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "prepare_cobol_for_antlr_handler": prepare_cobol_for_antlr_handler,
     "resolve_copybooks_handler": resolve_copybooks_handler,
     "batch_resolve_copybooks_handler": batch_resolve_copybooks_handler,
+    "proleap_analyze_cobol_handler": proleap_analyze_cobol_handler,
+    "proleap_transform_cobol_handler": proleap_transform_cobol_handler,
+    "proleap_interpret_cobol_handler": proleap_interpret_cobol_handler,
 }
 
 

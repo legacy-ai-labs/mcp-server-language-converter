@@ -1,6 +1,8 @@
 """Tool definitions for COBOL analysis domain using decorator-based registration."""
 
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from src.core.services.cobol_analysis.tool_handlers_service import (
     analyze_complexity_handler,
@@ -16,6 +18,9 @@ from src.core.services.cobol_analysis.tool_handlers_service import (
     build_dfg_handler,
     parse_cobol_handler,
     prepare_cobol_for_antlr_handler,
+    proleap_analyze_cobol_handler,
+    proleap_interpret_cobol_handler,
+    proleap_transform_cobol_handler,
     resolve_copybooks_handler,
 )
 from src.mcp_servers.common.tool_registry import register_tool
@@ -139,11 +144,7 @@ async def parse_cobol(
 async def build_asg(
     file_path: str | None = None,
     source_code: str | None = None,
-    program_name: str | None = None,
     copybook_dir: str | None = None,
-    include_summary: bool = True,
-    include_call_graph: bool = True,
-    include_data_refs: bool = False,
 ) -> dict[str, Any]:
     """Build Abstract Semantic Graph (ASG) from COBOL source code.
 
@@ -156,54 +157,40 @@ async def build_asg(
 
     This tool uses a pure Python ASG builder that works directly with the ANTLR
     parse tree to generate a comprehensive semantic representation of the COBOL program.
+    COPY statements are always preprocessed; provide copybook_dir so relative COPY
+    references can be resolved.
 
     Args:
         file_path: Path to COBOL source file (optional if source_code provided)
         source_code: COBOL source code as string (optional if file_path provided)
-        program_name: Program name when using source_code (default: "UNNAMED")
-        copybook_dir: Optional path to copybook directory for COPY resolution
-        include_summary: Include summary statistics (default: True)
-        include_call_graph: Include call graph extraction (default: True)
-        include_data_refs: Include data item cross-references (default: False)
+        copybook_dir: Path to copybook directory for COPY statement resolution
 
     Returns:
         Dictionary containing:
         - success: Whether ASG generation succeeded
         - asg: Full ASG structure with compilation units, divisions, sections
         - source_file: Source file path
-        - parser_version: Parser version used
-        - export_type: Export format type
-        - summary: ASG summary with counts (if include_summary=True)
-        - call_graph: Call graph nodes and edges (if include_call_graph=True)
-        - data_references: Cross-reference data (if include_data_refs=True)
+        - summary: Program overview (divisions, paragraph count, external calls)
+        - data_refs: Field-level read/write reference counts for all data items
+        - perform_chain: Intra-program PERFORM call graph per paragraph
+        - external_calls: List of external programs called via CALL statements
         - saved_to: Path where result was saved
 
     Example:
-        # Build ASG from file
-        result = await build_asg(file_path="programs/CUSTOMER-MGMT.cbl")
-
-        if result['success']:
-            print(f"Programs: {len(result['asg']['compilation_units'])}")
-            print(f"Call targets: {result['summary']['compilation_units'][0]['call_targets']}")
-
-        # Build ASG with all analyses
+        # Build ASG from file with copybook resolution
         result = await build_asg(
-            file_path="programs/MAIN-BATCH.cbl",
-            copybook_dir="copybooks/",
-            include_data_refs=True
+            file_path="programs/CUSTOMER-MGMT.cbl",
+            copybook_dir="copybooks/"
         )
+
+        # Build ASG from inline source
+        result = await build_asg(source_code="IDENTIFICATION DIVISION. ...")
     """
-    parameters: dict[str, Any] = {
-        "include_summary": include_summary,
-        "include_call_graph": include_call_graph,
-        "include_data_refs": include_data_refs,
-    }
+    parameters: dict[str, Any] = {}
     if file_path is not None:
         parameters["file_path"] = file_path
     if source_code is not None:
         parameters["source_code"] = source_code
-    if program_name is not None:
-        parameters["program_name"] = program_name
     if copybook_dir is not None:
         parameters["copybook_dir"] = copybook_dir
     return build_asg_handler(parameters)
@@ -841,3 +828,100 @@ async def batch_resolve_copybooks(
     if file_extensions is not None:
         parameters["file_extensions"] = file_extensions
     return batch_resolve_copybooks_handler(parameters)
+
+
+# ---------------------------------------------------------------------------
+# ProLeap Java Service Tools (require running sidecar)
+# ---------------------------------------------------------------------------
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="proleap_analyze_cobol",
+    description="Static analysis of COBOL using ProLeap (code smells, anti-patterns). Requires ProLeap sidecar.",
+)
+async def proleap_analyze_cobol(
+    source_code: Annotated[str, Field(description="COBOL source code to analyze")],
+    format: Annotated[
+        str,
+        Field(
+            description=(
+                "COBOL source format. "
+                "FIXED (default): traditional mainframe — columns 1-6 sequence, col 7 indicator, cols 8-72 code. "
+                "FREE: modern COBOL-2002+ — no column restrictions. "
+                "VARIABLE: like FIXED but lines can exceed column 72."
+            ),
+        ),
+    ] = "FIXED",
+) -> dict[str, Any]:
+    """Analyze COBOL source code for issues using the ProLeap Java service.
+
+    This tool delegates to the ProLeap COBOL analyzer running as a separate
+    Java service (AGPL v3, isolated by HTTP/container boundary).
+
+    Returns:
+        Dictionary with analysis results including detected issues categorized as
+        'standard', 'best_practice', 'style_opinion', or 'code_quality'
+    """
+    return await proleap_analyze_cobol_handler({"source_code": source_code, "format": format})
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="proleap_transform_cobol",
+    description="Transform COBOL to Java using ProLeap transpiler. Requires ProLeap sidecar.",
+)
+async def proleap_transform_cobol(
+    source_code: Annotated[str, Field(description="COBOL source code to transform to Java")],
+    format: Annotated[
+        str,
+        Field(
+            description=(
+                "COBOL source format. "
+                "FIXED (default): traditional mainframe — columns 1-6 sequence, col 7 indicator, cols 8-72 code. "
+                "FREE: modern COBOL-2002+ — no column restrictions. "
+                "VARIABLE: like FIXED but lines can exceed column 72."
+            ),
+        ),
+    ] = "FIXED",
+) -> dict[str, Any]:
+    """Transform COBOL source code to Java using the ProLeap transpiler.
+
+    This tool delegates to the ProLeap COBOL-to-Java transpiler running as a
+    separate Java service (AGPL v3, isolated by HTTP/container boundary).
+    Generated Java source code is NOT subject to AGPL licensing per ProLeap's README.
+
+    Returns:
+        Dictionary with the generated Java source code
+    """
+    return await proleap_transform_cobol_handler({"source_code": source_code, "format": format})
+
+
+@register_tool(
+    domain="cobol_analysis",
+    tool_name="proleap_interpret_cobol",
+    description="Execute COBOL program in JVM interpreter via ProLeap. Requires ProLeap sidecar.",
+)
+async def proleap_interpret_cobol(
+    source_code: Annotated[str, Field(description="COBOL source code to execute")],
+    format: Annotated[
+        str,
+        Field(
+            description=(
+                "COBOL source format. "
+                "FIXED (default): traditional mainframe — columns 1-6 sequence, col 7 indicator, cols 8-72 code. "
+                "FREE: modern COBOL-2002+ — no column restrictions. "
+                "VARIABLE: like FIXED but lines can exceed column 72."
+            ),
+        ),
+    ] = "FIXED",
+) -> dict[str, Any]:
+    """Execute a COBOL program using the ProLeap JVM interpreter.
+
+    This tool delegates to the ProLeap interpreter running as a separate Java
+    service (AGPL v3, isolated by HTTP/container boundary).
+
+    Returns:
+        Dictionary with program output and execution results
+    """
+    return await proleap_interpret_cobol_handler({"source_code": source_code, "format": format})

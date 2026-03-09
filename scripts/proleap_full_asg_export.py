@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
-ProLeap Full ASG Export Script
+ProLeap Full ASG Export Script (DEPRECATED)
+
+DEPRECATED: Use the ProLeap HTTP service instead:
+    curl -X POST http://localhost:4567/v1/cobol/asg/text \
+         -H 'Content-Type: application/json' \
+         -d '{"code": "...", "format": "FIXED"}'
+
+Or start the service via Docker:
+    docker compose -f docker/docker-compose.yml up -d proleap-service
 
 This script builds ProLeap from source and uses the FullAsgExporter to export
 complete COBOL ASG to JSON, including all clause types and cross-references.

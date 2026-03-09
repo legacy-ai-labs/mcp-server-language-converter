@@ -151,12 +151,12 @@ Output: `output/proleap/<filename>.ast.json`
 The ASG includes resolved references, symbol tables, and semantic information.
 
 ```bash
-uv run python scripts/proleap_asg_export.py <cobol_file>
+uv run python scripts/proleap_full_asg_export.py <cobol_file>
 ```
 
 Example:
 ```bash
-uv run python scripts/proleap_asg_export.py tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT.cbl
+uv run python scripts/proleap_full_asg_export.py tests/cobol_samples/inter_program_test/programs/CUSTOMER-MGMT.cbl
 ```
 
 Output: `output/proleap/<filename>.asg.json`

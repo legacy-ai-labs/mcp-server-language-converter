@@ -71,13 +71,13 @@ class TestGetTransportConfig:
 
     def test_stdio_config_is_empty(self) -> None:
         """Test that STDIO transport config is empty (no host/port needed)."""
-        config = _get_transport_config("stdio")
+        config = _get_transport_config("stdio", domain="general")
 
         assert config == {}
 
     def test_sse_config_has_host_port_middleware(self) -> None:
         """Test that SSE transport config has host, port, and CORS middleware."""
-        config = _get_transport_config("sse")
+        config = _get_transport_config("sse", domain="general")
 
         assert "host" in config
         assert "port" in config
@@ -86,21 +86,22 @@ class TestGetTransportConfig:
 
     def test_streamable_http_config_has_host_port(self) -> None:
         """Test that Streamable HTTP transport config has host and port."""
-        config = _get_transport_config("streamable-http")
+        config = _get_transport_config("streamable-http", domain="general")
 
         assert "host" in config
         assert "port" in config
 
     def test_streamable_http_config_no_middleware(self) -> None:
-        """Test that Streamable HTTP doesn't have CORS middleware by default."""
-        config = _get_transport_config("streamable-http")
+        """Test that Streamable HTTP has CORS and Accept header middleware."""
+        config = _get_transport_config("streamable-http", domain="general")
 
-        # Streamable HTTP doesn't add middleware in current implementation
-        assert "middleware" not in config
+        # Streamable HTTP adds MCPAcceptHeaderMiddleware and CORSMiddleware
+        assert "middleware" in config
+        assert len(config["middleware"]) > 0
 
     def test_sse_cors_middleware_allows_all_origins(self) -> None:
         """Test that SSE CORS middleware allows all origins (development mode)."""
-        config = _get_transport_config("sse")
+        config = _get_transport_config("sse", domain="general")
 
         # Middleware is a list of Starlette Middleware objects
         middleware_list = config["middleware"]
@@ -235,7 +236,7 @@ class TestTransportConfigIntegration:
 
     def test_stdio_config_values(self) -> None:
         """Test STDIO configuration values."""
-        config = _get_transport_config("stdio")
+        config = _get_transport_config("stdio", domain="general")
 
         # STDIO should have empty config
         assert len(config) == 0
@@ -243,7 +244,7 @@ class TestTransportConfigIntegration:
     def test_sse_config_uses_settings(self) -> None:
         """Test SSE uses values from settings."""
         settings = get_settings()
-        config = _get_transport_config("sse")
+        config = _get_transport_config("sse", domain="general")
 
         assert config["host"] == settings.http_host
         assert config["port"] == settings.http_port
@@ -251,7 +252,7 @@ class TestTransportConfigIntegration:
     def test_streamable_http_config_uses_settings(self) -> None:
         """Test Streamable HTTP uses values from settings."""
         settings = get_settings()
-        config = _get_transport_config("streamable-http")
+        config = _get_transport_config("streamable-http", domain="general")
 
         assert config["host"] == settings.streamable_http_host
         assert config["port"] == settings.streamable_http_port
@@ -315,7 +316,7 @@ class TestEdgeCases:
 
     def test_get_transport_config_empty_transport(self) -> None:
         """Test transport config with empty string."""
-        config = _get_transport_config("")  # type: ignore
+        config = _get_transport_config("", domain="general")  # type: ignore
 
         # Should return empty config (like stdio)
         assert config == {}
@@ -361,7 +362,7 @@ class TestTransportTypes:
 
         for transport in transport_types:
             # Should not raise exception
-            config = _get_transport_config(transport)  # type: ignore
+            config = _get_transport_config(transport, domain="general")  # type: ignore
             assert isinstance(config, dict)
 
 

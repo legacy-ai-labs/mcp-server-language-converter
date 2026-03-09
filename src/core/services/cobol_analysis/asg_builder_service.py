@@ -59,6 +59,7 @@ from src.core.models.cobol_asg_model import (
     OccursClause,
     OccursSortKey,
     Paragraph,
+    ParagraphSummary,
     ParameterType,
     PerformInlineStatement,
     PerformProcedureStatement,
@@ -92,7 +93,6 @@ from src.core.services.cobol_analysis.cobol_parser_antlr_service import (
     IdentificationMetadata,
     ParseNode,
     parse_cobol,
-    parse_cobol_file,
 )
 from src.core.services.cobol_analysis.cobol_preprocessor_service import (
     CobolPreprocessor,
@@ -161,6 +161,14 @@ def _extract_integer_literal_value(node: ParseNode) -> int | None:
         except (ValueError, TypeError):
             pass
 
+    # Terminal children carry the numeric text in .text, not .value
+    for child in node.children:
+        if isinstance(child, ParseNode) and child.text:
+            try:
+                return int(child.text.strip())
+            except (ValueError, TypeError):
+                pass
+
     for child in node.children:
         if isinstance(child, ParseNode) and child.node_type == "INTEGERLITERAL" and child.value:
             try:
@@ -221,7 +229,7 @@ def _extract_variable_name(identifier_node: ParseNode | None) -> str | None:
     return None
 
 
-def _extract_literal_value(literal_node: ParseNode | None) -> Any:
+def _extract_literal_value(literal_node: ParseNode | None) -> Any:  # noqa: PLR0911
     """Extract value from LITERAL node."""
     if not literal_node:
         return None
@@ -237,11 +245,28 @@ def _extract_literal_value(literal_node: ParseNode | None) -> Any:
                 return value
 
     nonnumeric = _find_child_node(literal_node, "NONNUMERICLITERAL")
-    if nonnumeric and nonnumeric.value:
-        return str(nonnumeric.value).strip("'\"")
+    if nonnumeric:
+        if nonnumeric.value:
+            return str(nonnumeric.value).strip("'\"")
+        # Value may be in terminal child's .text
+        for child in nonnumeric.children:
+            if isinstance(child, ParseNode) and child.text:
+                return str(child.text).strip("'\"")
+
+    # Check for figurative constant
+    figurative = _find_child_node(literal_node, "FIGURATIVECONSTANT")
+    if figurative:
+        return _extract_figurative_constant(figurative)
 
     if literal_node.value:
         return literal_node.value
+
+    # Fallback: TERMINALNODEIMPL children (e.g., LITERAL > TERMINALNODEIMPL text='N')
+    for child in literal_node.children:
+        if isinstance(child, ParseNode) and child.node_type == "TERMINALNODEIMPL":
+            text = (child.text or "").strip()
+            if text:
+                return text.strip("'\"")
 
     return None
 
@@ -279,8 +304,12 @@ def _extract_figurative_constant(figurative: ParseNode) -> Any:
     }
 
     for child in figurative.children:
-        if isinstance(child, ParseNode) and child.value:
-            fig_value = str(child.value).upper()
+        if not isinstance(child, ParseNode):
+            continue
+        # Terminal nodes carry content in .text, parse nodes in .value
+        token = child.value or child.text
+        if token:
+            fig_value = str(token).strip().upper()
             if fig_value in figurative_map:
                 return figurative_map[fig_value]
             return fig_value
@@ -295,9 +324,11 @@ def _extract_condition_text(condition_node: ParseNode) -> str:
     def collect_terminal_values(node: ParseNode) -> None:
         has_parse_children = any(isinstance(c, ParseNode) for c in node.children)
 
-        # Collect terminal values (leaf nodes with values)
-        if not has_parse_children and node.value:
-            parts.append(str(node.value))
+        # Leaf node: collect value or text (terminals carry content in .text)
+        if not has_parse_children:
+            token = node.value or node.text
+            if token:
+                parts.append(str(token).strip())
         else:
             for child in node.children:
                 if isinstance(child, ParseNode):
@@ -444,11 +475,12 @@ def _build_environment_division(node: ParseNode) -> EnvironmentDivision:
     input_output_section = None
 
     # Build INPUT-OUTPUT SECTION
-    io_section = _find_child_node(node, "INPUT_OUTPUT_SECTION")
+    io_sections = _walk_nodes(node, {"INPUTOUTPUTSECTION"})
+    io_section = io_sections[0] if io_sections else None
     if io_section:
         file_entries: list[FileControlEntry] = []
 
-        for file_control in _walk_nodes(io_section, {"FILE_CONTROL_ENTRY"}):
+        for file_control in _walk_nodes(io_section, {"FILECONTROLENTRY"}):
             entry = _build_file_control_entry(file_control)
             if entry:
                 file_entries.append(entry)
@@ -465,13 +497,37 @@ def _build_environment_division(node: ParseNode) -> EnvironmentDivision:
 
 
 def _build_file_control_entry(node: ParseNode) -> FileControlEntry | None:
-    """Build FileControlEntry from FILE_CONTROL_ENTRY node."""
-    file_name = _find_child_value(node, "FILE_NAME")
+    """Build FileControlEntry from FILECONTROLENTRY node."""
+    # FILENAME is inside SELECTCLAUSE, so walk the subtree
+    filename_nodes = _walk_nodes(node, {"FILENAME"})
+    file_name = filename_nodes[0].value if filename_nodes and filename_nodes[0].value else None
     if not file_name:
         return None
 
-    assign_to = _find_child_value(node, "FILE_ASSIGN")
-    org_str = _find_child_value(node, "FILE_ORGANIZATION")
+    # Extract ASSIGN TO value from ASSIGNCLAUSE
+    assign_nodes = _walk_nodes(node, {"ASSIGNCLAUSE"})
+    assign_to = None
+    if assign_nodes:
+        literal_nodes = _walk_nodes(assign_nodes[0], {"LITERAL"})
+        if literal_nodes:
+            # Value may be in terminal child's text attribute
+            for child in literal_nodes[0].children:
+                text = getattr(child, "text", None) or child.value
+                if text:
+                    assign_to = str(text).strip("'\"")
+                    break
+
+    # Extract organization from ORGANIZATIONCLAUSE
+    org_nodes = _walk_nodes(node, {"ORGANIZATIONCLAUSE"})
+    org_str = None
+    if org_nodes:
+        for child in org_nodes[0].children:
+            text = getattr(child, "text", None) or child.value
+            if text:
+                val = str(text).upper()
+                if val in ("SEQUENTIAL", "INDEXED", "RELATIVE", "LINE"):
+                    org_str = val
+                    break
 
     organization = None
     if org_str:
@@ -627,42 +683,65 @@ def _determine_entry_type(level: int | None, format_node: ParseNode) -> DataDesc
 
 
 def _extract_level_number(format_node: ParseNode) -> int | None:
-    """Extract level number from data description entry."""
-    # Check for Level 88
+    """Extract level number from data description entry.
+
+    Level numbers appear as:
+    - LEVEL_NUMBER_88 node (for level 88)
+    - LEVEL_NUMBER_66 node (for level 66)
+    - INTEGERLITERAL node (for regular levels in some grammars)
+    - TERMINALNODEIMPL with text like '01', '05', '88' (ANTLR terminals)
+    """
+    # Check for Level 88 node or format3 (level 88 condition)
     if _find_child_node(format_node, "LEVEL_NUMBER_88"):
         return 88
+    if format_node.node_type == "DATADESCRIPTIONENTRYFORMAT3":
+        return 88
 
-    # Check for Level 66
+    # Check for Level 66 node or format2 (level 66 renames)
     if _find_child_node(format_node, "LEVEL_NUMBER_66"):
         return 66
+    if format_node.node_type == "DATADESCRIPTIONENTRYFORMAT2":
+        return 66
 
-    # Regular level number
+    # Regular level number from INTEGERLITERAL
     int_literal = _find_child_node(format_node, "INTEGERLITERAL")
     if int_literal:
         return _extract_integer_literal_value(int_literal)
+
+    # Level number as first TERMINALNODEIMPL child (e.g., text='01', '05', '77')
+    for child in format_node.children:
+        if isinstance(child, ParseNode) and child.node_type == "TERMINALNODEIMPL":
+            text = (child.text or "").strip()
+            if text.isdigit():
+                return int(text)
 
     return None
 
 
 def _extract_data_name(format_node: ParseNode) -> str | None:
-    """Extract data name from format node."""
-    # Try DATANAME
-    dataname = _find_child_node(format_node, "DATANAME")
-    if dataname:
-        cobol_word = _find_child_node(dataname, "COBOLWORD")
-        if cobol_word:
-            identifier = _find_child_node(cobol_word, "IDENTIFIER")
-            if identifier and identifier.value:
-                return str(identifier.value)
+    """Extract data name from format node.
 
-    # Try CONDITIONNAME (Level 88)
-    condition = _find_child_node(format_node, "CONDITIONNAME")
-    if condition:
-        cobol_word = _find_child_node(condition, "COBOLWORD")
+    Handles both pre-populated .value and ANTLR terminal structure:
+    DATANAME value=X  or  DATANAME > COBOLWORD > TERMINALNODEIMPL text=X
+    CONDITIONNAME value=X  or  CONDITIONNAME > COBOLWORD > TERMINALNODEIMPL text=X
+    """
+    for node_type in ("DATANAME", "CONDITIONNAME"):
+        node = _find_child_node(format_node, node_type)
+        if not node:
+            continue
+        # Pre-populated value
+        if node.value:
+            return str(node.value)
+        # Walk into COBOLWORD > TERMINALNODEIMPL to get .text
+        cobol_word = _find_child_node(node, "COBOLWORD")
         if cobol_word:
-            identifier = _find_child_node(cobol_word, "IDENTIFIER")
-            if identifier and identifier.value:
-                return str(identifier.value)
+            if cobol_word.value:
+                return str(cobol_word.value)
+            for child in cobol_word.children:
+                if isinstance(child, ParseNode) and child.node_type == "TERMINALNODEIMPL":
+                    text = (child.text or "").strip()
+                    if text:
+                        return text
 
     return None
 
@@ -689,6 +768,9 @@ def _extract_picture_clause(format_node: ParseNode, entry: DataDescriptionEntry)
                             parts.append(str(value))
                     elif subchild.value:
                         parts.append(str(subchild.value))
+                    elif subchild.text:
+                        # Terminal tokens carry the PIC character in .text
+                        parts.append(subchild.text)
 
     pic_str = "".join(parts)
     if pic_str:
@@ -699,10 +781,16 @@ def _analyze_picture(pic_str: str) -> PictureClause:
     """Analyze PICTURE string and determine properties."""
     pic_upper = pic_str.upper()
 
-    # Determine category
-    is_numeric = all(c in "9SPVB0+-CR()" for c in pic_upper if c.isalpha())
-    is_alphabetic = all(c in "A()" for c in pic_upper if c.isalpha())
-    is_alphanumeric = "X" in pic_upper or (not is_numeric and not is_alphabetic)
+    # Determine category based on which significant PIC characters are present
+    # Include both letters and '9' as significant characters (exclude digits in parens, parens themselves)
+    pic_significant = {c for c in pic_upper if c.isalpha() or c == "9"}
+    has_9 = "9" in pic_significant
+    has_x = "X" in pic_significant
+    has_a_only = pic_significant <= {"A"} and bool(pic_significant)
+    numeric_chars = {"S", "P", "V", "B", "Z", "C", "R", "D", "9"}
+    is_numeric = bool(pic_significant) and pic_significant <= numeric_chars and has_9
+    is_alphabetic = has_a_only
+    is_alphanumeric = has_x or (not is_numeric and not is_alphabetic)
 
     # Check for editing symbols
     is_edited = any(c in pic_upper for c in "Z*$,.+-CRDB")
@@ -812,30 +900,44 @@ def _extract_usage_clause(format_node: ParseNode, entry: DataDescriptionEntry) -
             if node_type in usage_map:
                 entry.usage = usage_map[node_type]
                 return
-            if child.value:
-                value = str(child.value).replace("-", "_").upper()
+            # Check .value then .text — terminal tokens carry text in .text
+            token_value = child.value or child.text
+            if token_value:
+                value = str(token_value).replace("-", "_").upper()
                 if value in usage_map:
                     entry.usage = usage_map[value]
                     return
 
 
 def _extract_value_clause(format_node: ParseNode, entry: DataDescriptionEntry) -> None:
-    """Extract VALUE clause."""
+    """Extract VALUE clause.
+
+    Parse tree structure:
+    DATAVALUECLAUSE > DATAVALUEINTERVAL > DATAVALUEINTERVALFROM > LITERAL
+    or direct: DATAVALUECLAUSE > LITERAL
+    """
     value_clause = _find_child_node(format_node, "DATAVALUECLAUSE")
     if not value_clause:
         return
 
-    # Look for literal value
-    literal = _find_child_node(value_clause, "LITERAL")
-    if literal:
-        value = _extract_literal_value(literal)
-        entry.value = ValueClause(value=value, value_type="LITERAL")
+    # Walk the tree to find LITERAL or FIGURATIVECONSTANT at any depth
+    literals = _walk_nodes(value_clause, {"LITERAL"})
+    if literals:
+        literal = literals[0]
+        # Check if the LITERAL contains a FIGURATIVECONSTANT
+        figurative = _find_child_node(literal, "FIGURATIVECONSTANT")
+        if figurative:
+            value = _extract_figurative_constant(figurative)
+            entry.value = ValueClause(value=value, value_type="FIGURATIVE")
+        else:
+            value = _extract_literal_value(literal)
+            entry.value = ValueClause(value=value, value_type="LITERAL")
         return
 
-    # Look for figurative constant
-    figurative = _find_child_node(value_clause, "FIGURATIVECONSTANT")
-    if figurative:
-        value = _extract_figurative_constant(figurative)
+    # Direct figurative constant (not nested in LITERAL)
+    figuratives = _walk_nodes(value_clause, {"FIGURATIVECONSTANT"})
+    if figuratives:
+        value = _extract_figurative_constant(figuratives[0])
         entry.value = ValueClause(value=value, value_type="FIGURATIVE")
 
 
@@ -990,13 +1092,22 @@ def _extract_global_clause(format_node: ParseNode, entry: DataDescriptionEntry) 
 
 
 def _extract_condition_values(format_node: ParseNode, entry: DataDescriptionEntry) -> None:
-    """Extract Level 88 condition values."""
+    """Extract Level 88 condition values.
+
+    Parse tree structure:
+    DATAVALUECLAUSE > DATAVALUEINTERVAL > DATAVALUEINTERVALFROM > LITERAL
+    """
     values: list[Any] = []
 
     for value_clause in _walk_nodes(format_node, {"DATAVALUECLAUSE"}):
-        literal = _find_child_node(value_clause, "LITERAL")
-        if literal:
-            value = _extract_literal_value(literal)
+        # Walk to find all LITERAL nodes at any depth
+        for literal in _walk_nodes(value_clause, {"LITERAL"}):
+            # Check for figurative constant inside literal
+            figurative = _find_child_node(literal, "FIGURATIVECONSTANT")
+            if figurative:
+                value = _extract_figurative_constant(figurative)
+            else:
+                value = _extract_literal_value(literal)
             if value is not None:
                 values.append(value)
 
@@ -1064,7 +1175,7 @@ def _build_file_section(node: ParseNode) -> FileSection:
 
 def _build_file_description_entry(node: ParseNode) -> FileDescriptionEntry | None:
     """Build FileDescriptionEntry from FD node."""
-    file_name = _find_child_value(node, "FILE_NAME")
+    file_name = _find_child_value(node, "FILENAME")
     if not file_name:
         return None
 
@@ -1091,7 +1202,7 @@ def _build_procedure_division(node: ParseNode) -> ProcedureDivision:
     """Build ProcedureDivision from parse tree."""
     sections: list[Section] = []
     paragraphs: list[Paragraph] = []
-    all_paragraphs: list[Paragraph] = []
+    all_paragraphs: list[ParagraphSummary] = []
     call_statements: list[CallStatement] = []
 
     # Extract USING clause
@@ -1133,7 +1244,12 @@ def _build_procedure_division(node: ParseNode) -> ProcedureDivision:
                     paragraph = _build_paragraph(para_node)
                     if paragraph:
                         paragraphs.append(paragraph)
-                        all_paragraphs.append(paragraph)
+                        all_paragraphs.append(
+                            ParagraphSummary(
+                                name=paragraph.name or "UNKNOWN",
+                                section_name=paragraph.section_name,
+                            )
+                        )
                         _collect_call_statements(paragraph, call_statements)
 
             elif child.node_type == "PROCEDURESECTION":
@@ -1141,7 +1257,13 @@ def _build_procedure_division(node: ParseNode) -> ProcedureDivision:
                 section = _build_section(child)
                 if section:
                     sections.append(section)
-                    all_paragraphs.extend(section.paragraphs)
+                    all_paragraphs.extend(
+                        ParagraphSummary(
+                            name=p.name or "UNKNOWN",
+                            section_name=p.section_name or section.name,
+                        )
+                        for p in section.paragraphs
+                    )
                     for para in section.paragraphs:
                         _collect_call_statements(para, call_statements)
 
@@ -1227,9 +1349,15 @@ def _build_paragraph(node: ParseNode) -> Paragraph | None:
 
     statements: list[Statement] = []
 
-    # Extract statements from sentences
+    # Collect only top-level STATEMENT nodes from each sentence.
+    # Using direct children (not _walk_nodes) avoids pulling nested statements
+    # from inside IF/ELSE branches into the paragraph's flat list — those
+    # belong to the IF model's then_statements/else_statements and are
+    # processed by the cross-reference resolver through recursion there.
     for sentence in _walk_nodes(node, {"SENTENCE"}):
-        for stmt_wrapper in _walk_nodes(sentence, {"STATEMENT"}):
+        for stmt_wrapper in sentence.children:
+            if not isinstance(stmt_wrapper, ParseNode) or stmt_wrapper.node_type != "STATEMENT":
+                continue
             for child in stmt_wrapper.children:
                 if isinstance(child, ParseNode):
                     stmt = _build_statement(child)
@@ -1321,13 +1449,20 @@ def _build_statement(node: ParseNode) -> Statement | None:
 
 def _build_call_statement(node: ParseNode) -> Statement:
     """Build CALL statement with full details."""
-    # Extract program name
+    # Extract program name from CALL literal (e.g., CALL 'CALCULATE-PENALTY')
     program_name = None
     literal_node = _find_child_node(node, "LITERAL")
     if literal_node:
+        # Try NONNUMERICLITERAL child first
         nonnumeric = _find_child_value(literal_node, "NONNUMERICLITERAL")
         if nonnumeric:
             program_name = nonnumeric.strip("'\"")
+        else:
+            # Fall back to terminal node text (ANTLR stores the token text here)
+            for child in literal_node.children:
+                if child.text and child.text.strip("'\""):
+                    program_name = child.text.strip("'\"")
+                    break
 
     # Extract USING parameters
     parameters: list[CallParameter] = []
@@ -1621,20 +1756,24 @@ def _build_if_statement(node: ParseNode) -> Statement:
     then_statements: list[Statement] = []
     else_statements: list[Statement] = []
 
-    # THEN statements
+    # THEN statements — direct children only, same as _build_paragraph
     ifthen = _find_child_node(node, "IFTHEN")
     if ifthen:
-        for stmt_node in _walk_nodes(ifthen, {"STATEMENT"}):
+        for stmt_node in ifthen.children:
+            if not isinstance(stmt_node, ParseNode) or stmt_node.node_type != "STATEMENT":
+                continue
             for child in stmt_node.children:
                 if isinstance(child, ParseNode):
                     stmt = _build_statement(child)
                     if stmt:
                         then_statements.append(stmt)
 
-    # ELSE statements
+    # ELSE statements — direct children only
     ifelse = _find_child_node(node, "IFELSE")
     if ifelse:
-        for stmt_node in _walk_nodes(ifelse, {"STATEMENT"}):
+        for stmt_node in ifelse.children:
+            if not isinstance(stmt_node, ParseNode) or stmt_node.node_type != "STATEMENT":
+                continue
             for child in stmt_node.children:
                 if isinstance(child, ParseNode):
                     stmt = _build_statement(child)
@@ -1715,7 +1854,7 @@ def _build_evaluate_statement(node: ParseNode) -> Statement:
     )
 
 
-def _build_move_statement(node: ParseNode) -> Statement:
+def _build_move_statement(node: ParseNode) -> Statement:  # noqa: PLR0912
     """Build MOVE statement."""
     source = None
     targets: list[str] = []
@@ -1734,15 +1873,25 @@ def _build_move_statement(node: ParseNode) -> Statement:
             # Check for literal
             if not source:
                 for literal in _walk_nodes(sending_area, {"LITERAL"}):
-                    source = str(_extract_literal_value(literal))
-                    source_is_literal = True
+                    lit_value = _extract_literal_value(literal)
+                    if lit_value is not None:
+                        source = str(lit_value)
+                        source_is_literal = True
                     break
+                # Check for figurative constant
+                if not source:
+                    for figurative in _walk_nodes(sending_area, {"FIGURATIVECONSTANT"}):
+                        fig_value = _extract_figurative_constant(figurative)
+                        if fig_value is not None:
+                            source = str(fig_value)
+                            source_is_literal = True
+                        break
 
-        # Extract targets - identifiers after TO (not in MOVETOSENDINGAREA)
+        # Extract targets — IDENTIFIER nodes that follow the TO terminal
         found_to = False
         for child in move_to_stmt.children:
             if isinstance(child, ParseNode):
-                if child.node_type == "TO":
+                if child.node_type == "TERMINALNODEIMPL" and (child.text or "").strip() == "TO":
                     found_to = True
                 elif found_to and child.node_type == "IDENTIFIER":
                     target = _extract_variable_name(child)
@@ -1824,7 +1973,7 @@ def _build_arithmetic_statement(node: ParseNode, stmt_type: StatementType) -> St
 
 def _build_io_statement(node: ParseNode, stmt_type: StatementType) -> Statement:
     """Build I/O statement (READ, WRITE, OPEN, CLOSE)."""
-    target = _find_child_value(node, "FILE_NAME")
+    target = _find_child_value(node, "FILENAME")
     if not target:
         identifier = _find_child_node(node, "IDENTIFIER")
         target = _extract_variable_name(identifier)
@@ -1957,51 +2106,15 @@ def _extract_external_calls(program_unit: ProgramUnit) -> list[str]:
 # =============================================================================
 
 
-def build_asg_from_source(
-    source_code: str,
-    source_file: str = "inline",
-) -> Program:
-    """Build ASG from COBOL source code string.
-
-    This is a convenience function that parses the source and builds the ASG.
-
-    Args:
-        source_code: COBOL source code
-        source_file: Optional source file name for metadata
-
-    Returns:
-        Program object containing the full ASG
-    """
-    parse_tree, _comments, id_metadata = parse_cobol(source_code)
-    return build_asg(parse_tree, source_file, id_metadata)
-
-
-def build_asg_from_file(file_path: str) -> Program:
-    """Build ASG from COBOL source file.
-
-    Args:
-        file_path: Path to COBOL source file
-
-    Returns:
-        Program object containing the full ASG
-    """
-    path = Path(file_path)
-    if not path.exists():
-        raise ASGBuilderError(f"File not found: {file_path}")
-
-    parse_tree, _comments, id_metadata = parse_cobol_file(file_path)
-    return build_asg(parse_tree, str(path.absolute()), id_metadata)
-
-
 def build_asg_with_preprocessing(
     file_path: str,
     copybook_directories: list[str] | None = None,
-) -> tuple[Program, PreprocessedSource]:
+) -> Program:
     """Build ASG from COBOL source file with COPY/REPLACE preprocessing.
 
-    This function first preprocesses the source to expand COPY statements
-    and apply REPLACE directives, then builds the ASG from the preprocessed
-    source. It also tracks copybook usage for dependency analysis.
+    Reads the file, then delegates to build_asg_from_source_with_preprocessing.
+    The file's parent directory is always prepended to copybook_directories so
+    that relative COPY statements resolve correctly.
 
     Args:
         file_path: Path to COBOL source file
@@ -2009,73 +2122,31 @@ def build_asg_with_preprocessing(
             The source file's directory is always searched first.
 
     Returns:
-        Tuple of:
-        - Program object containing the full ASG
-        - PreprocessedSource with copybook usage and preprocessing metadata
+        Program object containing the full ASG, with copybook_usages and
+        any preprocessing errors stored in program.errors.
 
     Raises:
         ASGBuilderError: If file not found or parsing fails
-        FileNotFoundError: If source file doesn't exist
-
-    Example:
-        >>> program, preprocessed = build_asg_with_preprocessing(
-        ...     "programs/CUSTOMER-MGMT.cbl",
-        ...     copybook_directories=["copybooks", "common/copy"],
-        ... )
-        >>> print(f"Used {len(preprocessed.copybook_usages)} copybooks")
-        >>> for usage in preprocessed.copybook_usages:
-        ...     print(f"  COPY {usage.copybook_name}: {usage.resolved_path}")
     """
     path = Path(file_path)
     if not path.exists():
         raise ASGBuilderError(f"File not found: {file_path}")
 
-    # Configure preprocessor
-    copy_dirs = [Path(d) for d in (copybook_directories or [])]
-    config = PreprocessorConfig(
-        copybook_directories=copy_dirs,
-        expand_copy_statements=True,
-        process_replace_directives=True,
+    source_code = path.read_text(encoding="utf-8", errors="replace")
+    # Prepend the file's own directory so relative COPY statements resolve
+    dirs = [str(path.parent), *(copybook_directories or [])]
+    return build_asg_from_source_with_preprocessing(
+        source_code,
+        source_file=str(path.absolute()),
+        copybook_directories=dirs,
     )
-
-    # Preprocess source
-    preprocessor = CobolPreprocessor(config)
-    preprocessed: PreprocessedSource = preprocessor.process_file(path)
-
-    if preprocessed.has_errors:
-        logger.warning(
-            f"Preprocessing had errors: {preprocessed.errors}. "
-            "Continuing with partial expansion."
-        )
-
-    # Parse the preprocessed source
-    parse_tree, _comments, id_metadata = parse_cobol(preprocessed.source)
-
-    # Build ASG
-    program = build_asg(parse_tree, str(path.absolute()), id_metadata)
-
-    # Add copybook usage information to the program
-    if preprocessed.copybook_usages:
-        # Store copybook info in program metadata
-        program.copybook_usages = [
-            {
-                "copybook_name": u.copybook_name,
-                "source_line": u.source_line,
-                "resolved_path": str(u.resolved_path) if u.resolved_path else None,
-                "is_resolved": u.is_resolved,
-                "nested_in": u.nested_in,
-            }
-            for u in preprocessed.copybook_usages
-        ]
-
-    return program, preprocessed
 
 
 def build_asg_from_source_with_preprocessing(
     source_code: str,
     source_file: str = "inline",
     copybook_directories: list[str] | None = None,
-) -> tuple[Program, PreprocessedSource]:
+) -> Program:
     """Build ASG from COBOL source string with COPY/REPLACE preprocessing.
 
     Args:
@@ -2084,7 +2155,8 @@ def build_asg_from_source_with_preprocessing(
         copybook_directories: Directories to search for copybooks
 
     Returns:
-        Tuple of (Program, PreprocessedSource)
+        Program object containing the full ASG, with copybook_usages and
+        any preprocessing errors stored in program.errors.
     """
     # Configure preprocessor
     copy_dirs = [Path(d) for d in (copybook_directories or [])]
@@ -2104,6 +2176,10 @@ def build_asg_from_source_with_preprocessing(
     # Build ASG
     program = build_asg(parse_tree, source_file, id_metadata)
 
+    # Store preprocessing errors in program.errors
+    if preprocessed.errors:
+        program.errors.extend(preprocessed.errors)
+
     # Add copybook usage information
     if preprocessed.copybook_usages:
         program.copybook_usages = [
@@ -2116,7 +2192,7 @@ def build_asg_from_source_with_preprocessing(
             for u in preprocessed.copybook_usages
         ]
 
-    return program, preprocessed
+    return program
 
 
 # =============================================================================
@@ -2124,22 +2200,29 @@ def build_asg_from_source_with_preprocessing(
 # =============================================================================
 
 
-def _build_symbol_table(data_division: DataDivision | None) -> dict[str, DataDescriptionEntry]:
+def _build_symbol_table(
+    data_division: DataDivision | None,
+) -> dict[str, list[DataDescriptionEntry]]:
     """Build a symbol table mapping variable names to their DataDescriptionEntry objects.
+
+    Uses a multi-map (name → list of entries) to correctly handle programs where
+    the same field name appears in multiple group items.
 
     Args:
         data_division: The data division containing all data definitions
 
     Returns:
-        Dictionary mapping uppercase variable names to their entries
+        Dictionary mapping uppercase variable names to all matching entries
     """
-    symbol_table: dict[str, DataDescriptionEntry] = {}
+    symbol_table: dict[str, list[DataDescriptionEntry]] = {}
 
     def add_entries(entries: list[DataDescriptionEntry]) -> None:
         for entry in entries:
             if entry.name and entry.name.upper() != "FILLER":
-                # Use uppercase for case-insensitive lookup
-                symbol_table[entry.name.upper()] = entry
+                key = entry.name.upper()
+                if key not in symbol_table:
+                    symbol_table[key] = []
+                symbol_table[key].append(entry)
             # Recursively add children
             if entry.children:
                 add_entries(entry.children)
@@ -2370,6 +2453,18 @@ def _extract_variable_references_from_statement(
     if stmt_type == StatementType.EVALUATE:
         return _extract_refs_from_evaluate(stmt, paragraph_name, section_name)
 
+    # Recurse into inline PERFORM body statements
+    if stmt_type == StatementType.PERFORM:
+        refs: list[_VariableReference] = []
+        if stmt.perform_details and stmt.perform_details.inline_statement:
+            for nested in stmt.perform_details.inline_statement.statements:
+                refs.extend(
+                    _extract_variable_references_from_statement(
+                        nested, paragraph_name, section_name
+                    )
+                )
+        return refs
+
     return []
 
 
@@ -2482,19 +2577,33 @@ def _resolve_cross_references(
 
     # Resolve references to data entries
     for ref in all_refs:
-        # Normalize name for lookup
+        # Normalize name for lookup, extracting qualifier (OF/IN) separately
         normalized_name = ref.name.upper().strip()
+        qualifier: str | None = None
 
-        # Handle qualified names (e.g., "CUST-ID OF CUSTOMER-RECORD")
         if " OF " in normalized_name:
-            # Take the first part (the actual variable name)
-            normalized_name = normalized_name.split(" OF ")[0].strip()
-        if " IN " in normalized_name:
-            normalized_name = normalized_name.split(" IN ")[0].strip()
+            parts = normalized_name.split(" OF ", 1)
+            normalized_name = parts[0].strip()
+            qualifier = parts[1].strip()
+        elif " IN " in normalized_name:
+            parts = normalized_name.split(" IN ", 1)
+            normalized_name = parts[0].strip()
+            qualifier = parts[1].strip()
 
-        if normalized_name in symbol_table:
-            entry = symbol_table[normalized_name]
-            # Create a DataDescriptionEntryCall for this reference
+        matches = symbol_table.get(normalized_name, [])
+        if not matches:
+            continue
+
+        # When multiple entries share the same name, use the qualifier (parent
+        # group name) to pick the right one.  If no qualifier is present, record
+        # the reference on all matching entries (conservative — same behaviour as
+        # ProLeap when the reference is unqualified).
+        if len(matches) > 1 and qualifier:
+            narrowed = [e for e in matches if e.parent_name and e.parent_name.upper() == qualifier]
+            if narrowed:
+                matches = narrowed
+
+        for entry in matches:
             call = DataDescriptionEntryCall(
                 name=ref.name,
                 call_type=CallType.DATA_DESCRIPTION_ENTRY_CALL,
@@ -2704,6 +2813,17 @@ def _process_perform_statement(
         _process_perform_target(
             stmt, caller_name, calling_para, calling_section, paragraph_table, section_table
         )
+        # Recurse into inline PERFORM body statements
+        if stmt.perform_details and stmt.perform_details.inline_statement:
+            for nested in stmt.perform_details.inline_statement.statements:
+                _process_perform_statement(
+                    nested,
+                    caller_name,
+                    calling_para,
+                    calling_section,
+                    paragraph_table,
+                    section_table,
+                )
         return
 
     # Recursively process nested statements in IF

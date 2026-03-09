@@ -190,9 +190,14 @@ class CobolLine:
         return self.content_area_a_original + self.content_area_b_original
 
     def serialize(self) -> str:
-        """Serialize line back to string."""
+        """Serialize line back to string.
+
+        The sequence area (cols 1-6) is blanked on output: ANTLR does not
+        understand COBOL sequence numbers and treats them as code tokens.
+        """
+        blank_seq = WS * len(self.sequence_area) if self.sequence_area else ""
         return (
-            self.sequence_area
+            blank_seq
             + self.indicator_area
             + self.content_area_a
             + self.content_area_b

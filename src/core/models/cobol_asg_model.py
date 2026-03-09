@@ -1138,6 +1138,13 @@ class ProcedureDivisionGivingClause(BaseModel):
     giving_name: str | None = Field(default=None, description="GIVING/RETURNING name")
 
 
+class ParagraphSummary(BaseModel):
+    """Lightweight paragraph reference for the all_paragraphs index."""
+
+    name: str = Field(description="Paragraph name")
+    section_name: str | None = Field(default=None, description="Parent section name if any")
+
+
 class ProcedureDivision(ASGElement):
     """
     COBOL PROCEDURE DIVISION.
@@ -1174,9 +1181,10 @@ class ProcedureDivision(ASGElement):
         default_factory=list, description="All CALL statements for inter-program analysis"
     )
 
-    # All paragraphs including those nested in sections
-    all_paragraphs: list[Paragraph] = Field(
-        default_factory=list, description="All paragraphs (including those in sections)"
+    # Lightweight index of all paragraphs (including those nested in sections)
+    all_paragraphs: list[ParagraphSummary] = Field(
+        default_factory=list,
+        description="Lightweight summary of all paragraphs (name + section)",
     )
 
 
